@@ -1,0 +1,16 @@
+{
+  "name": "wangzhifeng-lab-server",
+  "version": "0.1.0",
+  "description": "王志锋教授实验室内容 API（后端原型，对应 backend-design.md）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

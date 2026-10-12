@@ -1,0 +1,85 @@
+{
+  "siteSettings": {
+    "labNameZh": "王志锋教授实验室",
+    "labNameEn": "Wang Zhifeng Lab",
+    "formalNameZh": "@@@",
+    "formalNameEn": "@@@",
+    "department": "人工智能教育学部",
+    "university": "华中师范大学",
+    "universityEn": "Central China Normal University (CCNU)",
+    "tagline": "以智能技术理解学习，让课堂可被测量、可被解释、可被优化。",
+    "location": "南湖综合楼 N7018",
+    "email": "@@@",
+    "officePhone": "@@@",
+    "established": "@@@",
+    "keywords": ["生成式人工智能", "智能音视频处理", "教育大数据", "学习分析", "知识追踪", "人机交互", "虚拟现实", "多媒体取证"]
+  },
+  "pi": {
+    "nameZh": "王志锋", "nameEn": "Zhifeng Wang", "title": "教授 / 博士生导师",
+    "bio": "王志锋教授长期从事生成式人工智能、智能音视频处理与教育智能研究。作为负责人已承担 3 项国家自然科学基金、2 项湖北省自然科学基金；发表学术论文 160 余篇（SCI/SSCI 60 余篇、CSSCI 10 篇、EI 40 余篇），出版学术著作 6 部，第一发明人授权发明专利 32 项、软件著作权 39 项；获湖北省教学成果奖一等奖（2018）、湖北省科技进步奖三等奖（2024）及多项国际会议最佳论文奖。",
+    "honors": ["澳大利亚伍伦贡大学荣誉教授", "美国卡内基梅隆大学—华南理工大学联合培养博士", "广州市“菁英计划”入选者", "湖北省智能科教研究会理事", "IEEE / ACM / CCF 会员", "GCCCE 2019–2025 程序委员会委员"],
+    "education": [
+      { "years": "2011.9–2012.9", "text": "联合培养博士，美国卡内基梅隆大学(CMU)计算机学院，于图灵奖得主 Raj Reddy 教授语音组开展鲁棒语音技术研究" },
+      { "years": "2009.9–2013.6", "text": "博士（保送），华南理工大学电子与信息学院，信号与信息处理专业" },
+      { "years": "2008.9–2009.6", "text": "硕士（保送），华南理工大学电子与信息学院，信号与信息处理专业" },
+      { "years": "2004.9–2008.6", "text": "本科，中国地质大学（武汉）机电学院，电子信息工程专业" }
+    ],
+    "experience": [
+      { "years": "2025.7–至今", "text": "教授、博士生导师、硕士生导师，华中师范大学人工智能教育学部" },
+      { "years": "2016.6–2025.6", "text": "副教授、博士生导师、硕士生导师，华中师范大学人工智能教育学部" },
+      { "years": "2013.7–2016.6", "text": "讲师、硕士生导师，华中师范大学人工智能教育学部" },
+      { "years": "2011.9–2012.9", "text": "助理研究员，美国卡内基梅隆大学(CMU)计算机学院" }
+    ]
+  },
+  "researchDirections": [
+    { "id": "genai-edu", "num": "01", "title": "生成式人工智能与教育", "titleEn": "Generative AI in Education", "summary": "研究大模型赋能的教学评一体化：智能评语生成、教学行为自动分析、面向学习过程的形成性评价工具，探索“师—生—机”协同的新范式。", "tags": ["生成式AI", "教学评一体化", "智能评语", "人机协同"] },
+    { "id": "av-multimedia", "num": "02", "title": "智能音视频处理与多媒体取证", "titleEn": "Intelligent Audio-Visual Processing & Multimedia Forensics", "summary": "面向电力线网络频率(ENF)、说话人识别与录音设备溯源的被动取证，以及图像/音频压缩感知重建，为大模型时代的数字内容真实性提供技术底座。", "tags": ["多媒体取证", "ENF", "说话人识别", "压缩感知"] },
+    { "id": "learning-analytics", "num": "03", "title": "学习分析与知识追踪", "titleEn": "Learning Analytics & Knowledge Tracing", "summary": "构建可解释的认知诊断与知识追踪模型（GCKT / MMKT 等），融合习题—知识—认知张量与多模态行为，实现学习者认知层级的细粒度、动态挖掘。", "tags": ["知识追踪", "认知诊断", "自适应学习", "教育数据挖掘"] },
+    { "id": "smart-classroom", "num": "04", "title": "智慧课堂与人机交互", "titleEn": "Smart Classroom & Human-Computer Interaction", "summary": "基于视觉语言预训练与时空图卷积的学生学习行为检测（专注度/举手/互动），结合虚拟现实与游戏技术，打造可测量、可解释的智慧课堂环境。", "tags": ["行为识别", "智慧课堂", "虚拟现实", "游戏技术"] }
+  ],
+  "members": [
+    { "slug": "wang-zhifeng", "nameZh": "王志锋", "nameEn": "Zhifeng Wang", "category": "advisor", "title": "Advisor · 教授 / 博导", "photo": "@@@", "homepage": "@@@", "bio": "智能音视频处理、教育智能与学习分析方向负责人。", "interests": ["生成式AI", "多媒体取证", "知识追踪"], "emailPublic": "@@@", "destination": "" },
+    { "slug": "researcher-1", "nameZh": "@@@", "nameEn": "@@@", "category": "researcher", "title": "Postdoctoral Researcher", "photo": "@@@", "homepage": "@@@", "bio": "@@@", "interests": ["@@@"], "emailPublic": "@@@", "destination": "" },
+    { "slug": "hou-yulin", "nameZh": "侯玉林", "nameEn": "@@@", "category": "student", "title": "在读博士生", "photo": "@@@", "homepage": "@@@", "bio": "@@@", "interests": ["学习分析", "认知诊断"], "emailPublic": "@@@", "destination": "" },
+    { "slug": "wang-siyu", "nameZh": "王思雨", "nameEn": "@@@", "category": "student", "title": "在读博士生", "photo": "@@@", "homepage": "@@@", "bio": "@@@", "interests": ["知识追踪"], "emailPublic": "@@@", "destination": "" },
+    { "slug": "wang-xiaoyi", "nameZh": "王小艺", "nameEn": "@@@", "category": "student", "title": "在读硕士生（校外保研）", "photo": "@@@", "homepage": "@@@", "bio": "@@@", "interests": ["教育数据挖掘"], "emailPublic": "@@@", "destination": "" },
+    { "slug": "si-yujie", "nameZh": "斯雨婕", "nameEn": "@@@", "category": "student", "title": "在读硕士生（本校保研）", "photo": "@@@", "homepage": "@@@", "bio": "@@@", "interests": ["认知诊断"], "emailPublic": "@@@", "destination": "" },
+    { "slug": "li-longlong", "nameZh": "李龙龙", "nameEn": "@@@", "category": "student", "title": "在读硕士生（校外保研）", "photo": "@@@", "homepage": "@@@", "bio": "@@@", "interests": ["自适应学习"], "emailPublic": "@@@", "destination": "" },
+    { "slug": "su-meixin", "nameZh": "苏美欣", "nameEn": "@@@", "category": "student", "title": "在读硕士生（专业第一保研）", "photo": "@@@", "homepage": "@@@", "bio": "@@@", "interests": ["学习分析"], "emailPublic": "@@@", "destination": "" },
+    { "slug": "lu-zixin", "nameZh": "陆子欣", "nameEn": "@@@", "category": "alumni", "title": "毕业研究生", "photo": "@@@", "homepage": "@@@", "bio": "@@@", "interests": ["多模态学习"], "emailPublic": "@@@", "destination": "阿里巴巴" },
+    { "slug": "hu-wenting", "nameZh": "胡文婷", "nameEn": "@@@", "category": "alumni", "title": "毕业研究生", "photo": "@@@", "homepage": "@@@", "bio": "@@@", "interests": ["说话人分析"], "emailPublic": "@@@", "destination": "长江存储" },
+    { "slug": "liu-te", "nameZh": "刘特", "nameEn": "@@@", "category": "alumni", "title": "毕业研究生", "photo": "@@@", "homepage": "@@@", "bio": "@@@", "interests": ["@@@"], "emailPublic": "@@@", "destination": "阿里巴巴" },
+    { "slug": "wang-xiyuan", "nameZh": "王熙源", "nameEn": "@@@", "category": "alumni", "title": "毕业研究生", "photo": "@@@", "homepage": "@@@", "bio": "@@@", "interests": ["@@@"], "emailPublic": "@@@", "destination": "国家电网" },
+    { "slug": "li-luyao", "nameZh": "李璐瑶", "nameEn": "@@@", "category": "alumni", "title": "毕业研究生", "photo": "@@@", "homepage": "@@@", "bio": "@@@", "interests": ["认知追踪"], "emailPublic": "@@@", "destination": "字节跳动" },
+    { "slug": "fang-zhou", "nameZh": "方舟", "nameEn": "@@@", "category": "alumni", "title": "毕业研究生", "photo": "@@@", "homepage": "@@@", "bio": "@@@", "interests": ["@@@"], "emailPublic": "@@@", "destination": "腾讯" },
+    { "slug": "chen-zhe", "nameZh": "陈喆", "nameEn": "@@@", "category": "alumni", "title": "毕业研究生", "photo": "@@@", "homepage": "@@@", "bio": "@@@", "interests": ["@@@"], "emailPublic": "@@@", "destination": "百度" }
+  ],
+  "news": [
+    { "slug": "cnki-2025", "title": "王志锋教授入选中国知网 2025 年高被引学者", "summary": "连续两年（2024、2025）入选中国知网高被引学者。", "body": "@@@", "category": "honor", "happenedAt": "@@@", "publishedAt": "@@@" },
+    { "slug": "award-2025", "title": "获 2025 年“嘉必优”奖教金与课程思政优秀教师", "summary": "教学与科研并重，获评“百度文心导师”。", "body": "@@@", "category": "award", "happenedAt": "@@@", "publishedAt": "@@@" },
+    { "slug": "hb-sci-2024", "title": "获湖北省科技进步奖三等奖", "summary": "表彰在智能教育与多媒体取证方向的成果积累。", "body": "@@@", "category": "award", "happenedAt": "@@@", "publishedAt": "@@@" },
+    { "slug": "ieir-2024", "title": "论文获 IEIR 2024 智能教育与智能科研国际学术会议最佳论文奖", "summary": "团队研究成果在国际会议上获最佳论文奖。", "body": "@@@", "category": "paper", "happenedAt": "@@@", "publishedAt": "@@@" },
+    { "slug": "hb-teach-2018", "title": "获湖北省高等学校教学成果奖一等奖", "summary": "面向教育信息化的人才培养与教学改革成果。", "body": "@@@", "category": "award", "happenedAt": "@@@", "publishedAt": "@@@" }
+  ],
+  "publications": [
+    { "title": "ENFmamba: Cross-scale fusion of ENF phase and multi-harmonic cues with long-short term integrating Mamba for audio tampering detection", "authorsText": "Chunyan Zeng, Qi Pan, Zhifeng Wang*", "venue": "Expert Systems with Applications", "year": 2027, "doi": "@@@", "externalUrl": "@@@", "tags": ["音频取证", "ENF"], "featured": true },
+    { "title": "Leveraging hierarchical attention and dynamic fusion mechanisms for multi-modal speech emotion recognition", "authorsText": "Zengzhao Chen, Chuanxu Zhao, Zhifeng Wang*, et al.", "venue": "Applied Soft Computing", "year": 2026, "doi": "@@@", "externalUrl": "@@@", "tags": ["语音情感"], "featured": true },
+    { "title": "Leveraging Contrastive Vision-Language Pretraining for Zero-Shot Open Learning Behavior Detection in Smart Education", "authorsText": "Zhifeng Wang*, Longlong Li, Chunyan Zeng, et al.", "venue": "IEEE Transactions on Computational Social Systems", "year": 2026, "doi": "@@@", "externalUrl": "@@@", "tags": ["行为识别"], "featured": true },
+    { "title": "GCKT: Context-Aware Gating of Heterogeneous Learning Features With Transformer for Cognitive Knowledge Tracing", "authorsText": "Zhifeng Wang*, Jinyu Liu, Chunyan Zeng", "venue": "International Journal of Intelligent Systems", "year": 2026, "doi": "@@@", "externalUrl": "@@@", "tags": ["知识追踪"], "featured": true },
+    { "title": "SLBDetection-Net: Towards closed-set and open-set student learning behavior detection in smart classroom of K-12 education", "authorsText": "Zhifeng Wang, Longlong Li, Chunyan Zeng, et al.", "venue": "Expert Systems with Applications", "year": 2025, "doi": "@@@", "externalUrl": "@@@", "tags": ["行为识别"], "featured": true },
+    { "title": "Design and implementation of an AI-enabled visual report tool as formative assessment to promote learning achievement and self-regulated learning", "authorsText": "Xiaofang Liao, Xuedi Zhang, Zhifeng Wang*, et al.", "venue": "British Journal of Educational Technology", "year": 2024, "doi": "@@@", "externalUrl": "@@@", "tags": ["形成性评价"], "featured": false },
+    { "title": "Students' Classroom Behavior Detection System Incorporating Deformable DETR with Swin Transformer and Light-Weight Feature Pyramid Network", "authorsText": "Zhifeng Wang*, Jialong Yao, Chunyan Zeng, et al.", "venue": "Systems", "year": 2023, "doi": "@@@", "externalUrl": "@@@", "tags": ["行为识别"], "featured": false }
+  ],
+  "projects": [
+    { "title": "面向智慧课堂的多模态学习行为理解与认知诊断研究", "level": "国家自然科学基金面上项目", "grantNumber": "62577027", "principalInvestigator": "王志锋", "startDate": "2026.01", "endDate": "2029.12", "status": "active", "summary": "@@@" },
+    { "title": "基于多模态融合与深度表征的学习者认知诊断与知识追踪研究", "level": "国家自然科学基金面上项目", "grantNumber": "62177022", "principalInvestigator": "王志锋", "startDate": "2022.01", "endDate": "2025.12", "status": "active", "summary": "@@@" },
+    { "title": "基于深度表征学习的数字音频被动取证研究", "level": "国家自然科学基金", "grantNumber": "61501199", "principalInvestigator": "王志锋", "startDate": "2016.01", "endDate": "2018.12", "status": "closed", "summary": "@@@" },
+    { "title": "@@@", "level": "湖北省自然科学基金", "grantNumber": "2017CFB683", "principalInvestigator": "王志锋", "startDate": "2018.01", "endDate": "2019.12", "status": "closed", "summary": "@@@" },
+    { "title": "@@@", "level": "国家科技支撑计划（子课题）", "grantNumber": "2015BAK33B02", "principalInvestigator": "王志锋", "startDate": "2015.07", "endDate": "2017.12", "status": "closed", "summary": "@@@" }
+  ],
+  "activities": [
+    { "title": "@@@ 实验室合影", "activityDate": "@@@", "description": "（待补充真实活动照片）" },
+    { "title": "@@@ 学术年会", "activityDate": "@@@", "description": "（待补充）" },
+    { "title": "@@@ 团建活动", "activityDate": "@@@", "description": "（待补充）" }
+  ]
+}

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>研究成果 · 王志锋教授实验室</title>
+  <meta name="description" content="研究方向、系统架构、行为识别演示、代表性论文与科研项目。" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container bar">
+      <a class="brand" href="index.html" aria-label="SCALE Lab 智能学习分析与评价实验室首页">
+        <img class="brand-logo" src="assets/images/scale-lab-logo.png" alt="SCALE Lab 智能学习分析与评价实验室" />
+      </a>
+      <nav class="nav" aria-label="主导航">
+        <a href="index.html">首页</a>
+        <a href="people.html">团队成员</a>
+        <a href="research.html" aria-current="page">研究成果</a>
+        <a href="culture.html">实验室文化</a>
+      </nav>
+      <details class="mobile-nav">
+        <summary aria-label="打开菜单">☰ 菜单</summary>
+        <div class="links">
+          <a href="index.html">首页</a>
+          <a href="people.html">团队成员</a>
+          <a href="research.html" aria-current="page">研究成果</a>
+          <a href="culture.html">实验室文化</a>
+        </div>
+      </details>
+      <button class="language-toggle" type="button" data-language-toggle aria-label="Switch to English" title="Switch to English">En</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <div class="kicker">Research</div>
+        <h1 class="declaration">从信号到认知，<br />从课堂到<span class="accent">可解释的系统</span>。</h1>
+        <p class="lede">以“方向—系统—证据—成果”的方式，讲清我们的科研能力。</p>
+      </div>
+    </section>
+
+    <!-- 研究方向 -->
+    <section class="block">
+      <div class="container">
+        <div class="block-head">
+          <span class="eyebrow">Directions</span>
+          <h2 class="declaration">研究方向</h2>
+        </div>
+        <div class="directions-list" id="dir-grid"></div>
+      </div>
+    </section>
+
+    <!-- 系统架构说明 -->
+    <section class="block dark tight">
+      <div class="container">
+        <div class="block-head">
+          <span class="eyebrow">Architecture</span>
+          <h2 class="declaration">智慧课堂行为理解系统（示意）</h2>
+        </div>
+        <div class="card" style="background:#0E294A;border-color:var(--line-on-dark);color:#fff;">
+          <p style="color:rgba(255,255,255,.82);margin-top:0;">
+            多模态采集（视频 / 音频 / 教学行为日志）→ 表征学习（视觉语言预训练、时空图卷积、ENF 取证）→
+            认知建模（知识追踪 GCKT / MMKT、认知诊断）→ 可解释输出（学习预警、形成性评价、教学反馈）。
+          </p>
+          <div class="signal-line" style="margin:14px 0;background:linear-gradient(90deg,var(--cyan),transparent);"></div>
+          <p class="muted" style="color:rgba(255,255,255,.6);font-size:14px;margin:0;">
+            架构图与系统指标为占位，正式版提供可交互架构图与真实指标。
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 行为识别 Demo -->
+    <section class="block">
+      <div class="container">
+        <div class="block-head">
+          <span class="eyebrow">Interactive Demo</span>
+          <h2 class="declaration">课堂行为识别 · 演示</h2>
+          <p>切换分析指标，环形图与解释文案同步变化。所有数值均为演示数据。</p>
+        </div>
+        <div class="demo" id="demo"></div>
+      </div>
+    </section>
+
+    <!-- 代表性论文 -->
+    <section class="block tight">
+      <div class="container">
+        <div class="block-head">
+          <span class="eyebrow">Key Publications</span>
+          <h2 class="declaration">代表性论文</h2>
+          <p>精选代表性条目；完整列表与 DOI / 链接待补充。</p>
+        </div>
+        <div class="pub-list" id="pub-list"></div>
+      </div>
+    </section>
+
+    <!-- 科研项目 -->
+    <section class="block dark tight">
+      <div class="container">
+        <div class="block-head">
+          <span class="eyebrow">Projects</span>
+          <h2 class="declaration">科研项目</h2>
+        </div>
+        <div class="grid grid-3 project-grid" id="project-grid"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer" id="site-footer"></footer>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/demo.js"></script>
+<script src="assets/js/i18n.js"></script>
+</body>
+</html>
