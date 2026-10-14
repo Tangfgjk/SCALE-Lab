@@ -1,0 +1,30 @@
+.rich-editor-field { display: grid; gap: 9px; }
+.field-label { font-weight: 700; color: #1c3443; }
+.field-label .field-help { display: block; margin-top: 5px; font-weight: 400; }
+.rich-toolbar { display: flex; flex-wrap: wrap; gap: 5px; padding: 9px; border: 1px solid #d8e3e9; border-bottom: 0; border-radius: 9px 9px 0 0; background: #f5f8fa; }
+.rich-tool { min-width: 35px; padding: 7px 9px; border: 1px solid #cfdae1; border-radius: 5px; background: #fff; color: #244052; cursor: pointer; font-size: 12px; }
+.rich-tool:hover, .rich-tool:focus-visible, .rich-tool[data-active="true"] { border-color: #1b8591; background: #e8f6f5; color: #075761; }
+.rich-tool-separator { width: 1px; margin: 2px 3px; background: #d4e0e6; }
+.rich-editor-surface { min-height: 280px; padding: 16px 18px; border: 1px solid #d8e3e9; border-radius: 0 0 9px 9px; background: #fff; outline: 0; }
+.rich-editor-surface:focus { border-color: #1b8591; box-shadow: 0 0 0 3px rgba(27,133,145,.12); }
+.rich-editor-surface p.is-editor-empty:first-child::before { color: #8aa0ad; content: "从这里开始写新闻正文……"; float: left; height: 0; pointer-events: none; }
+.rich-preview-panel { margin-top: 18px; padding: 18px 20px; border: 1px solid #d8e3e9; border-radius: 9px; background: #fbfdfe; }
+.preview-label { margin-bottom: 12px; color: #6b7d88; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.rich-preview-panel .rich-document-preview { font-size: 16px; }
+@media (max-width: 760px) {
+  .rich-editor-surface { min-height: 220px; padding: 13px; }
+  .rich-preview-panel { padding: 14px; }
+  .rich-tool { min-width: 32px; padding: 7px 6px; }
+}
+.rich-editor-surface figure{margin:16px 0;text-align:center;cursor:pointer}
+.rich-editor-surface figure img{display:block;max-width:100%;width:100%;height:auto;margin:auto}
+.rich-editor-surface figure img[data-width="small"]{max-width:48%}
+.rich-editor-surface figure img[data-width="medium"]{max-width:72%}
+.rich-editor-surface figure[data-align="left"] img{margin-left:0}
+.rich-editor-surface figure[data-align="right"] img{margin-right:0}
+.rich-editor-surface .ProseMirror-selectednode{outline:3px solid #147dac}
+.rich-editor-surface figcaption{font-size:13px;color:#627587}
+.rich-preview-panel[data-size="mobile"]{max-width:390px;margin-inline:auto}
+.rich-editor-surface [data-text-preset="small"]{font-size:.85em}
+.rich-editor-surface [data-text-preset="lead"]{font-size:1.16em;line-height:1.7}
+.rich-editor-surface [data-text-preset="emphasis"]{font-weight:700;color:#123047}

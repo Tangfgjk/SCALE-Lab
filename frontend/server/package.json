@@ -17,6 +17,7 @@
     "test:member-photo": "node tests/member-photo-smoke.js",
     "test:bilingual-members": "node tests/member-bilingual-smoke.js",
     "test:media-albums": "node tests/media-album-smoke.js",
+    "test:news-media": "node tests/news-media-smoke.js",
     "test:settings": "node tests/settings-smoke.js",
     "test:accounts": "node tests/accounts-smoke.js"
   },

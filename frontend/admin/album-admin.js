@@ -14,7 +14,7 @@
   function reset() {
     form.reset(); form.elements.slug.disabled = false; currentId = null; version = null; activeLocale = "zh"; checked = false; published = false; dirty = false; images = [];
     $("album-editor-title").textContent = "新建相册"; $("album-preview-box").hidden = true; $("album-history").textContent = ""; msg("");
-    $("album-list-card").hidden = true; $("album-editor-card").hidden = false; renderImages(); buttons(); loadAssets();
+    $("album-list-card").hidden = true; $("album-editor-card").hidden = false; renderImages(); buttons();
   }
   async function list() {
     try {
@@ -27,15 +27,6 @@
         var button = document.createElement("button"); button.type = "button"; button.textContent = "编辑"; button.addEventListener("click", function () { open(row.id); }); item.appendChild(button); node.appendChild(item);
       });
     } catch (error) { $("album-list").textContent = error.message; }
-  }
-  async function loadAssets() {
-    try {
-      var rows = await api("/api/admin/v1/assets"); var select = $("album-asset-select"); select.replaceChildren();
-      rows.filter(function (row) { return row.status === "active" && row.copyright && row.people; }).forEach(function (row) {
-        var option = document.createElement("option"); option.value = row.id; option.textContent = (row.altZh || row.id) + " · " + row.id.slice(0, 8); select.appendChild(option);
-      });
-      if (!select.options.length) { var empty = document.createElement("option"); empty.textContent = "媒体库暂无已核准图片"; empty.value = ""; select.appendChild(empty); }
-    } catch (error) { msg(error.message, true); }
   }
   function renderImages() {
     var node = $("album-images"); node.replaceChildren();
@@ -78,9 +69,8 @@
   $("album-new").addEventListener("click", reset);
   $("album-close").addEventListener("click", function () { $("album-editor-card").hidden = true; $("album-list-card").hidden = false; list(); });
   $("album-search").addEventListener("input", function () { clearTimeout(window.albumSearchTimer); window.albumSearchTimer = setTimeout(list, 250); });
-  $("album-add-image").addEventListener("click", function () {
-    var id = $("album-asset-select").value;
-    if (!id) { msg("请先在媒体库启用图片。", true); return; }
+  $("album-add-image").addEventListener("click", async function () {
+    var asset=await window.ScaleMedia.pick();if(!asset) return;var id=asset.id;
     if (images.some(function (image) { return image.assetId === id; })) { msg("该图片已在相册中。", true); return; }
     if (images.length >= 30) { msg("一个相册最多 30 张图片。", true); return; }
     images.push({ assetId: id, caption: "" }); renderImages(); markDirty();

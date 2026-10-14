@@ -1,5 +1,6 @@
 frontend/server/storage/
 frontend/server/.npm-cache/
 frontend/server/node_modules/
+frontend/admin/node_modules/
 .idea/
 .playwright-mcp/

@@ -22,7 +22,8 @@ app.use((req, res, next) => {
   res.set("Referrer-Policy", "strict-origin-when-cross-origin");
   next();
 });
-app.use(express.json({ limit: "128kb" }));
+// Rich text is structured JSON; keep a bounded payload while allowing normal long-form articles.
+app.use(express.json({ limit: "768kb" }));
 app.get("/api/health", async (req, res, next) => {
   try { await pool.query("SELECT 1"); res.json({ status: "ok", requestId: req.requestId }); } catch (error) { next(error); }
 });
@@ -56,7 +57,9 @@ app.use("/api/v1", research.publicApi);
 
 const site = path.resolve(__dirname, "../visual-preview-20261013");
 const adminDir = path.resolve(__dirname, "../admin");
+const sharedDir = path.resolve(__dirname, "../shared");
 app.use("/admin", express.static(adminDir, { index: "index.html" }));
+app.use("/shared", express.static(sharedDir));
 app.use(express.static(site, { index: "index.html" }));
 app.use((req, res) => res.status(404).json({ error: { code: "NOT_FOUND", message: "页面或接口不存在" }, requestId: req.requestId }));
 app.use((error, req, res, next) => {
@@ -68,4 +71,5 @@ app.use((error, req, res, next) => {
 });
 
 const port = Number(process.env.PORT || 3000);
-app.listen(port, "127.0.0.1", () => console.log(`SCALE Lab platform: http://127.0.0.1:${port}/`));
+const host = process.env.HOST || "127.0.0.1";
+app.listen(port, host, () => console.log(`SCALE Lab platform: http://${host === "0.0.0.0" ? "127.0.0.1" : host}:${port}/`));

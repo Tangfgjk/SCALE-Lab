@@ -3,6 +3,8 @@
 const express = require("express");
 const { pool, transaction } = require("./db/pool");
 const { requireUser, requireCsrf } = require("./auth");
+const { richTextOf, plainTextOf, imageIds, uuid } = require("./rich-text");
+const { activeAssets, publicAsset } = require("./media");
 
 const admin = express.Router();
 const publicApi = express.Router();
@@ -17,36 +19,69 @@ function input(body, creating = false) {
   const title = String(body.title || "").trim();
   const summary = String(body.summary || "").trim();
   const text = String(body.body || "").trim();
+  const richText = richTextOf(body.richText, text);
+  const coverAssetId = body.coverAssetId || null;
+  if (coverAssetId && !uuid.test(coverAssetId)) throw fail(400,"INVALID_ASSET","封面必须是媒体库图片");
+  const normalizedBody = richText ? plainTextOf(richText) : text;
   const happenedAt = String(body.happenedAt || "").trim();
   const category = String(body.category || "news").trim();
   const sourceUrl = String(body.sourceUrl || "").trim();
   const sourceNote = String(body.sourceNote || "").trim();
   if (creating && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw fail(400, "INVALID_SLUG", "标识只能使用英文小写、数字和连字符");
   if (!["zh", "en"].includes(locale)) throw fail(400, "INVALID_LOCALE", "语言只能是 zh 或 en");
-  if (!title || title.length > 200 || !summary || summary.length > 500 || !text || text.length > 30000) throw fail(400, "INVALID_CONTENT", "请填写标题、摘要和正文，并检查长度");
+  if (!title || title.length > 200 || !summary || summary.length > 500 || !normalizedBody || normalizedBody.length > 30000) throw fail(400, "INVALID_CONTENT", "请填写标题、摘要和正文，并检查长度");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(happenedAt) || Number.isNaN(Date.parse(`${happenedAt}T00:00:00Z`))) throw fail(400, "INVALID_DATE", "请填写有效的事件日期");
   if (!category || category.length > 50) throw fail(400, "INVALID_CATEGORY", "分类无效");
   if (sourceUrl && (!/^https?:\/\//i.test(sourceUrl) || sourceUrl.length > 2000)) throw fail(400, "INVALID_SOURCE_URL", "来源链接必须是 http(s) 地址");
   if (sourceNote.length > 2000) throw fail(400, "INVALID_SOURCE_NOTE", "来源说明过长");
-  return { slug, locale, title, summary, body: text, happenedAt, category, sourceUrl, sourceNote };
+  return { slug, locale, title, summary, body: normalizedBody, richText, coverAssetId, happenedAt, category, sourceUrl, sourceNote };
 }
 
+async function assertMedia(client, ids, publish = false) {
+  ids=[...new Set(ids)].sort();
+  if(!ids.length) return;
+  const found=await client.query("SELECT id FROM assets WHERE id=ANY($1::uuid[]) ORDER BY id FOR SHARE", [ids]);
+  if(found.rowCount!==ids.length) throw fail(400,"ASSET_MISSING","引用的图片不存在");
+  if(publish) {
+    const active=await activeAssets(client,ids);
+    const missing=ids.filter(id=>!active.some(a=>a.id===id));
+    if(missing.length) throw fail(409,"ASSET_NOT_PUBLIC","以下图片未启用、已归档或授权不完整："+missing.join("、"));
+  }
+}
+async function revisionMedia(client, row, locale, adminView = false) {
+  const ids=[...new Set([...imageIds(row.extra_json?.richText),row.cover_asset_id].filter(Boolean))];
+  const assets=await activeAssets(client,ids);
+  const media=Object.fromEntries(assets.map(a=>[a.id,publicAsset(a,locale)]));
+  if(adminView && ids.length) {
+    const all=await client.query('SELECT id,display_name AS "displayName",alt_zh AS "altZh",alt_en AS "altEn",credit FROM assets WHERE id=ANY($1::uuid[])',[ids]);
+    all.rows.forEach(a=>{ media[a.id]={...a,alt:locale==="en" ? a.altEn || a.altZh : a.altZh,url:`/api/admin/v1/assets/${a.id}/file`,available:!!media[a.id]}; });
+  }
+  return {media,coverAssetId:row.cover_asset_id || null,cover:media[row.cover_asset_id] || null};
+}
+async function checkRevisionMedia(client,row) {
+  const refs=await client.query("SELECT asset_id FROM news_revision_assets WHERE revision_id=$1",[row.revision_id]);
+  await assertMedia(client,refs.rows.map(r=>r.asset_id),true);
+}
 async function addRevision(client, item, data, actor) {
+  const bodyIds=imageIds(data.richText);
+  await assertMedia(client,[...bodyIds,data.coverAssetId].filter(Boolean));
   const version = item.version + 1;
   const revision = (await client.query(
     "INSERT INTO content_revisions(content_id,version,changed_by) VALUES($1,$2,$3) RETURNING id,created_at",
     [item.id, version, actor]
   )).rows[0];
   await client.query(
-    "INSERT INTO content_localizations(revision_id,locale,title,summary,body) VALUES($1,$2,$3,$4,$5)",
-    [revision.id, data.locale, data.title, data.summary, data.body]
+    "INSERT INTO content_localizations(revision_id,locale,title,summary,body,extra_json) VALUES($1,$2,$3,$4,$5,$6)",
+    [revision.id, data.locale, data.title, data.summary, data.body, JSON.stringify(data.richText ? { richText: data.richText } : {})]
   );
-  await client.query("INSERT INTO news_revisions(revision_id,category,happened_at) VALUES($1,$2,$3)", [revision.id, data.category, data.happenedAt]);
+  await client.query("INSERT INTO news_revisions(revision_id,category,happened_at,cover_asset_id) VALUES($1,$2,$3,$4)", [revision.id, data.category, data.happenedAt,data.coverAssetId]);
+  for (const [position,id] of bodyIds.entries()) await client.query("INSERT INTO news_revision_assets(revision_id,asset_id,purpose,position) VALUES($1,$2,'body',$3)",[revision.id,id,position]);
+  if(data.coverAssetId) await client.query("INSERT INTO news_revision_assets(revision_id,asset_id,purpose,position) VALUES($1,$2,'cover',0)",[revision.id,data.coverAssetId]);
   if (data.sourceUrl || data.sourceNote) {
     await client.query("INSERT INTO content_sources(revision_id,source_url,source_note) VALUES($1,$2,$3)", [revision.id, data.sourceUrl || null, data.sourceNote || null]);
   }
   await client.query("UPDATE content_items SET current_revision_id=$1,version=$2,updated_by=$3,updated_at=now() WHERE id=$4", [revision.id, version, actor, item.id]);
-  await client.query("INSERT INTO audit_events(actor_id,action,content_id,revision_id) VALUES($1,'news.save',$2,$3)", [actor, item.id, revision.id]);
+  await client.query("INSERT INTO audit_events(actor_id,action,content_id,revision_id,detail_json) VALUES($1,'news.save',$2,$3,$4)", [actor, item.id, revision.id,JSON.stringify({coverAssetId:data.coverAssetId,bodyAssetIds:bodyIds})]);
   return { id: item.id, slug: item.slug, version, revisionId: revision.id, locale: data.locale, reviewState: "unverified" };
 }
 
@@ -56,8 +91,8 @@ async function lockedItem(client, id) {
   return item;
 }
 async function latestLocale(client, item, locale) {
-  return (await client.query(`SELECT r.id AS revision_id,r.version,l.locale,l.title,l.summary,l.body,l.review_state,
-    n.category,to_char(n.happened_at,'YYYY-MM-DD') AS happened_at,s.source_url,s.source_note,s.checked_at
+  return (await client.query(`SELECT r.id AS revision_id,r.version,l.locale,l.title,l.summary,l.body,l.extra_json,l.review_state,
+    n.category,n.cover_asset_id,to_char(n.happened_at,'YYYY-MM-DD') AS happened_at,s.source_url,s.source_note,s.checked_at
     FROM content_revisions r JOIN content_localizations l ON l.revision_id=r.id AND l.locale=$2
     JOIN news_revisions n ON n.revision_id=r.id LEFT JOIN content_sources s ON s.revision_id=r.id
     WHERE r.content_id=$1 ORDER BY r.version DESC LIMIT 1`, [item.id, locale])).rows[0] || null;
@@ -102,7 +137,8 @@ admin.get("/news/:id", wrap(async (req, res) => {
     id: item.id, slug: item.slug, status: item.status, version: item.version, locale,
     revisionId: row?.revision_id || null, title: row?.title || "", summary: row?.summary || "", body: row?.body || "",
     reviewState: row?.review_state || "unverified", category: fallback?.category || "news", happenedAt: fallback?.happened_at || "",
-    sourceUrl: row?.source_url || "", sourceNote: row?.source_note || "", checkedAt: row?.checked_at || null,
+    richText: row?.extra_json?.richText || null, sourceUrl: row?.source_url || "", sourceNote: row?.source_note || "", checkedAt: row?.checked_at || null,
+    ...await revisionMedia(pool,row || {},locale,true),
     published: !!(await publishedFacts(pool, item, locale))
   });
 }));
@@ -118,7 +154,7 @@ admin.get("/news/:id/preview", wrap(async (req, res) => {
   if (!item) throw fail(404, "NOT_FOUND", "新闻不存在");
   const row = await latestLocale(pool, item, localeOf(req));
   if (!row) throw fail(404, "NOT_FOUND", "预览内容不存在");
-  response(req, res, { slug: item.slug, version: row.version, locale: row.locale, title: row.title, summary: row.summary, body: row.body, category: row.category, happenedAt: row.happened_at });
+  response(req, res, { slug: item.slug, version: row.version, locale: row.locale, title: row.title, summary: row.summary, body: row.body, richText: row.extra_json?.richText || null, category: row.category, happenedAt: row.happened_at,...await revisionMedia(pool,row,row.locale,true) });
 }));
 admin.post("/news", requireCsrf, wrap(async (req, res) => {
   const data = input(req.body, true);
@@ -146,6 +182,7 @@ admin.post("/news/:id/check", requireCsrf, wrap(async (req, res) => {
     const locale = req.body.locale || "zh";
     const row = await latestLocale(client, item, locale);
     if (!row) throw fail(409, "LOCALE_MISMATCH", "该语言尚无草稿，请先保存");
+    await checkRevisionMedia(client,row);
     await client.query("UPDATE content_localizations SET review_state='ready',reviewed_by=$1,reviewed_at=now() WHERE revision_id=$2 AND locale=$3", [req.admin.id, row.revision_id, locale]);
     await client.query("UPDATE content_sources SET checked_by=$1,checked_at=now() WHERE revision_id=$2", [req.admin.id, row.revision_id]);
     await client.query("INSERT INTO audit_events(actor_id,action,content_id,revision_id,detail_json) VALUES($1,'news.check',$2,$3,$4)", [req.admin.id, item.id, row.revision_id, JSON.stringify({ locale, sourceProvided: !!(row.source_url || row.source_note) })]);
@@ -161,6 +198,7 @@ admin.post("/news/:id/publish", requireCsrf, wrap(async (req, res) => {
     const row = await latestLocale(client, item, locale);
     if (!row) throw fail(409, "LOCALE_MISMATCH", "该语言尚无草稿，请先保存");
     if (row.review_state !== "ready") throw fail(409, "NOT_CHECKED", "请先核查当前修订");
+    await checkRevisionMedia(client,row);
     if (locale === "en") await assertChineseFirst(client, item, row);
     await client.query(`INSERT INTO content_publications(content_id,locale,revision_id,published_by) VALUES($1,$2,$3,$4)
       ON CONFLICT(content_id,locale) DO UPDATE SET revision_id=excluded.revision_id,published_by=excluded.published_by,published_at=now()`, [item.id, locale, row.revision_id, req.admin.id]);
@@ -220,13 +258,17 @@ publicApi.get("/news", wrap(async (req, res) => {
   response(req, res, result.rows, { total: result.rowCount });
 }));
 publicApi.get("/news/:slug", wrap(async (req, res) => {
-  const result = await pool.query(`SELECT i.slug,l.title,l.summary,l.body,n.category,to_char(n.happened_at,'YYYY-MM-DD') AS "happenedAt",p.published_at AS "publishedAt"
+  const result = await pool.query(`SELECT i.slug,l.title,l.summary,l.body,l.extra_json,n.cover_asset_id,n.category,to_char(n.happened_at,'YYYY-MM-DD') AS "happenedAt",p.published_at AS "publishedAt"
     FROM content_publications p JOIN content_items i ON i.id=p.content_id
     JOIN content_localizations l ON l.revision_id=p.revision_id AND l.locale=p.locale
     JOIN news_revisions n ON n.revision_id=p.revision_id
     WHERE i.type='news' AND i.slug=$1 AND p.locale=$2`, [req.params.slug, localeOf(req)]);
   if (!result.rowCount) throw fail(404, "NOT_FOUND", "内容不存在或尚未发布");
-  response(req, res, result.rows[0]);
+  const row = result.rows[0]; row.richText = row.extra_json?.richText || null;
+  Object.assign(row,await revisionMedia(pool,row,localeOf(req)));
+  delete row.extra_json; delete row.cover_asset_id;
+  res.set("Cache-Control","no-store");
+  response(req, res, row);
 }));
 
 module.exports = { admin, publicApi };

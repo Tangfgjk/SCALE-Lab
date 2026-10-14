@@ -4,16 +4,14 @@
   var api = window.scaleAdmin.api, esc = window.scaleAdmin.escapeHtml;
   var currentId = null, current = null;
   var labels = { copyright: "版权／使用许可", people: "人物公开情况" };
+  var browser = window.ScaleMedia.create($("media-browser"),function(asset){open(asset.id);});
   function msg(id, text, error) { var node = $(id); node.textContent = text; node.classList.toggle("error", !!error); }
   async function list() {
     try {
-      var rows = await api("/api/admin/v1/assets");
-      var node = $("media-list"); node.replaceChildren();
-      if (!rows.length) { node.innerHTML = '<div class="empty">暂无图片。上传后默认为待核，不会自动公开。</div>'; return; }
-      rows.forEach(function (row) {
-        var button = document.createElement("button"); button.type = "button"; button.className = "media-tile";
-        button.innerHTML = '<img src="/api/admin/v1/assets/' + encodeURIComponent(row.id) + '/file" alt=""><span>' + esc(row.altZh || "未填写替代文本") + ' · ' + esc(row.status) + '</span>';
-        button.addEventListener("click", function () { open(row.id); }); node.appendChild(button);
+      await browser.refresh();
+      ["media-upload-form","media-meta-form"].forEach(function(id){
+        var select=$(id).elements.folderId;
+        window.ScaleMedia.folderOptions(select,browser.libraries,select.value);
       });
     } catch (error) { msg("media-upload-message", error.message, true); }
   }
@@ -22,11 +20,14 @@
       current = await api("/api/admin/v1/assets/" + id); currentId = id;
       $("media-editor").hidden = false; $("media-preview").src = "/api/admin/v1/assets/" + encodeURIComponent(id) + "/file";
       $("media-preview").alt = current.altZh || "待核图片";
-      ["altZh", "altEn", "credit", "sourceNote"].forEach(function (name) { $("media-meta-form").elements[name].value = current[name] || ""; });
+      ["displayName","folderId","altZh", "altEn", "credit", "sourceNote"].forEach(function (name) { $("media-meta-form").elements[name].value = current[name] || ""; });
+      $("media-archive").textContent=current.archived ? "恢复归档" : "归档图片";
+      $("media-activate").disabled=current.archived;
       $("media-status").textContent = "状态：" + ({ pending: "待核", active: "已启用", disabled: "已停用" }[current.status] || current.status) + " · " + current.width + " × " + current.height;
       renderClearances();
       var usages = await api("/api/admin/v1/assets/" + id + "/usages");
-      $("media-usages").textContent = usages.length ? "引用记录：" + usages.map(function (item) { return item.slug + " v" + item.version + (item.publishedLocale ? " · 已发布 " + item.publishedLocale : ""); }).join("；") : "暂无相册引用";
+      $("media-usages").textContent = usages.length ? "引用记录：" + usages.map(function (item) { return item.type+" · "+item.slug + " v" + item.version + (item.publishedLocale ? " · 已发布 " + item.publishedLocale : " · 草稿或历史修订"); }).join("；") : "暂无引用";
+      $("media-editor").scrollIntoView({behavior:"smooth",block:"start"});
       msg("media-detail-message", "");
     } catch (error) { msg("media-detail-message", error.message, true); }
   }
@@ -71,5 +72,41 @@
   $("media-disable").addEventListener("click", function () { changeStatus("disable", "图片已停用，公开地址立即不可用。"); });
   $("media-refresh").addEventListener("click", list);
   $("media-close").addEventListener("click", function () { $("media-editor").hidden = true; currentId = null; });
+  $("media-archive").onclick=async function(){
+    if(!current || !confirm(current.archived ? "恢复后将处于待核状态，确认恢复？" : "归档后所有引用位置将停止公开显示此图片，确认归档？")) return;
+    try {
+      await api("/api/admin/v1/assets/"+currentId+"/archive",{method:"POST",body:JSON.stringify({archived:!current.archived})});
+      await open(currentId);await list();
+    } catch(error){msg("media-detail-message",error.message,true);}
+  };
+  function folderDialog(editing) {
+    var selected=window.ScaleMedia.folders(browser.libraries).find(function(f){return f.id===browser.folderId;});
+    if(editing && !selected){msg("media-library-message","请先在文件夹筛选中选择要整理的文件夹。",true);return;}
+    var dialog=document.createElement("dialog");dialog.className="media-picker";
+    dialog.innerHTML='<h2>'+(editing?"整理文件夹":"新建文件夹")+'</h2><form class="fields"><label>名称<input name="name" maxlength="100" required></label><label>媒体库<select name="libraryId" required></select></label><label>父文件夹<select name="parentId"></select></label><div><button type="submit">保存</button> <button type="button" data-cancel>取消</button></div></form><p role="status"></p>';
+    var form=dialog.querySelector("form"),lib=form.elements.libraryId;
+    browser.libraries.forEach(function(l){lib.add(new Option(l.name,l.id));});
+    lib.value=selected?.libraryId || browser.libraryId || browser.libraries[0]?.id || "";
+    lib.disabled=editing;
+    function parents() {window.ScaleMedia.folderOptions(form.elements.parentId,browser.libraries.filter(function(l){return l.id===lib.value;}),editing ? selected.parentId : selected?.id,"媒体库根目录");}
+    lib.onchange=parents;parents();form.elements.name.value=editing ? selected.name : "";
+    dialog.querySelector("[data-cancel]").onclick=function(){dialog.close();};
+    dialog.onclose=function(){dialog.remove();};
+    form.onsubmit=async function(event){
+      event.preventDefault();
+      try{
+        await api("/api/admin/v1/assets/folders"+(editing ? "/"+selected.id : ""),{method:editing ? "PATCH" : "POST",body:JSON.stringify({name:form.elements.name.value,libraryId:lib.value,parentId:form.elements.parentId.value || null})});
+        await list();dialog.close();msg("media-library-message","文件夹已保存。已有图片引用保持有效。");
+      }catch(error){dialog.querySelector("p").textContent=error.message;}
+    };
+    document.body.append(dialog);dialog.showModal();
+  }
+  $("media-new-library").onclick=async function(){
+    var name=prompt("新媒体库名称（例如：学术活动）");if(!name) return;
+    try{await api("/api/admin/v1/assets/libraries",{method:"POST",body:JSON.stringify({name:name})});await list();msg("media-library-message","媒体库已创建，内含未分类文件夹。");}
+    catch(error){msg("media-library-message",error.message,true);}
+  };
+  $("media-new-folder").onclick=function(){folderDialog(false);};
+  $("media-edit-folder").onclick=function(){folderDialog(true);};
   window.mediaAdmin = { show: list };
 })();

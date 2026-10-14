@@ -3,15 +3,16 @@
   var csrf = "", currentId = null, version = null, checked = false, published = false, dirty = false, activeLocale = "zh";
   var $ = function (id) { return document.getElementById(id); };
   var form = $("news-form");
+  var richEditor = null, newsMedia = {};
   function escapeHtml(value) { return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
-  async function api(path, options) {
+  async function api(path, options, withMeta) {
     options = options || {};
     options.headers = Object.assign(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }, options.headers || {});
     if (options.method && options.method !== "GET") options.headers["x-csrf-token"] = csrf;
     var response = await fetch(path, Object.assign({ credentials: "same-origin" }, options));
     var value = await response.json();
     if (!response.ok) throw new Error((value.error && value.error.message) || "请求失败");
-    return value.data;
+    return withMeta ? value : value.data;
   }
   function message(text, error, target) { var node = $(target || "editor-message"); node.textContent = text; node.classList.toggle("error", !!error); }
   function showLogin() { $("login").hidden = false; $("workspace").hidden = true; csrf = ""; }
@@ -34,21 +35,47 @@
     $("publish").disabled = !currentId || !checked || dirty;
     $("withdraw").disabled = !currentId || !published || dirty;
   }
+  function syncRichText() {
+    if (!richEditor) return;
+    var value = richEditor.getJSON();
+    form.elements.richText.value = JSON.stringify(value);
+    form.elements.body.value = richEditor.getText();
+    return value;
+  }
+  function initRichEditor(value, body) {
+    if (!window.ScaleRichEditor) return;
+    if (richEditor) richEditor.destroy();
+    richEditor = window.ScaleRichEditor.create({
+      element: $("news-rich-editor"), toolbar: $("news-rich-toolbar"), preview: $("news-rich-preview"),
+      value: value || null, body: body || "", media:newsMedia,
+      onChange: function (json, text) {
+        form.elements.richText.value = JSON.stringify(json); form.elements.body.value = text;
+        dirty = true; updateButtons(); message("正文有未保存的改动，请先保存草稿。");
+      }
+    });
+    syncRichText();
+  }
   function resetEditor() {
     form.reset();
+    newsMedia={};
     var today = new Date();
     var date = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, "0"), String(today.getDate()).padStart(2, "0")].join("-");
     form.elements.happenedAt.value = date;
     form.elements.slug.value = "news-" + date.replace(/-/g, "") + "-" + Math.floor(Math.random() * 36 ** 6).toString(36).padStart(6, "0");
     form.elements.slug.disabled = false; currentId = null; version = null; checked = false; published = false; dirty = false; activeLocale = "zh";
+    initRichEditor(null, "");
+    renderLiveHeader();
     $("editor-title").textContent = "新建新闻"; $("preview-box").hidden = true; $("history").textContent = ""; message(""); updateButtons();
     $("list-card").hidden = true; $("editor-card").hidden = false;
   }
   async function openNews(id, locale) {
     try {
       var row = await api("/api/admin/v1/news/" + id + "?locale=" + (locale || "zh")); resetEditor(); currentId = row.id; version = row.version; checked = row.reviewState === "ready"; published = row.published; activeLocale = row.locale;
-      ["slug", "locale", "title", "summary", "body", "sourceUrl", "sourceNote"].forEach(function (key) { form.elements[key].value = row[key] || ""; });
+      ["slug", "locale", "title", "summary", "sourceUrl", "sourceNote"].forEach(function (key) { form.elements[key].value = row[key] || ""; });
+      newsMedia=row.media || {};form.elements.coverAssetId.value=row.coverAssetId || "";
+      initRichEditor(row.richText, row.body || "");
       form.elements.happenedAt.value = String(row.happenedAt || "").slice(0, 10); form.elements.slug.disabled = true;
+      renderLiveHeader();
       dirty = false; $("editor-title").textContent = "编辑新闻 · " + (row.locale === "en" ? "English" : "中文") + " · v" + version; updateButtons(); loadHistory();
     } catch (error) { message(error.message, true); }
   }
@@ -57,8 +84,25 @@
     try { var rows = await api("/api/admin/v1/news/" + currentId + "/revisions"); $("history").innerHTML = '<strong>修订历史</strong><br>' + rows.map(function (r) { return '<span>v' + r.version + ' · ' + escapeHtml(r.title) + (r.published ? ' · 已公开' : '') + '</span>'; }).join(""); } catch (error) { $("history").textContent = error.message; }
   }
   function payload() {
-    var data = Object.fromEntries(new FormData(form).entries()); data.expectedVersion = version; return data;
+    syncRichText(); var data = Object.fromEntries(new FormData(form).entries()); data.expectedVersion = version; return data;
   }
+  function coverNode(id) {return {type:"image",attrs:{assetId:id,width:"large",align:"center",caption:""}};}
+  function renderLiveHeader() {
+    $("news-live-title").textContent=form.elements.title.value;
+    $("news-live-date").textContent=form.elements.happenedAt.value;
+    $("news-live-summary").textContent=form.elements.summary.value;
+    var id=form.elements.coverAssetId.value;
+    $("news-cover-label").textContent=id ? (newsMedia[id]?.displayName || "已选择封面") : "未设置封面";
+    window.ScaleRichRenderer.render($("news-live-cover"),{type:"doc",content:id ? [coverNode(id)] : []},{media:newsMedia});
+  }
+  $("news-preview-size").onchange=function(){$("live-preview").dataset.size=this.value;};
+  $("news-cover-pick").onclick=async function(){
+    var asset=await window.ScaleMedia.pick();if(!asset) return;
+    newsMedia[asset.id]={...asset,url:"/api/admin/v1/assets/"+asset.id+"/file",alt:asset.altZh,available:asset.status==="active" && asset.copyright && asset.people};
+    form.elements.coverAssetId.value=asset.id;dirty=true;updateButtons();renderLiveHeader();message("封面有未保存改动，请保存草稿。");
+  };
+  $("news-cover-remove").onclick=function(){form.elements.coverAssetId.value="";dirty=true;updateButtons();renderLiveHeader();};
+  form.addEventListener("input",renderLiveHeader);
   async function operation(suffix, body, success) {
     if (!currentId) return;
     try { await api("/api/admin/v1/news/" + currentId + suffix, { method: "POST", body: JSON.stringify(body) }); await openNews(currentId, activeLocale); message(success); loadNews(); }
@@ -80,7 +124,7 @@
       await openNews(result.id, data.locale); message("草稿已保存。当前语言版本尚未公开，请核查内容后发布。"); loadNews();
     } catch (error) { message(error.message, true); }
   });
-  form.addEventListener("input", function (event) { if (event.target.name === "locale") return; dirty = true; updateButtons(); message("表单有未保存的改动，请先保存草稿。"); });
+  form.addEventListener("input", function (event) { if (event.target.name === "locale" || event.target.name === "body" || event.target.name === "richText") return; dirty = true; updateButtons(); message("表单有未保存的改动，请先保存草稿。"); });
   form.elements.locale.addEventListener("change", function () {
     var next = form.elements.locale.value;
     if (!currentId || dirty) { form.elements.locale.value = activeLocale; message(currentId ? "请先保存当前语言的改动。" : "请先创建中文新闻，再编辑英文。", true); return; }
@@ -90,7 +134,7 @@
   $("publish").addEventListener("click", function () { operation("/publish", { expectedVersion: version, locale: form.elements.locale.value }, "已发布到公开网站。"); });
   $("withdraw").addEventListener("click", function () { operation("/withdraw", { expectedVersion: version, locale: form.elements.locale.value }, "已撤回公开内容。"); });
   $("preview").addEventListener("click", async function () {
-    try { var row = await api("/api/admin/v1/news/" + currentId + "/preview?locale=" + form.elements.locale.value); $("preview-box").innerHTML = '<h3>' + escapeHtml(row.title) + '</h3><small>' + escapeHtml(String(row.happenedAt).slice(0, 10)) + '</small><p>' + escapeHtml(row.summary) + '</p><div>' + escapeHtml(row.body) + '</div>'; $("preview-box").hidden = false; }
+    try { var row = await api("/api/admin/v1/news/" + currentId + "/preview?locale=" + form.elements.locale.value); $("preview-box").innerHTML = '<h3>' + escapeHtml(row.title) + '</h3><small>' + escapeHtml(String(row.happenedAt).slice(0, 10)) + '</small><p>' + escapeHtml(row.summary) + '</p><div id="saved-preview-rich" class="rich-document-preview"></div>'; var doc=row.richText || window.ScaleRichEditor.legacyDocument(row.body); if(row.coverAssetId) doc={type:"doc",content:[coverNode(row.coverAssetId)].concat(doc.content)}; window.ScaleRichRenderer.render($("saved-preview-rich"),doc,{media:row.media}); $("preview-box").hidden = false; }
     catch (error) { message(error.message, true); }
   });
   document.querySelectorAll("[data-module]").forEach(function (button) { button.addEventListener("click", function () {

@@ -1,0 +1,16 @@
+{
+  "name": "scale-lab-admin-editor",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build-editor.mjs"
+  },
+  "dependencies": {
+    "@tiptap/core": "^2.11.5",
+    "@tiptap/extension-link": "^2.11.5",
+    "@tiptap/extension-text-align": "^2.11.5",
+    "@tiptap/extension-underline": "^2.11.5",
+    "@tiptap/starter-kit": "^2.11.5",
+    "esbuild": "^0.25.9"
+  }
+}
