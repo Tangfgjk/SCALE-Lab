@@ -1,0 +1,1156 @@
+{
+  "generatedAt": "2026-10-13",
+  "status": "review-only",
+  "candidates": [
+    {
+      "type": "direction",
+      "source": "frontend",
+      "sourceKey": "genai-edu",
+      "title": "教育数据挖掘",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "genai-edu"
+    },
+    {
+      "type": "direction",
+      "source": "frontend",
+      "sourceKey": "av-multimedia",
+      "title": "多模态课堂分析",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "av-multimedia"
+    },
+    {
+      "type": "direction",
+      "source": "frontend",
+      "sourceKey": "learning-analytics",
+      "title": "教育人工智能理论与实证",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "learning-analytics"
+    },
+    {
+      "type": "direction",
+      "source": "api",
+      "sourceKey": "genai-edu",
+      "title": "生成式人工智能与教育",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "genai-edu"
+    },
+    {
+      "type": "direction",
+      "source": "api",
+      "sourceKey": "av-multimedia",
+      "title": "智能音视频处理与多媒体取证",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "av-multimedia"
+    },
+    {
+      "type": "direction",
+      "source": "api",
+      "sourceKey": "learning-analytics",
+      "title": "学习分析与知识追踪",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "learning-analytics"
+    },
+    {
+      "type": "direction",
+      "source": "api",
+      "sourceKey": "smart-classroom",
+      "title": "智慧课堂与人机交互",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "advisor-1",
+      "title": "王志锋",
+      "placeholderPaths": [
+        "homepage",
+        "links.orcid",
+        "links.github",
+        "links.email"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "wang-zhifeng"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "researcher-1",
+      "title": "熊宇轩",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "researcher-2",
+      "title": "刘晓雪",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "student-1",
+      "title": "侯玉林",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "links.orcid",
+        "links.github",
+        "links.email"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "hou-yulin"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "student-2",
+      "title": "王思雨",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "links.orcid",
+        "links.github",
+        "links.email"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "wang-siyu"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "student-3",
+      "title": "王小艺",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "links.orcid",
+        "links.github",
+        "links.email"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "wang-xiaoyi"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "student-4",
+      "title": "斯雨婕",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "links.orcid",
+        "links.github",
+        "links.email"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "si-yujie"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "student-5",
+      "title": "李龙龙",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "links.orcid",
+        "links.github",
+        "links.email"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "li-longlong"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "student-6",
+      "title": "苏美欣",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "links.orcid",
+        "links.github",
+        "links.email"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "su-meixin"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "student-7",
+      "title": "唐照康",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "links.orcid",
+        "links.github",
+        "links.email"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "student-8",
+      "title": "王明辉",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "links.orcid",
+        "links.github",
+        "links.email"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "alumni-1",
+      "title": "陆子欣",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "links.orcid",
+        "links.github",
+        "links.email"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "lu-zixin"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "alumni-2",
+      "title": "胡文婷",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "links.orcid",
+        "links.github",
+        "links.email"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "hu-wenting"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "alumni-3",
+      "title": "刘特",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "links.orcid",
+        "links.github",
+        "links.email"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "liu-te"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "alumni-4",
+      "title": "王熙源",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "links.orcid",
+        "links.github",
+        "links.email"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "wang-xiyuan"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "alumni-5",
+      "title": "李璐瑶",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "links.orcid",
+        "links.github",
+        "links.email"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "li-luyao"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "alumni-6",
+      "title": "何佳琪",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "links.orcid",
+        "links.github",
+        "links.email"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "alumni-7",
+      "title": "方舟",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "links.orcid",
+        "links.github",
+        "links.email"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "fang-zhou"
+    },
+    {
+      "type": "member",
+      "source": "frontend",
+      "sourceKey": "alumni-8",
+      "title": "陈喆",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "links.orcid",
+        "links.github",
+        "links.email"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "chen-zhe"
+    },
+    {
+      "type": "member",
+      "source": "api",
+      "sourceKey": "wang-zhifeng",
+      "title": "王志锋",
+      "placeholderPaths": [
+        "photo",
+        "homepage",
+        "emailPublic"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "advisor-1"
+    },
+    {
+      "type": "member",
+      "source": "api",
+      "sourceKey": "researcher-1",
+      "title": "@@@",
+      "placeholderPaths": [
+        "nameZh",
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "interests[0]",
+        "emailPublic"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "member",
+      "source": "api",
+      "sourceKey": "hou-yulin",
+      "title": "侯玉林",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "emailPublic"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "student-1"
+    },
+    {
+      "type": "member",
+      "source": "api",
+      "sourceKey": "wang-siyu",
+      "title": "王思雨",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "emailPublic"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "student-2"
+    },
+    {
+      "type": "member",
+      "source": "api",
+      "sourceKey": "wang-xiaoyi",
+      "title": "王小艺",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "emailPublic"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "student-3"
+    },
+    {
+      "type": "member",
+      "source": "api",
+      "sourceKey": "si-yujie",
+      "title": "斯雨婕",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "emailPublic"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "student-4"
+    },
+    {
+      "type": "member",
+      "source": "api",
+      "sourceKey": "li-longlong",
+      "title": "李龙龙",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "emailPublic"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "student-5"
+    },
+    {
+      "type": "member",
+      "source": "api",
+      "sourceKey": "su-meixin",
+      "title": "苏美欣",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "emailPublic"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "student-6"
+    },
+    {
+      "type": "member",
+      "source": "api",
+      "sourceKey": "lu-zixin",
+      "title": "陆子欣",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "emailPublic"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "alumni-1"
+    },
+    {
+      "type": "member",
+      "source": "api",
+      "sourceKey": "hu-wenting",
+      "title": "胡文婷",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "emailPublic"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "alumni-2"
+    },
+    {
+      "type": "member",
+      "source": "api",
+      "sourceKey": "liu-te",
+      "title": "刘特",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "interests[0]",
+        "emailPublic"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "alumni-3"
+    },
+    {
+      "type": "member",
+      "source": "api",
+      "sourceKey": "wang-xiyuan",
+      "title": "王熙源",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "interests[0]",
+        "emailPublic"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "alumni-4"
+    },
+    {
+      "type": "member",
+      "source": "api",
+      "sourceKey": "li-luyao",
+      "title": "李璐瑶",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "emailPublic"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "alumni-5"
+    },
+    {
+      "type": "member",
+      "source": "api",
+      "sourceKey": "fang-zhou",
+      "title": "方舟",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "interests[0]",
+        "emailPublic"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "alumni-7"
+    },
+    {
+      "type": "member",
+      "source": "api",
+      "sourceKey": "chen-zhe",
+      "title": "陈喆",
+      "placeholderPaths": [
+        "nameEn",
+        "photo",
+        "homepage",
+        "bio",
+        "interests[0]",
+        "emailPublic"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "alumni-8"
+    },
+    {
+      "type": "news",
+      "source": "frontend",
+      "sourceKey": "ENFmamba：融合多尺度 ENF 相位与多谐波线索的音频篡改检测",
+      "title": "ENFmamba：融合多尺度 ENF 相位与多谐波线索的音频篡改检测",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "news",
+      "source": "frontend",
+      "sourceKey": "多模态语音情感识别的层次注意力与动态融合机制",
+      "title": "多模态语音情感识别的层次注意力与动态融合机制",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "news",
+      "source": "frontend",
+      "sourceKey": "AI 驱动的多模态教学行为分析系统研究",
+      "title": "AI 驱动的多模态教学行为分析系统研究",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "news",
+      "source": "frontend",
+      "sourceKey": "基于对比视觉—语言预训练的智能教育开放集学习行为检测",
+      "title": "基于对比视觉—语言预训练的智能教育开放集学习行为检测",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "news",
+      "source": "frontend",
+      "sourceKey": "基于习题—知识—认知张量的细粒度智能学习诊断模型",
+      "title": "基于习题—知识—认知张量的细粒度智能学习诊断模型",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "news",
+      "source": "api",
+      "sourceKey": "cnki-2025",
+      "title": "王志锋教授入选中国知网 2025 年高被引学者",
+      "placeholderPaths": [
+        "body",
+        "happenedAt",
+        "publishedAt"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "news",
+      "source": "api",
+      "sourceKey": "award-2025",
+      "title": "获 2025 年“嘉必优”奖教金与课程思政优秀教师",
+      "placeholderPaths": [
+        "body",
+        "happenedAt",
+        "publishedAt"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "news",
+      "source": "api",
+      "sourceKey": "hb-sci-2024",
+      "title": "获湖北省科技进步奖三等奖",
+      "placeholderPaths": [
+        "body",
+        "happenedAt",
+        "publishedAt"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "news",
+      "source": "api",
+      "sourceKey": "ieir-2024",
+      "title": "论文获 IEIR 2024 智能教育与智能科研国际学术会议最佳论文奖",
+      "placeholderPaths": [
+        "body",
+        "happenedAt",
+        "publishedAt"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "news",
+      "source": "api",
+      "sourceKey": "hb-teach-2018",
+      "title": "获湖北省高等学校教学成果奖一等奖",
+      "placeholderPaths": [
+        "body",
+        "happenedAt",
+        "publishedAt"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "publication",
+      "source": "frontend",
+      "sourceKey": "ENFmamba: Cross-scale fusion of ENF phase and multi-harmonic cues with long-short term integrating Mamba for audio tampering detection",
+      "title": "ENFmamba: Cross-scale fusion of ENF phase and multi-harmonic cues with long-short term integrating Mamba for audio tampering detection",
+      "placeholderPaths": [
+        "url"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "ENFmamba: Cross-scale fusion of ENF phase and multi-harmonic cues with long-short term integrating Mamba for audio tampering detection"
+    },
+    {
+      "type": "publication",
+      "source": "frontend",
+      "sourceKey": "Leveraging hierarchical attention and dynamic fusion mechanisms for multi-modal speech emotion recognition",
+      "title": "Leveraging hierarchical attention and dynamic fusion mechanisms for multi-modal speech emotion recognition",
+      "placeholderPaths": [
+        "url"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "Leveraging hierarchical attention and dynamic fusion mechanisms for multi-modal speech emotion recognition"
+    },
+    {
+      "type": "publication",
+      "source": "frontend",
+      "sourceKey": "How do instructors' attention and proximity influence students' verbal engagement in higher education? Insights from an AI-driven multimodal teaching behavior analytics system",
+      "title": "How do instructors' attention and proximity influence students' verbal engagement in higher education? Insights from an AI-driven multimodal teaching behavior analytics system",
+      "placeholderPaths": [
+        "url"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "publication",
+      "source": "frontend",
+      "sourceKey": "Leveraging Contrastive Vision-Language Pretraining for Zero-Shot Open Learning Behavior Detection in Smart Education",
+      "title": "Leveraging Contrastive Vision-Language Pretraining for Zero-Shot Open Learning Behavior Detection in Smart Education",
+      "placeholderPaths": [
+        "url"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "Leveraging Contrastive Vision-Language Pretraining for Zero-Shot Open Learning Behavior Detection in Smart Education"
+    },
+    {
+      "type": "publication",
+      "source": "frontend",
+      "sourceKey": "GCKT: Context-Aware Gating of Heterogeneous Learning Features With Transformer for Cognitive Knowledge Tracing",
+      "title": "GCKT: Context-Aware Gating of Heterogeneous Learning Features With Transformer for Cognitive Knowledge Tracing",
+      "placeholderPaths": [
+        "url"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "GCKT: Context-Aware Gating of Heterogeneous Learning Features With Transformer for Cognitive Knowledge Tracing"
+    },
+    {
+      "type": "publication",
+      "source": "frontend",
+      "sourceKey": "SLBDetection-Net: Towards closed-set and open-set student learning behavior detection in smart classroom of K-12 education",
+      "title": "SLBDetection-Net: Towards closed-set and open-set student learning behavior detection in smart classroom of K-12 education",
+      "placeholderPaths": [
+        "url"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "SLBDetection-Net: Towards closed-set and open-set student learning behavior detection in smart classroom of K-12 education"
+    },
+    {
+      "type": "publication",
+      "source": "frontend",
+      "sourceKey": "Design and implementation of an AI-enabled visual report tool as formative assessment to promote learning achievement and self-regulated learning",
+      "title": "Design and implementation of an AI-enabled visual report tool as formative assessment to promote learning achievement and self-regulated learning",
+      "placeholderPaths": [
+        "url"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "Design and implementation of an AI-enabled visual report tool as formative assessment to promote learning achievement and self-regulated learning"
+    },
+    {
+      "type": "publication",
+      "source": "frontend",
+      "sourceKey": "Students' Classroom Behavior Detection System Incorporating Deformable DETR with Swin Transformer and Light-Weight Feature Pyramid Network",
+      "title": "Students' Classroom Behavior Detection System Incorporating Deformable DETR with Swin Transformer and Light-Weight Feature Pyramid Network",
+      "placeholderPaths": [
+        "url"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "Students' Classroom Behavior Detection System Incorporating Deformable DETR with Swin Transformer and Light-Weight Feature Pyramid Network"
+    },
+    {
+      "type": "publication",
+      "source": "api",
+      "sourceKey": "ENFmamba: Cross-scale fusion of ENF phase and multi-harmonic cues with long-short term integrating Mamba for audio tampering detection",
+      "title": "ENFmamba: Cross-scale fusion of ENF phase and multi-harmonic cues with long-short term integrating Mamba for audio tampering detection",
+      "placeholderPaths": [
+        "doi",
+        "externalUrl"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "ENFmamba: Cross-scale fusion of ENF phase and multi-harmonic cues with long-short term integrating Mamba for audio tampering detection"
+    },
+    {
+      "type": "publication",
+      "source": "api",
+      "sourceKey": "Leveraging hierarchical attention and dynamic fusion mechanisms for multi-modal speech emotion recognition",
+      "title": "Leveraging hierarchical attention and dynamic fusion mechanisms for multi-modal speech emotion recognition",
+      "placeholderPaths": [
+        "doi",
+        "externalUrl"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "Leveraging hierarchical attention and dynamic fusion mechanisms for multi-modal speech emotion recognition"
+    },
+    {
+      "type": "publication",
+      "source": "api",
+      "sourceKey": "Leveraging Contrastive Vision-Language Pretraining for Zero-Shot Open Learning Behavior Detection in Smart Education",
+      "title": "Leveraging Contrastive Vision-Language Pretraining for Zero-Shot Open Learning Behavior Detection in Smart Education",
+      "placeholderPaths": [
+        "doi",
+        "externalUrl"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "Leveraging Contrastive Vision-Language Pretraining for Zero-Shot Open Learning Behavior Detection in Smart Education"
+    },
+    {
+      "type": "publication",
+      "source": "api",
+      "sourceKey": "GCKT: Context-Aware Gating of Heterogeneous Learning Features With Transformer for Cognitive Knowledge Tracing",
+      "title": "GCKT: Context-Aware Gating of Heterogeneous Learning Features With Transformer for Cognitive Knowledge Tracing",
+      "placeholderPaths": [
+        "doi",
+        "externalUrl"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "GCKT: Context-Aware Gating of Heterogeneous Learning Features With Transformer for Cognitive Knowledge Tracing"
+    },
+    {
+      "type": "publication",
+      "source": "api",
+      "sourceKey": "SLBDetection-Net: Towards closed-set and open-set student learning behavior detection in smart classroom of K-12 education",
+      "title": "SLBDetection-Net: Towards closed-set and open-set student learning behavior detection in smart classroom of K-12 education",
+      "placeholderPaths": [
+        "doi",
+        "externalUrl"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "SLBDetection-Net: Towards closed-set and open-set student learning behavior detection in smart classroom of K-12 education"
+    },
+    {
+      "type": "publication",
+      "source": "api",
+      "sourceKey": "Design and implementation of an AI-enabled visual report tool as formative assessment to promote learning achievement and self-regulated learning",
+      "title": "Design and implementation of an AI-enabled visual report tool as formative assessment to promote learning achievement and self-regulated learning",
+      "placeholderPaths": [
+        "doi",
+        "externalUrl"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "Design and implementation of an AI-enabled visual report tool as formative assessment to promote learning achievement and self-regulated learning"
+    },
+    {
+      "type": "publication",
+      "source": "api",
+      "sourceKey": "Students' Classroom Behavior Detection System Incorporating Deformable DETR with Swin Transformer and Light-Weight Feature Pyramid Network",
+      "title": "Students' Classroom Behavior Detection System Incorporating Deformable DETR with Swin Transformer and Light-Weight Feature Pyramid Network",
+      "placeholderPaths": [
+        "doi",
+        "externalUrl"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "Students' Classroom Behavior Detection System Incorporating Deformable DETR with Swin Transformer and Light-Weight Feature Pyramid Network"
+    },
+    {
+      "type": "project",
+      "source": "frontend",
+      "sourceKey": "62577027",
+      "title": "62577027",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "62577027"
+    },
+    {
+      "type": "project",
+      "source": "frontend",
+      "sourceKey": "62177022",
+      "title": "62177022",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "62177022"
+    },
+    {
+      "type": "project",
+      "source": "frontend",
+      "sourceKey": "61501199",
+      "title": "61501199",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "61501199"
+    },
+    {
+      "type": "project",
+      "source": "frontend",
+      "sourceKey": "2017CFB683",
+      "title": "2017CFB683",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "2017CFB683"
+    },
+    {
+      "type": "project",
+      "source": "frontend",
+      "sourceKey": "2015BAK33B02",
+      "title": "2015BAK33B02",
+      "placeholderPaths": [],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "2015BAK33B02"
+    },
+    {
+      "type": "project",
+      "source": "api",
+      "sourceKey": "62577027",
+      "title": "面向智慧课堂的多模态学习行为理解与认知诊断研究",
+      "placeholderPaths": [
+        "summary"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "62577027"
+    },
+    {
+      "type": "project",
+      "source": "api",
+      "sourceKey": "62177022",
+      "title": "基于多模态融合与深度表征的学习者认知诊断与知识追踪研究",
+      "placeholderPaths": [
+        "summary"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "62177022"
+    },
+    {
+      "type": "project",
+      "source": "api",
+      "sourceKey": "61501199",
+      "title": "基于深度表征学习的数字音频被动取证研究",
+      "placeholderPaths": [
+        "summary"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "61501199"
+    },
+    {
+      "type": "project",
+      "source": "api",
+      "sourceKey": "2017CFB683",
+      "title": "@@@",
+      "placeholderPaths": [
+        "title",
+        "summary"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "2017CFB683"
+    },
+    {
+      "type": "project",
+      "source": "api",
+      "sourceKey": "2015BAK33B02",
+      "title": "@@@",
+      "placeholderPaths": [
+        "title",
+        "summary"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "2015BAK33B02"
+    },
+    {
+      "type": "activity",
+      "source": "frontend",
+      "sourceKey": "1",
+      "title": "@@@ 研究现场 / 智慧课堂",
+      "placeholderPaths": [
+        "caption"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "activity",
+      "source": "frontend",
+      "sourceKey": "2",
+      "title": "@@@ 实验室合影",
+      "placeholderPaths": [
+        "caption"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "@@@ 实验室合影"
+    },
+    {
+      "type": "activity",
+      "source": "frontend",
+      "sourceKey": "3",
+      "title": "@@@ 学术活动",
+      "placeholderPaths": [
+        "caption"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "activity",
+      "source": "frontend",
+      "sourceKey": "4",
+      "title": "@@@ 团队建设",
+      "placeholderPaths": [
+        "caption"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "activity",
+      "source": "api",
+      "sourceKey": "@@@ 实验室合影",
+      "title": "@@@ 实验室合影",
+      "placeholderPaths": [
+        "title",
+        "activityDate"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft",
+      "relatedSourceKey": "2"
+    },
+    {
+      "type": "activity",
+      "source": "api",
+      "sourceKey": "@@@ 学术年会",
+      "title": "@@@ 学术年会",
+      "placeholderPaths": [
+        "title",
+        "activityDate"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "activity",
+      "source": "api",
+      "sourceKey": "@@@ 团建活动",
+      "title": "@@@ 团建活动",
+      "placeholderPaths": [
+        "title",
+        "activityDate"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "setting",
+      "source": "frontend",
+      "sourceKey": "智能学习分析与评价实验室",
+      "title": "智能学习分析与评价实验室",
+      "placeholderPaths": [
+        "formalNameZh",
+        "formalNameEn",
+        "email",
+        "officePhone",
+        "established"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    },
+    {
+      "type": "setting",
+      "source": "api",
+      "sourceKey": "1",
+      "title": "(无标题)",
+      "placeholderPaths": [
+        "formalNameZh",
+        "formalNameEn",
+        "email",
+        "officePhone",
+        "established"
+      ],
+      "reviewState": "unverified",
+      "publicationState": "draft"
+    }
+  ]
+}

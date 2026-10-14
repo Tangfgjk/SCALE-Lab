@@ -1,0 +1,10 @@
+#accounts-list .list-row{flex-wrap:wrap}
+.account-inline-editor{flex:0 0 100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding:18px;background:#f6f9fb;border:1px solid #dde8ef;border-radius:9px}
+.account-inline-editor label{font-size:13px;font-weight:600;color:#344d5f}
+.account-inline-editor label small{font-weight:400;color:#8192a0}
+.account-inline-editor input:not([type=checkbox]),.account-inline-editor select{display:block;width:100%;margin-top:7px}
+.account-inline-editor .editor-actions,.account-inline-editor .message{grid-column:1/-1;margin:0}
+#audit-filter-form .fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;padding:17px 0}
+#audit-filter-form label{font-size:13px;font-weight:600;color:#344d5f}
+#audit-filter-form input,#audit-filter-form select{display:block;width:100%;margin-top:7px}
+@media(max-width:850px){.account-inline-editor,#audit-filter-form .fields{grid-template-columns:1fr}}

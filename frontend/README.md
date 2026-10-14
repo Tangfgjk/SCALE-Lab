@@ -1,95 +1,76 @@
-# 王志锋教授实验室 · 网站（原型）
+# SCALE Lab 网站
 
-仿 **Terrer Lab（MIT）** 的信息架构与排版气质，结合两份设计文档
-（`frontend-design.md` 前端与体验设计、`backend-design.md` 后端与内容平台设计），
-为**华中师范大学人工智能教育学部 王志锋教授实验室**设计的完整可运行原型。
+本目录包含中文版公开站、内容工作台和 Express/PostgreSQL 内容平台。当前开发入口是 `server/platform.js`；`server/server.js` 是早期 JSON 原型，仅保留作历史参考。项目决策与验收证据见 [文档索引](../docs/文档索引_20261013.md) 和 [V2 阶段验收](../docs/测试文档/首版功能阶段验收与缺陷清单_20261014.md)。
 
-> 真实信息来自华中师范大学教师主页（王志锋）。凡是主页未给出、需后续补充的字段，
-> 在代码与数据中以 **`@@@`** 占位（页面上以橙色虚线高亮显示）。
+## 当前状态（2026-10-14）
 
----
+- 公开站：首页、团队、研究、文化；桌面与手机两种视口已检查。
+- 内容工作台：新闻、研究方向、论文、项目、成员、媒体库、活动相册、站点设置、账号和操作记录的基础流程可用。
+- 正式中文资料：实验室基础信息、三类研究方向名称；团队页含王志锋、刘晓雪、熊宇轩及 20 位在读学生、25 位校友。教师肖像来自华中师范大学教师主页，经媒体库授权后展示。研究页有 4 篇代表论文和 4 项项目。
+- 阶段结论：**核心功能初步完成，可进入真实使用体验与细节修复；尚未达到云端正式发布标准。**真实新闻、活动图片、联系渠道、英文译文、列表分页与云端备份部署仍待完成。
 
-## 1. 目录结构
+## 目录
 
-```
-实验室网站/
-├── index.html            # 首页：Hero / 研究主题 / 指标 / 画廊 / 最新动态
-├── people.html           # 团队成员：导师 / 科研人员 / 在读 / 校友
-├── research.html         # 研究成果：方向 / 架构 / 行为识别 Demo / 论文 / 项目
-├── culture.html          # 实验室文化：价值观 / 节奏 / 活动影像 / 加入我们
-├── assets/
-│   ├── css/style.css     # 视觉系统（设计 Token + 组件 + 响应式）
-│   └── js/
-│       ├── data.js       # 全部页面内容数据（首版评审用，对应文档"页面数据数组"）
-│       ├── main.js       # 导航状态 / 页脚 / 数据渲染 / @@@ 高亮
-│       └── demo.js       # 研究页"课堂行为识别"交互 Demo（演示数据）
-└── server/               # 后端原型（对应 backend-design.md）
-    ├── server.js         # Express，实现 /api/v1 只读接口
-    ├── package.json
-    └── data/content.json # 内容存储（生产替换为 PostgreSQL/D1 + 对象存储）
-```
+| 路径 | 用途 |
+| --- | --- |
+| `visual-preview-20261013/` | 当前公开站 HTML、CSS、JS；静态资源与 API 共同渲染页面 |
+| `admin/` | A 侧栏内容工作台 |
+| `server/platform.js` | 当前网站与管理 API 入口 |
+| `server/db/migrations/` | PostgreSQL 增量迁移，包含成员照片媒体关联 |
+| `server/scripts/` | 初始化管理员、来源资料导入、旧数据核对 |
+| `server/seed-media/` | 三位教师在官方主页公开的肖像原图快照及可重复导入素材 |
+| `server/tests/` | 各模块冒烟测试 |
+| `server/storage/media/` | 本地上传及转换后的媒体文件；不提交 Git，部署时必须备份 |
 
----
+## 本地启动（PowerShell）
 
-## 2. 设计映射
+需要 Node.js 20.9+、Docker Desktop。以下命令在 `frontend/server` 目录执行；密码通过环境变量设置，不写入仓库。
 
-### 2.1 仿 Terrer Lab 的地方
-- **宣言式 Hero**：大字号宋体宣言 + 实验室署名（TERRER LAB → 王志锋实验室）。
-- **编号研究主题**：`THEME 01–04` 对应 Terrer Lab 的 `01 / 02` 板块式叙事。
-- **Key Publications / Lab News**：论文列表与最新动态采用简洁文本行排版。
-- **Team 网格**：成员卡片（照片 + 角色 + 简介 + 标签 + 外部链接）。
-- **Values**：实验室价值观单列成块（Diversity/Inclusion → 严谨/协作/人本/成长）。
-
-### 2.2 结合 frontend-design.md 的地方
-- **信息架构**：`/`（首页）、`/people`、`/research`、`/culture` → 映射为四个 HTML 页面。
-- **视觉系统**：深海军蓝 `#081B32`、高饱和蓝 `#1459FF`、青色 `#21D4D1`；正文无衬线、关键宣言用**宋体**；细边框、低圆角、编号系统、信号线、模块化栅格。
-- **组件**：`SiteHeader` / `SiteFooter` / `ProfileCard` / `BehaviorDemo` 均已实现。
-- **响应式**：>1000px 多栏；661–1000px 降双栏；≤660px 单栏 + 横向滑动画廊；移动端导航用原生 `<details>/<summary>`。
-- **交互**：主页横向 `scroll-snap` 画廊；研究页 Demo 切换指标时环形图与文案同步变化，数值标注为**演示数据**。
-
-### 2.3 结合 backend-design.md 的地方
-- **数据模型**：Member / News / Publication / Project / ResearchDirection / Activity 已落在 `content.json`。
-- **API**：`server/server.js` 实现 `/api/v1/home`、`/members`、`/members/:slug`、`/news`、`/publications`、`/projects`、`/research-directions`、`/activities`，统一响应 `{data, meta, requestId}` 与错误格式。
-- **权限边界**：公开站只返回已发布内容并剥离私人邮箱（最小公开原则）；管理端 `/api/admin/v1` 占位（需统一身份认证）。
-- **安全**：已加 `CSP / HSTS / X-Content-Type-Options / X-Frame-Options`；行为识别 Demo 使用脱敏演示数据，不与公开官网共用数据域。
-- **零数据库运行**：原型直接读 JSON，满足文档"首版不依赖数据库即可运行"。
-
----
-
-## 3. 如何运行
-
-### 前端（无需构建，直接打开）
-用浏览器打开 `index.html` 即可；或在项目根目录起一个静态服务器：
-```bash
-python3 -m http.server 8080
-# 浏览器访问 http://localhost:8080
+```powershell
+$env:SCALE_LAB_DB_PASSWORD = '<本地数据库密码>'
+docker compose -f compose.local.yml up -d
+npm ci
+$env:DATABASE_URL = 'postgres://scale_lab:<URL编码后的数据库密码>@127.0.0.1:5433/scale_lab'
+npm run db:migrate
+$env:ADMIN_LOGIN = '<首次管理员登录名>'
+$env:ADMIN_PASSWORD = '<首次管理员密码>'
+npm run db:bootstrap-admin  # 只在全新数据库执行一次
+$env:PORT = '3001'
+npm start
 ```
 
-### 后端（Node + Express）
-```bash
-cd server
-npm install        # 安装 express
-npm start          # 默认监听 :3000
-curl http://localhost:3000/api/v1/home
-curl "http://localhost:3000/api/v1/members?category=alumni"
-curl "http://localhost:3000/api/v1/publications?year=2026"
+公开站：`http://127.0.0.1:3001/`；内容工作台：`http://127.0.0.1:3001/admin/`；健康检查：`http://127.0.0.1:3001/api/health`。既有本地数据库不需要再次运行管理员初始化脚本。若 Docker Desktop 重启后容器没有自动运行，先启动该容器再访问网站。
+
+### 在新数据库恢复本阶段来源内容
+
+完成迁移与管理员初始化，并保持网站服务运行后，在另一个终端设置同一管理员的 `ADMIN_LOGIN`、`ADMIN_PASSWORD`，依次执行：
+
+```powershell
+node scripts/import-faculty-profile-20261013.js
+node scripts/import-teachers-20261014.js
 ```
 
----
+脚本通过管理 API 保存来源、核查和发布记录；重复执行不会重复创建同一批成员及肖像。内容与照片原始链接见[来源记录](../docs/内容文档/王志锋教师主页数据来源与采纳记录_20261013.md)及[新增教师记录](../docs/内容文档/新增教师与肖像来源记录_20261014.md)。
 
-## 4. `@@@` 待补充清单（上线前必须补齐）
-- 实验室**正式中英文名**（当前用"王志锋教授实验室"代称）。
-- 团队 **Logo**、成员**姓名拼音**、**照片**（需取得公开展示授权）。
-- 成员 **ORCID / GitHub / 个人主页 / 邮箱**、校友**毕业去向**细节。
-- 论文 **DOI / 外链**；项目**名称**（部分编号已知但名称缺失）。
-- **联系邮箱、办公电话、实验室成立年份、地址**。
-- 真实**活动照片**、新闻**具体日期**。
-- 版权与隐私说明。
+## 测试
 
----
+在网站与数据库运行时，设置 `TEST_BASE_URL`、`ADMIN_LOGIN`、`ADMIN_PASSWORD` 和 `DATABASE_URL`，执行：
 
-## 5. 升级到生产架构（文档建议）
-1. **前端**：迁移到 Next.js/Vinext + React 19 + TypeScript，内容由 `/api/v1` 在构建/请求时渲染，启用 ISR 增量构建。
-2. **后端**：内容管理后台 + Content API + 对象存储（Cloudflare D1+R2 或校内部署 PostgreSQL + 校内 OSS）。
-3. **流程**：草稿 → 审核 → 发布 工作流、版本历史、预览链接、缓存刷新、审计日志。
-4. **研究联动**：仅接入脱敏/聚合指标，真实课堂数据须独立受控平台建设。
+```powershell
+npm run test:smoke
+npm run test:bilingual-news
+npm run test:research
+npm run test:bilingual-research
+npm run test:members
+npm run test:bilingual-members
+npm run test:member-photo
+npm run test:media-albums
+npm run test:settings
+npm run test:accounts
+```
+
+测试会创建并撤回本地合成内容；请只对开发数据库运行。2026-10-14 上述测试均通过，页面验收与剩余问题见[阶段验收记录](../docs/测试文档/首版功能阶段验收与缺陷清单_20261014.md)。
+
+## 发布前仍需完成
+
+选择云服务器、域名和 HTTPS 反向代理，设置生产密钥与独立账号，演练 PostgreSQL 与 `server/storage/media/` 的备份恢复；补齐真实内容、英文译文、分页和完整可访问性回归。当前 `platform.js` 仅监听本机 `127.0.0.1`，不能直接视为已完成公网部署。

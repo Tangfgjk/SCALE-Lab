@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCALE Lab · 内容工作台</title>
+  <link rel="icon" href="/assets/images/scale-lab-logo.png" type="image/png">
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./member.css">
+  <link rel="stylesheet" href="./media.css">
+  <link rel="stylesheet" href="./accounts.css">
+</head>
+<body>
+  <div id="login" class="login-screen">
+    <form id="login-form" class="login-card">
+      <div class="eyebrow">SCALE LAB / CONTENT STUDIO</div>
+      <h1>内容工作台</h1><p>登录后管理实验室网站的内容。</p>
+      <label>登录名<input name="login" autocomplete="username" required></label>
+      <label>密码<input name="password" type="password" autocomplete="current-password" required></label>
+      <button type="submit" class="primary">登录工作台</button>
+      <p id="login-message" class="message" role="status"></p>
+    </form>
+  </div>
+  <div id="workspace" class="workspace" hidden>
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">S</span><span><strong>SCALE Lab</strong><small>内容管理工作台</small></span></div>
+      <div class="nav-label">内容管理</div>
+      <nav id="nav">
+        <button type="button" class="active" data-module="news">新闻动态 <span>已接入</span></button>
+        <button type="button" data-module="members">团队成员 <span>已接入</span></button>
+        <button type="button" data-module="publications">论文成果 <span>已接入</span></button>
+        <button type="button" data-module="projects">科研项目 <span>已接入</span></button>
+        <button type="button" data-module="directions">研究方向 <span>已接入</span></button>
+        <button type="button" data-module="albums">活动相册 <span>已接入</span></button>
+        <button type="button" data-module="media">媒体资源 <span>已接入</span></button>
+      </nav>
+      <div class="nav-label">系统</div>
+      <nav><button type="button" data-module="settings">站点设置 <span>已接入</span></button><button type="button" data-module="accounts" id="accounts-nav">账号管理 <span>已接入</span></button><button type="button" data-module="audit">操作记录 <span>已接入</span></button></nav>
+      <div class="sidebar-foot"><a href="/" target="_blank" rel="noopener">查看公开网站 ↗</a></div>
+    </aside>
+    <div class="main-shell">
+      <header class="topbar"><span>网站内容 / <b id="breadcrumb">新闻动态</b></span><div><span id="user-name"></span><button type="button" id="logout">退出</button></div></header>
+      <main>
+        <section id="news-panel">
+          <div class="page-head"><div><div class="eyebrow">CONTENT MANAGEMENT</div><h1>新闻动态</h1><p>先创建中文新闻，再按语言分别保存、核查和发布。</p></div><button id="new-news" type="button" class="primary">＋ 新建新闻</button></div>
+          <div class="card" id="list-card"><div class="card-head"><h2>内容列表</h2><input id="search" type="search" placeholder="搜索标题或标识" aria-label="搜索新闻"></div><div id="news-list" class="list"></div></div>
+          <div class="card editor" id="editor-card" hidden><div class="card-head"><h2 id="editor-title">新建新闻</h2><button type="button" id="close-editor" class="quiet">返回列表</button></div>
+            <form id="news-form"><div class="fields"><label>URL 标识 <small>创建后不可改</small><input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="lab-seminar-2026"></label><label>语言<select name="locale"><option value="zh">中文</option><option value="en">English</option></select></label><label class="wide">标题<input name="title" required maxlength="200"></label><label class="wide">摘要<textarea name="summary" required maxlength="500" rows="2"></textarea></label><label class="wide">正文<textarea name="body" required rows="9"></textarea></label><label>事件日期<input name="happenedAt" type="date" required></label><label>分类<input name="category" value="news" maxlength="50"></label><label class="wide">事实来源链接<input name="sourceUrl" type="url" placeholder="https://..."></label><label class="wide">来源说明<textarea name="sourceNote" rows="2" placeholder="至少填写链接或说明其中一项"></textarea></label></div>
+              <div class="editor-actions"><button type="submit" class="primary">保存草稿</button><button type="button" id="check" disabled>核查当前修订</button><button type="button" id="preview" disabled>预览</button><button type="button" id="publish" disabled>发布</button><button type="button" id="withdraw" disabled>撤回</button></div></form>
+            <p id="editor-message" class="message" role="status"></p><div id="preview-box" class="preview" hidden></div><div id="history" class="history"></div>
+          </div>
+        </section>
+        <section id="research-panel" hidden>
+          <div class="page-head"><div><div class="eyebrow">RESEARCH CONTENT</div><h1 id="research-heading"></h1><p>内容先保存为草稿，核查来源后才可发布。</p></div><button id="research-new" type="button" class="primary">＋ 新建内容</button></div>
+          <div class="card" id="research-list-card"><div class="card-head"><h2>内容列表</h2><input id="research-search" type="search" placeholder="搜索标题或标识" aria-label="搜索研究内容"></div><div id="research-list" class="list"></div></div>
+          <div class="card editor" id="research-editor-card" hidden><div class="card-head"><h2 id="research-editor-title">新建内容</h2><button id="research-close" type="button" class="quiet">返回列表</button></div>
+            <form id="research-form"><div class="fields">
+              <label>URL 标识 <small>创建后不可改</small><input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="research-item-2026"></label>
+              <label>语言<select name="locale"><option value="zh">中文</option><option value="en">English</option></select></label>
+              <label class="wide">标题<input name="title" required maxlength="300"></label>
+              <label class="wide">摘要<textarea name="summary" required maxlength="1000" rows="3"></textarea></label>
+              <label class="wide">正文／补充说明<textarea name="body" rows="5"></textarea></label>
+              <div id="research-special-fields" class="wide fields"></div>
+              <label class="wide">事实来源链接<input name="sourceUrl" type="url" placeholder="https://..."></label>
+              <label class="wide">来源说明<textarea name="sourceNote" rows="2" placeholder="至少填写链接或说明其中一项"></textarea></label>
+            </div><div class="editor-actions"><button type="submit" class="primary">保存草稿</button><button id="research-check" type="button" disabled>核查当前修订</button><button id="research-preview" type="button" disabled>预览</button><button id="research-publish" type="button" disabled>发布</button><button id="research-withdraw" type="button" disabled>撤回</button></div></form>
+            <p id="research-message" class="message" role="status"></p><div id="research-preview-box" class="preview" hidden></div><div id="research-history" class="history"></div>
+          </div>
+        </section>
+        <section id="member-panel" hidden>
+          <div class="page-head"><div><div class="eyebrow">PEOPLE CONTENT</div><h1>团队成员</h1><p>成员资料按来源保存；简介、去向与照片分别登记公开依据。</p></div><button id="member-new" type="button" class="primary">＋ 新建成员</button></div>
+          <div class="card" id="member-list-card"><div class="card-head"><h2>成员列表</h2><input id="member-search" type="search" placeholder="搜索姓名或标识" aria-label="搜索成员"></div><div id="member-list" class="list"></div></div>
+          <div class="card editor" id="member-editor-card" hidden><div class="card-head"><h2 id="member-editor-title">新建成员</h2><button id="member-close" type="button" class="quiet">返回列表</button></div>
+            <form id="member-form"><div class="fields">
+              <label>URL 标识 <small>创建后不可改</small><input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*"></label>
+              <label>语言<select name="locale"><option value="zh">中文</option><option value="en">English</option></select></label>
+              <label>类别<select name="category"><option value="advisor">导师</option><option value="researcher">科研人员</option><option value="student">在读学生</option><option value="alumni">毕业校友</option></select></label>
+              <label>中文姓名<input name="nameZh" required maxlength="100"></label><label>英文姓名<input name="nameEn" maxlength="100"></label>
+              <label class="wide">身份／称谓<input name="role" required maxlength="200"></label>
+              <label class="wide">简介 <small>单独授权后才公开</small><textarea name="bio" rows="5"></textarea></label>
+              <label class="wide">研究兴趣 <small>用逗号分隔</small><input name="interestsText"></label>
+              <label>个人主页<input name="homepageUrl" type="url"></label><label>ORCID 链接<input name="orcidUrl" type="url"></label>
+              <label>GitHub 链接<input name="githubUrl" type="url"></label><label>公开邮箱 <small>单独授权</small><input name="publicEmail" type="email"></label>
+              <label>校友去向 <small>单独授权</small><input name="destination" maxlength="500"></label><label>排序<input name="displayOrder" type="number" min="0" max="9999" value="0"></label>
+              <label class="wide">成员照片 <small>先在“媒体资源”上传、登记版权与人物授权并启用，再在此选择</small><select name="photoAssetId"><option value="">不显示照片</option></select></label>
+              <label class="wide">资料来源链接<input name="sourceUrl" type="url"></label><label class="wide">来源说明<textarea name="sourceNote" rows="2" placeholder="至少填写链接或说明其中一项"></textarea></label>
+            </div><div class="editor-actions"><button type="submit" class="primary">保存草稿</button><button id="member-check" type="button" disabled>核查当前修订</button><button id="member-publish" type="button" disabled>发布</button><button id="member-withdraw" type="button" disabled>撤回</button></div></form>
+            <div id="member-permissions" class="permissions" hidden><h3>公开授权</h3><p>每项授权都要填写可追溯的依据。撤销后公开接口立即隐藏相应字段；停用媒体图片也会立即隐藏照片。</p><label>授权依据<textarea id="member-evidence" rows="2" placeholder="负责人确认方式、日期等"></textarea></label><div id="member-permission-list"></div></div>
+            <p id="member-message" class="message" role="status"></p><div id="member-history" class="history"></div>
+          </div>
+        </section>
+        <section id="media-panel" hidden>
+          <div class="page-head"><div><div class="eyebrow">MEDIA LIBRARY</div><h1>媒体资源</h1><p>图片先上传为待核状态，完成来源、替代文本及授权记录后才能公开。</p></div></div>
+          <div class="card editor"><div class="card-head"><h2>上传图片</h2></div>
+            <form id="media-upload-form"><div class="fields">
+              <label class="wide">选择图片 <small>JPEG、PNG、WebP；最多 10 MB</small><input name="file" type="file" accept="image/jpeg,image/png,image/webp" required></label>
+              <label>中文替代文本<input name="altZh" maxlength="500" placeholder="描述图像内容"></label><label>英文替代文本<input name="altEn" maxlength="500"></label>
+              <label>摄影／图片署名<input name="credit" maxlength="300"></label><label class="wide">图片来源说明<textarea name="sourceNote" required rows="2" maxlength="2000"></textarea></label>
+            </div><div class="editor-actions"><button type="submit" class="primary">上传到待核媒体库</button></div></form><p id="media-upload-message" class="message" role="status"></p>
+          </div>
+          <div class="card"><div class="card-head"><h2>图片列表</h2><button id="media-refresh" type="button">刷新</button></div><div id="media-list" class="media-grid"></div></div>
+          <div id="media-editor" class="card editor" hidden><div class="card-head"><h2>图片资料与授权</h2><button id="media-close" type="button" class="quiet">收起</button></div>
+            <div class="media-detail"><img id="media-preview" alt="待核图片预览"><div><p id="media-status"></p><form id="media-meta-form"><div class="fields">
+              <label>中文替代文本<input name="altZh" maxlength="500" required></label><label>英文替代文本<input name="altEn" maxlength="500"></label>
+              <label>摄影／图片署名<input name="credit" maxlength="300" required></label><label class="wide">图片来源说明<textarea name="sourceNote" rows="2" maxlength="2000" required></textarea></label>
+            </div><div class="editor-actions"><button type="submit">保存图片资料</button></div></form>
+            <label>授权依据 <small>人物项可记录“无可识别人物”的核对依据</small><textarea id="media-evidence" rows="2" maxlength="2000"></textarea></label>
+            <div id="media-clearances" class="permission-list"></div>
+            <div class="editor-actions"><button id="media-activate" type="button" class="primary">启用公开图片</button><button id="media-disable" type="button">停用图片</button></div>
+            <p id="media-detail-message" class="message" role="status"></p><div id="media-usages" class="history"></div></div></div>
+          </div>
+        </section>
+        <section id="album-panel" hidden>
+          <div class="page-head"><div><div class="eyebrow">ACTIVITY GALLERY</div><h1>活动相册</h1><p>先在媒体库核对图片，再为活动设置封面、顺序和逐图说明。</p></div><button id="album-new" type="button" class="primary">＋ 新建相册</button></div>
+          <div class="card" id="album-list-card"><div class="card-head"><h2>相册列表</h2><input id="album-search" type="search" placeholder="搜索活动标题或标识" aria-label="搜索相册"></div><div id="album-list" class="list"></div></div>
+          <div class="card editor" id="album-editor-card" hidden><div class="card-head"><h2 id="album-editor-title">新建相册</h2><button id="album-close" type="button" class="quiet">返回列表</button></div>
+            <form id="album-form"><div class="fields">
+              <label>URL 标识 <small>创建后不可改</small><input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*"></label><label>语言<select name="locale"><option value="zh">中文</option><option value="en">English</option></select></label>
+              <label class="wide">活动标题<input name="title" required maxlength="200"></label><label class="wide">简介<textarea name="summary" required maxlength="1000" rows="2"></textarea></label>
+              <label class="wide">正文／活动记录<textarea name="body" maxlength="10000" rows="4"></textarea></label>
+              <label>活动日期<input name="activityDate" type="date" required></label><label>地点<input name="location" maxlength="300"></label>
+              <label class="wide">活动来源链接<input name="sourceUrl" type="url"></label><label class="wide">来源说明<textarea name="sourceNote" rows="2" maxlength="2000"></textarea></label>
+            </div><div class="album-image-head"><h3>相册图片 <small>第一张作为封面</small></h3><div><select id="album-asset-select" aria-label="选择已核准图片"></select><button id="album-add-image" type="button">添加图片</button></div></div><div id="album-images" class="album-images"></div>
+            <div class="editor-actions"><button type="submit" class="primary">保存草稿</button><button id="album-check" type="button" disabled>核查当前修订</button><button id="album-preview" type="button" disabled>预览</button><button id="album-publish" type="button" disabled>发布</button><button id="album-withdraw" type="button" disabled>撤回</button></div></form>
+            <p id="album-message" class="message" role="status"></p><div id="album-preview-box" class="preview" hidden></div><div id="album-history" class="history"></div>
+          </div>
+        </section>
+        <section id="settings-panel" hidden>
+          <div class="page-head"><div><div class="eyebrow">SITE IDENTITY</div><h1>站点设置</h1><p>名称、简介、联系信息和首页精选按语言分别核查发布；统计数字须附来源。</p></div></div>
+          <div class="card editor"><div class="card-head"><h2>实验室与首页资料</h2><span id="settings-status"></span></div>
+            <form id="settings-form"><div class="fields">
+              <label>语言<select name="locale"><option value="zh">中文</option><option value="en">English</option></select></label><label>实验室简称<input name="shortName" required maxlength="80" placeholder="SCALE Lab"></label>
+              <label class="wide">正式名称<input name="name" required maxlength="150"></label><label class="wide">实验室简介<textarea name="intro" required maxlength="3000" rows="4"></textarea></label>
+              <label class="wide">愿景／标语<textarea name="tagline" maxlength="500" rows="2"></textarea></label>
+              <label class="wide">首页标题 · 主文案 <small>换行会在页面形成分行；与强调文字同时填写</small><textarea name="heroTitleBefore" maxlength="300" rows="2" placeholder="以智能技术理解学习，&#10;让课堂可被"></textarea></label>
+              <label>首页标题 · 强调文字<input name="heroHighlight" maxlength="150" placeholder="测量、解释、优化"></label><label>首页标题 · 结尾<input name="heroTitleAfter" maxlength="150" placeholder="。"></label>
+              <label>文化页标题<input name="cultureTitle" maxlength="200" placeholder="严谨，也有温度。"></label><label class="wide">文化愿景 <small>与首页标语独立</small><textarea name="cultureVision" maxlength="1000" rows="2"></textarea></label>
+              <label class="wide">文化价值观 <small>每行：标题 | 说明；最多 6 项，按输入顺序展示</small><textarea name="cultureValuesText" rows="5" placeholder="严谨求知 | 以可复现、可解释的方法……"></textarea></label>
+              <label>所属单位<input name="department" maxlength="200"></label><label>大学名称<input name="university" maxlength="200"></label>
+              <label>办公地点<input name="location" maxlength="300"></label><label>公开联系邮箱<input name="contactEmail" type="email" maxlength="320" placeholder="待核实后填写"></label>
+              <label class="wide">Logo 图片 <small>只能选择媒体库中已核准的图片</small><select name="logoAssetId" id="settings-logo"><option value="">沿用当前文字标识</option></select></label>
+              <label class="wide">首页精选新闻标识 <small>逗号分隔，最多 5 项，须先发布</small><input name="newsSlugs" placeholder="news-one, news-two"></label>
+              <label class="wide">首页精选研究方向标识<input name="directionSlugs" placeholder="direction-one"></label>
+              <label class="wide">精选论文标识 <small>预留字段，当前首页尚未展示论文区</small><input name="publicationSlugs" placeholder="paper-one"></label>
+              <label class="wide">统计指标 <small>每行：数值 | 单位 | 名称 | 核验来源；最多 6 项。留空则隐藏统计区。</small><textarea name="statsText" rows="4" placeholder="3 | 项 | 在研项目 | 截至 2026 年……"></textarea></label>
+              <label class="wide">资料来源链接<input name="sourceUrl" type="url" placeholder="https://..."></label><label class="wide">来源说明<textarea name="sourceNote" rows="2" placeholder="至少填写链接或说明其中一项"></textarea></label>
+            </div><div class="editor-actions"><button type="submit" class="primary">保存草稿</button><button id="settings-check" type="button">核查当前修订</button><button id="settings-preview" type="button">预览</button><button id="settings-publish" type="button">发布</button><button id="settings-withdraw" type="button">撤回</button></div></form>
+            <p id="settings-message" class="message" role="status"></p><div id="settings-preview-box" class="preview" hidden></div><div id="settings-history" class="history"></div>
+          </div>
+        </section>
+        <section id="accounts-panel" hidden>
+          <div class="page-head"><div><div class="eyebrow">ACCESS MANAGEMENT</div><h1>账号管理</h1><p id="accounts-description">仅管理员可创建、停用账号和重置密码。启用账号最多 5 个；所有账号均可编辑和发布内容。</p></div></div>
+          <div class="card" id="account-users-card"><div class="card-head"><h2>后台账号</h2><button id="accounts-refresh" type="button">刷新</button></div><div id="accounts-list" class="list"></div></div>
+          <div class="card editor" id="account-create-card"><div class="card-head"><h2>新增专用账号</h2></div><form id="account-create-form"><div class="fields">
+            <label>登录名<input name="login" required pattern="[a-z][a-z0-9._-]{2,31}" autocomplete="off"></label>
+            <label>显示名<input name="displayName" required maxlength="100"></label>
+            <label>角色<select name="role"><option value="content_manager">内容人员</option><option value="admin">管理员</option></select></label>
+            <label>初始密码 <small>12–128 个字符，请通过可信渠道交给使用者</small><input name="password" type="password" required minlength="12" maxlength="128" autocomplete="new-password"></label>
+          </div><div class="editor-actions"><button type="submit" class="primary">创建账号</button></div></form><p id="account-create-message" class="message" role="status"></p></div>
+          <div class="card editor"><div class="card-head"><h2>修改本人密码</h2></div><form id="own-password-form"><div class="fields"><label>当前密码<input name="currentPassword" type="password" required autocomplete="current-password"></label><label>新密码<input name="newPassword" type="password" required minlength="12" maxlength="128" autocomplete="new-password"></label></div><div class="editor-actions"><button type="submit">更新密码并退出其他会话</button></div></form><p id="own-password-message" class="message" role="status"></p></div>
+        </section>
+        <section id="other-panel" class="card placeholder-panel" hidden><div class="eyebrow">UPCOMING MODULE</div><h1 id="other-title"></h1><p>该模块将在对应数据结构和编辑规则实现后接入。当前没有演示性保存按钮。</p></section>
+        <section id="audit-panel" hidden><div class="page-head"><div><div class="eyebrow">AUDIT TRAIL</div><h1>操作记录</h1><p>按人员、动作、内容或日期筛选最近 100 条记录。</p></div></div>
+          <div class="card"><form id="audit-filter-form"><div class="fields"><label>操作人<select name="actorId" id="audit-actor"><option value="">全部人员</option></select></label><label>动作<input name="action" placeholder="如 news.publish"></label><label>内容 ID<input name="contentId" placeholder="UUID"></label><label>开始日期<input name="from" type="date"></label><label>结束日期<input name="to" type="date"></label></div><div class="editor-actions"><button type="submit" class="primary">筛选</button><button id="refresh-audit" type="button">刷新</button></div></form><p id="audit-message" class="message" role="status"></p><div id="audit-list" class="list"></div></div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <script src="./app.js" defer></script>
+  <script src="./research-admin.js" defer></script>
+  <script src="./member-admin.js" defer></script>
+  <script src="./media-admin.js" defer></script>
+  <script src="./album-admin.js" defer></script>
+  <script src="./settings-admin.js" defer></script>
+  <script src="./accounts-admin.js" defer></script>
+</body>
+</html>

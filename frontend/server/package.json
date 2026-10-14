@@ -1,16 +1,32 @@
 {
   "name": "wangzhifeng-lab-server",
   "version": "0.1.0",
-  "description": "王志锋教授实验室内容 API（后端原型，对应 backend-design.md）",
-  "main": "server.js",
+  "description": "SCALE Lab 内容平台与公开网站",
+  "main": "platform.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node platform.js",
+    "dev": "node platform.js",
+    "db:migrate": "node db/migrate.js",
+    "db:bootstrap-admin": "node scripts/bootstrap-admin.js",
+    "data:audit": "node scripts/audit-legacy-data.js",
+    "test:smoke": "node tests/news-smoke.js",
+    "test:bilingual-news": "node tests/news-bilingual-smoke.js",
+    "test:research": "node tests/research-smoke.js",
+    "test:bilingual-research": "node tests/research-bilingual-smoke.js",
+    "test:members": "node tests/member-smoke.js",
+    "test:member-photo": "node tests/member-photo-smoke.js",
+    "test:bilingual-members": "node tests/member-bilingual-smoke.js",
+    "test:media-albums": "node tests/media-album-smoke.js",
+    "test:settings": "node tests/settings-smoke.js",
+    "test:accounts": "node tests/accounts-smoke.js"
   },
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "multer": "^2.4.0",
+    "pg": "^8.23.1",
+    "sharp": "^0.35.5"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.9"
   }
 }
