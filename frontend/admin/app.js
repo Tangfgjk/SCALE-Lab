@@ -35,7 +35,11 @@
     $("withdraw").disabled = !currentId || !published || dirty;
   }
   function resetEditor() {
-    form.reset(); form.elements.category.value = "news"; form.elements.happenedAt.value = new Date().toISOString().slice(0, 10);
+    form.reset();
+    var today = new Date();
+    var date = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, "0"), String(today.getDate()).padStart(2, "0")].join("-");
+    form.elements.happenedAt.value = date;
+    form.elements.slug.value = "news-" + date.replace(/-/g, "") + "-" + Math.floor(Math.random() * 36 ** 6).toString(36).padStart(6, "0");
     form.elements.slug.disabled = false; currentId = null; version = null; checked = false; published = false; dirty = false; activeLocale = "zh";
     $("editor-title").textContent = "新建新闻"; $("preview-box").hidden = true; $("history").textContent = ""; message(""); updateButtons();
     $("list-card").hidden = true; $("editor-card").hidden = false;
@@ -43,7 +47,7 @@
   async function openNews(id, locale) {
     try {
       var row = await api("/api/admin/v1/news/" + id + "?locale=" + (locale || "zh")); resetEditor(); currentId = row.id; version = row.version; checked = row.reviewState === "ready"; published = row.published; activeLocale = row.locale;
-      ["slug", "locale", "title", "summary", "body", "category", "sourceUrl", "sourceNote"].forEach(function (key) { form.elements[key].value = row[key] || ""; });
+      ["slug", "locale", "title", "summary", "body", "sourceUrl", "sourceNote"].forEach(function (key) { form.elements[key].value = row[key] || ""; });
       form.elements.happenedAt.value = String(row.happenedAt || "").slice(0, 10); form.elements.slug.disabled = true;
       dirty = false; $("editor-title").textContent = "编辑新闻 · " + (row.locale === "en" ? "English" : "中文") + " · v" + version; updateButtons(); loadHistory();
     } catch (error) { message(error.message, true); }
@@ -73,7 +77,7 @@
     event.preventDefault();
     try {
       var data = payload(), result = await api(currentId ? "/api/admin/v1/news/" + currentId + "/draft" : "/api/admin/v1/news", { method: currentId ? "PUT" : "POST", body: JSON.stringify(data) });
-      await openNews(result.id, data.locale); message("草稿已保存。当前语言版本尚未公开，请核查来源后发布。"); loadNews();
+      await openNews(result.id, data.locale); message("草稿已保存。当前语言版本尚未公开，请核查内容后发布。"); loadNews();
     } catch (error) { message(error.message, true); }
   });
   form.addEventListener("input", function (event) { if (event.target.name === "locale") return; dirty = true; updateButtons(); message("表单有未保存的改动，请先保存草稿。"); });

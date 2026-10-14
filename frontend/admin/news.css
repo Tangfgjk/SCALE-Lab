@@ -1,0 +1,43 @@
+.editor label .field-required,
+.editor label .field-optional {
+  display: inline-block;
+  margin-left: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #0e6484;
+}
+.editor label .field-optional { color: #607889; }
+.editor label .field-help {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #617789;
+}
+.editor .field-intro {
+  margin: 4px 0 -6px;
+  padding: 14px 16px;
+  border-left: 3px solid #4594a1;
+  background: #f2f8f8;
+  color: #496577;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.editor .field-intro strong { color: #183a50; }
+.workspace label .field-status {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #0e6484;
+}
+.workspace label .field-status.optional { color: #607889; }
+.workspace label .field-status.paired { color: #9b5c22; }
+.workspace label .field-guide-note {
+  display: block;
+  margin-top: 5px;
+  color: #617789;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+}

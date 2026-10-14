@@ -10,6 +10,7 @@
     "认识团队": "Meet the Team", "了解更多": "Learn More", "实验室研究概览": "Research Overview",
     "从学习数据到课堂现场，": "From learning data to real classrooms,", "持续探索更可信的教育智能。": "we pursue more trustworthy AI for education.",
     "浏览研究全貌": "Explore All Research", "研究方向": "Research Directions", "最新动态": "Latest News",
+    "新闻动态": "Lab News", "返回最新动态": "Back to Latest News",
     "实验室现场": "Lab in Action", "研究方向内容待发布。": "Research directions await publication.",
     "活动照片正在核验，暂无已授权公开的图片。": "Activity photos are under review; no cleared images have been published.",
     "暂无已发布新闻。": "No news has been published yet.", "更多内容后续通过内容后台发布。": "More updates will be published through the content system.",

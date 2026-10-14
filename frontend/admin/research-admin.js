@@ -102,8 +102,9 @@
     module = name; $("research-heading").textContent = configs[module].title;
     $("research-special-fields").innerHTML = configs[module].fields;
     form.elements.summary.required = module !== "directions";
-    form.elements.summary.closest("label").querySelector("small")?.remove();
-    if (module === "directions") form.elements.summary.closest("label").insertAdjacentHTML("beforeend", "<small>仅核准名称时留空；简介核准后再补充</small>");
+    form.elements.summary.closest("label").querySelector(".research-summary-help")?.remove();
+    if (module === "directions") form.elements.summary.insertAdjacentHTML("beforebegin", "<small class=\"field-guide-note research-summary-help\">仅核准名称时留空；简介核准后再补充。</small>");
+    window.refreshFieldGuide?.();
     $("research-editor-card").hidden = true; $("research-list-card").hidden = false;
     $("research-search").value = ""; list();
   } };

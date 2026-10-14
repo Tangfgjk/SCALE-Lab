@@ -174,9 +174,10 @@
 
   function renderNews(node, items) {
     node.innerHTML = items.map(function (n) {
+      var detailUrl = 'news.html?slug=' + encodeURIComponent(n.slug);
       return '<div class="news-item">' +
         '<div class="date">' + render(String(n.happenedAt || '').slice(0, 10)) + '</div>' +
-        '<div><h3>' + render(n.title) + '</h3><p>' + render(n.summary) + '</p></div>' +
+        '<div><h3><a class="news-title-link" href="' + esc(detailUrl) + '">' + render(n.title) + '</a></h3><p>' + render(n.summary) + '</p><a class="news-read-link" href="' + esc(detailUrl) + '">' + (language() === 'en' ? 'Read full story' : '阅读全文') + ' <span aria-hidden="true">↗</span></a></div>' +
       '</div>';
     }).join("");
   }

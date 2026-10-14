@@ -26,7 +26,6 @@ function input(body, creating = false) {
   if (!title || title.length > 200 || !summary || summary.length > 500 || !text || text.length > 30000) throw fail(400, "INVALID_CONTENT", "请填写标题、摘要和正文，并检查长度");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(happenedAt) || Number.isNaN(Date.parse(`${happenedAt}T00:00:00Z`))) throw fail(400, "INVALID_DATE", "请填写有效的事件日期");
   if (!category || category.length > 50) throw fail(400, "INVALID_CATEGORY", "分类无效");
-  if (!sourceUrl && !sourceNote) throw fail(400, "SOURCE_REQUIRED", "请填写事实来源链接或来源说明");
   if (sourceUrl && (!/^https?:\/\//i.test(sourceUrl) || sourceUrl.length > 2000)) throw fail(400, "INVALID_SOURCE_URL", "来源链接必须是 http(s) 地址");
   if (sourceNote.length > 2000) throw fail(400, "INVALID_SOURCE_NOTE", "来源说明过长");
   return { slug, locale, title, summary, body: text, happenedAt, category, sourceUrl, sourceNote };
@@ -43,7 +42,9 @@ async function addRevision(client, item, data, actor) {
     [revision.id, data.locale, data.title, data.summary, data.body]
   );
   await client.query("INSERT INTO news_revisions(revision_id,category,happened_at) VALUES($1,$2,$3)", [revision.id, data.category, data.happenedAt]);
-  await client.query("INSERT INTO content_sources(revision_id,source_url,source_note) VALUES($1,$2,$3)", [revision.id, data.sourceUrl || null, data.sourceNote || null]);
+  if (data.sourceUrl || data.sourceNote) {
+    await client.query("INSERT INTO content_sources(revision_id,source_url,source_note) VALUES($1,$2,$3)", [revision.id, data.sourceUrl || null, data.sourceNote || null]);
+  }
   await client.query("UPDATE content_items SET current_revision_id=$1,version=$2,updated_by=$3,updated_at=now() WHERE id=$4", [revision.id, version, actor, item.id]);
   await client.query("INSERT INTO audit_events(actor_id,action,content_id,revision_id) VALUES($1,'news.save',$2,$3)", [actor, item.id, revision.id]);
   return { id: item.id, slug: item.slug, version, revisionId: revision.id, locale: data.locale, reviewState: "unverified" };
@@ -145,10 +146,9 @@ admin.post("/news/:id/check", requireCsrf, wrap(async (req, res) => {
     const locale = req.body.locale || "zh";
     const row = await latestLocale(client, item, locale);
     if (!row) throw fail(409, "LOCALE_MISMATCH", "该语言尚无草稿，请先保存");
-    if (!row.source_url && !row.source_note) throw fail(409, "SOURCE_REQUIRED", "缺少事实来源");
     await client.query("UPDATE content_localizations SET review_state='ready',reviewed_by=$1,reviewed_at=now() WHERE revision_id=$2 AND locale=$3", [req.admin.id, row.revision_id, locale]);
     await client.query("UPDATE content_sources SET checked_by=$1,checked_at=now() WHERE revision_id=$2", [req.admin.id, row.revision_id]);
-    await client.query("INSERT INTO audit_events(actor_id,action,content_id,revision_id,detail_json) VALUES($1,'news.check',$2,$3,$4)", [req.admin.id, item.id, row.revision_id, JSON.stringify({ locale })]);
+    await client.query("INSERT INTO audit_events(actor_id,action,content_id,revision_id,detail_json) VALUES($1,'news.check',$2,$3,$4)", [req.admin.id, item.id, row.revision_id, JSON.stringify({ locale, sourceProvided: !!(row.source_url || row.source_note) })]);
     return { id: item.id, version: item.version, reviewState: "ready" };
   });
   response(req, res, result);
@@ -160,7 +160,7 @@ admin.post("/news/:id/publish", requireCsrf, wrap(async (req, res) => {
     const locale = req.body.locale || "zh";
     const row = await latestLocale(client, item, locale);
     if (!row) throw fail(409, "LOCALE_MISMATCH", "该语言尚无草稿，请先保存");
-    if (row.review_state !== "ready" || !row.checked_at) throw fail(409, "NOT_CHECKED", "请先核查当前修订的事实来源");
+    if (row.review_state !== "ready") throw fail(409, "NOT_CHECKED", "请先核查当前修订");
     if (locale === "en") await assertChineseFirst(client, item, row);
     await client.query(`INSERT INTO content_publications(content_id,locale,revision_id,published_by) VALUES($1,$2,$3,$4)
       ON CONFLICT(content_id,locale) DO UPDATE SET revision_id=excluded.revision_id,published_by=excluded.published_by,published_at=now()`, [item.id, locale, row.revision_id, req.admin.id]);
