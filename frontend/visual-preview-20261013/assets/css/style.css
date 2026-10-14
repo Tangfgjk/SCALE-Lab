@@ -339,7 +339,7 @@ section.block.tight { padding: 52px 0; }
 .project-details > div:last-child { grid-column: 1 / -1; }
 .project-details small { color: var(--ink-soft); font-size: 11px; }
 .project-details strong { color: var(--ink); font-size: 14px; font-weight: 600; }
-.project-details code { width: fit-content; background: var(--paper); border: 1px solid var(--line); padding: 2px 7px; border-radius: var(--radius-sm); font-size: 12px; }
+.project-details code { width: fit-content; background: var(--paper); color: var(--ink); border: 1px solid var(--line); padding: 2px 7px; border-radius: var(--radius-sm); font-size: 12px; }
 
 /* ============================== 新闻 ============================== */
 .news-item {
