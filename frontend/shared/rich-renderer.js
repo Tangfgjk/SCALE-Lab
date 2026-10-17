@@ -18,8 +18,11 @@
   }
 
   function safeLink(href) {
+    const value = String(href || "").trim();
+    if (!value || /[\u0000-\u0020]/.test(value)) return null;
+    if (/^\/(?![\/\\])/.test(value)) return value;
     try {
-      const url = new URL(String(href || ""), window.location.origin);
+      const url = new URL(value);
       return ["http:", "https:"].includes(url.protocol) ? url.href : null;
     } catch (_) { return null; }
   }

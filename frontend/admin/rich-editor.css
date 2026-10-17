@@ -10,7 +10,16 @@
 .rich-editor-surface p.is-editor-empty:first-child::before { color: #8aa0ad; content: "从这里开始写新闻正文……"; float: left; height: 0; pointer-events: none; }
 .rich-preview-panel { margin-top: 18px; padding: 18px 20px; border: 1px solid #d8e3e9; border-radius: 9px; background: #fbfdfe; }
 .preview-label { margin-bottom: 12px; color: #6b7d88; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-.rich-preview-panel .rich-document-preview { font-size: 16px; }
+.rich-preview-panel { --navy: #081b32; --ink: #0e1a2b; --ink-soft: #41526b; --cyan: #2192d4; --line: rgba(8, 27, 50, .12); --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif; --font-serif: "Songti SC", "STSong", "SimSun", "Noto Serif SC", Georgia, serif; container-type: inline-size; background: #f2f7ff; }
+.rich-preview-panel .news-article { margin: 0; }
+.rich-preview-panel .news-article-body { font-size: 17px; }
+.news-media-status { margin: 8px 0 0; color: #496577; font-size: 12px; }
+.news-media-status.error { color: #9b482c; }
+@container (max-width: 700px) {
+  .rich-preview-panel .news-article h1 { font-size: 32px; }
+  .rich-preview-panel .news-article-head { padding-bottom: 26px; }
+  .rich-preview-panel .news-article-body { padding-top: 24px; font-size: 16px; }
+}
 @media (max-width: 760px) {
   .rich-editor-surface { min-height: 220px; padding: 13px; }
   .rich-preview-panel { padding: 14px; }

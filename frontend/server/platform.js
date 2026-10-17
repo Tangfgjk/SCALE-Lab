@@ -70,6 +70,6 @@ app.use((error, req, res, next) => {
   res.status(status).json({ error: { code: error.code === "23505" ? "DUPLICATE" : error.code || "SERVER_ERROR", message }, requestId: req.requestId });
 });
 
-const port = Number(process.env.PORT || 3000);
+const port = Number(process.env.PORT || 3004);
 const host = process.env.HOST || "127.0.0.1";
 app.listen(port, host, () => console.log(`SCALE Lab platform: http://${host === "0.0.0.0" ? "127.0.0.1" : host}:${port}/`));

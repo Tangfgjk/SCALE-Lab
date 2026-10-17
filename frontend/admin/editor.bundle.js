@@ -20132,8 +20132,11 @@ img.ProseMirror-separator {
     };
   }
   function safeHref(value) {
+    const href = String(value || "").trim();
+    if (!href || /[\u0000-\u0020]/.test(href)) return null;
+    if (/^\/(?![\/\\])/.test(href)) return href;
     try {
-      const url = new URL(String(value || ""), window.location.origin);
+      const url = new URL(href);
       if (["http:", "https:"].includes(url.protocol)) return url.href;
     } catch (_) {
     }
@@ -20194,7 +20197,7 @@ img.ProseMirror-separator {
     button("\u4E24\u7AEF", "\u4E24\u7AEF\u5BF9\u9F50", () => editor.chain().focus().setTextAlign("justify").run());
     button("\u94FE\u63A5", "\u63D2\u5165\u6216\u7F16\u8F91\u94FE\u63A5", () => {
       const current = editor.getAttributes("link").href || "";
-      const value = window.prompt("\u8BF7\u8F93\u5165 http(s) \u94FE\u63A5", current);
+      const value = window.prompt("\u8BF7\u8F93\u5165 http(s) \u94FE\u63A5\u6216\u672C\u7AD9\u8DEF\u5F84\uFF08\u5982 /people.html\uFF09", current);
       if (value === null) return;
       if (!value.trim()) return editor.chain().focus().unsetLink().run();
       const href = safeHref(value);

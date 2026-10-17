@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="./accounts.css">
   <link rel="stylesheet" href="./rich-editor.css">
   <link rel="stylesheet" href="/shared/rich-renderer.css">
+  <link rel="stylesheet" href="/shared/news-article.css">
 </head>
 <body>
   <div id="login" class="login-screen">
@@ -53,14 +54,14 @@
               <label class="wide">标题 <small class="field-required">必填</small><small class="field-help">展示在首页最新动态和新闻详情页。</small><input name="title" required maxlength="200"></label>
               <label class="wide">摘要 <small class="field-required">必填</small><small class="field-help">首页最新动态展示的简短介绍，最多 500 字。</small><textarea name="summary" required maxlength="500" rows="2"></textarea></label>
               <div class="wide rich-editor-field">
-                <div><input name="coverAssetId" type="hidden"><button type="button" id="news-cover-pick">选择封面图片</button> <button type="button" id="news-cover-remove">移除封面</button><small id="news-cover-label">未设置封面</small></div>
+                <div><input name="coverAssetId" type="hidden"><button type="button" id="news-cover-pick">选择封面图片</button> <button type="button" id="news-cover-remove">移除封面</button><small id="news-cover-label">未设置封面</small><p id="news-media-status" class="news-media-status" role="status"></p></div>
                 <div class="field-label">正文 <small class="field-required">必填</small><small class="field-help">使用工具栏编辑标题层级、强调、列表、引用和链接；访客详情页会使用同一套正文渲染规则。</small></div>
                 <div id="news-rich-toolbar" class="rich-toolbar" role="toolbar" aria-label="新闻正文格式工具"></div>
                 <div id="news-rich-editor" class="rich-editor-surface" role="textbox" aria-multiline="true" aria-label="新闻正文编辑区"></div>
                 <textarea name="body" hidden aria-hidden="true"></textarea>
                 <input name="richText" type="hidden">
               </div>
-              <label class="wide">事件日期 <small class="field-required">必填</small><small class="field-help">事件实际发生的日期，首页按此日期排序；与发布操作时间不同。</small><input name="happenedAt" type="date" required></label>
+              <label class="wide">新闻日期 <small class="field-required">必填</small><small class="field-help">首页按此日期从新到旧排序。转载报道可填原文发布日期，实际活动日期写入正文；与后台发布操作时间不同。</small><input name="happenedAt" type="date" required></label>
               <p class="field-intro wide"><strong>核查依据 · 选填</strong><br>如有外部报道可填链接；也可用文字记录内部依据。两项均可留空，发布前仍需核对新闻内容。</p>
               <label class="wide">来源链接 <small class="field-optional">选填</small><small class="field-help">例如学校官网的活动报道；仅供后台核查。</small><input name="sourceUrl" type="url" placeholder="https://..."></label>
               <label class="wide">来源说明 <small class="field-optional">选填</small><small class="field-help">例如活动记录或组织者提供的信息；仅供后台核查。</small><textarea name="sourceNote" rows="2"></textarea></label>
@@ -68,8 +69,8 @@
               <div class="editor-actions"><button type="submit" class="primary">保存草稿</button><button type="button" id="check" disabled>核查当前修订</button><button type="button" id="preview" disabled>预览</button><button type="button" id="publish" disabled>发布</button><button type="button" id="withdraw" disabled>撤回</button></div></form>
             <p id="editor-message" class="message" role="status"></p>
             <label>预览宽度<select id="news-preview-size"><option value="desktop">桌面</option><option value="mobile">手机</option></select></label>
-            <div id="live-preview" class="rich-preview-panel"><div class="preview-label">实时预览 · 当前编辑内容</div><h2 id="news-live-title"></h2><p id="news-live-date"></p><p id="news-live-summary"></p><div id="news-live-cover" class="rich-document-preview"></div><div id="news-rich-preview" class="rich-document-preview"></div></div>
-            <div id="preview-box" class="preview" hidden></div><div id="history" class="history"></div>
+            <div id="live-preview" class="rich-preview-panel"><div class="preview-label">实时预览 · 当前编辑内容</div><article id="news-live-article" class="news-article"></article></div>
+            <div id="preview-box" class="rich-preview-panel" hidden><div class="preview-label">已保存修订预览</div><article id="news-saved-article" class="news-article"></article></div><div id="history" class="history"></div>
           </div>
         </section>
         <section id="research-panel" hidden>
@@ -194,7 +195,8 @@
     </div>
   </div>
   <script src="/shared/rich-renderer.js"></script>
-  <script src="./editor.bundle.js?v=20261015-media"></script>
+  <script src="/shared/news-article.js"></script>
+  <script src="./editor.bundle.js?v=20261015-editor-fix"></script>
   <script src="./app.js" defer></script>
   <script src="./research-admin.js" defer></script>
   <script src="./member-admin.js" defer></script>

@@ -29,13 +29,7 @@
       var result = await response.json();
       if (currentRequest !== requestNumber) return;
       var news = result.data;
-      document.getElementById("news-title").textContent = news.title;
-      document.getElementById("news-date").textContent = (en ? "Event date: " : "事件日期：") + news.happenedAt;
-      document.getElementById("news-summary").textContent = news.summary;
-      var body = document.getElementById("news-body");
-      window.ScaleRichRenderer.render(document.getElementById("news-cover"),{type:"doc",content:news.coverAssetId ? [{type:"image",attrs:{assetId:news.coverAssetId,width:"large",align:"center"}}] : []},{media:news.media,locale:en ? "en" : "zh"});
-      if (window.ScaleRichRenderer && news.richText) window.ScaleRichRenderer.render(body, news.richText, { className: "news-article-body rich-document",media:news.media,locale:en ? "en" : "zh" });
-      else body.textContent = news.body;
+      window.ScaleNewsArticle.render(article, news, { media: news.media, locale: en ? "en" : "zh" });
       document.title = news.title + " · SCALE Lab";
       document.querySelector('meta[name="description"]').content = news.summary;
       status.hidden = true;

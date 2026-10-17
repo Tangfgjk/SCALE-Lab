@@ -8,15 +8,7 @@
 .news-back:hover, .news-back:focus-visible { text-decoration: underline; text-underline-offset: 4px; }
 .news-detail-status { margin: 50px 0; color: var(--ink-soft); font-size: 18px; }
 .news-article { margin-top: 45px; }
-.news-article-head { padding-bottom: 36px; border-bottom: 1px solid var(--line); }
-.news-article-head .eyebrow { color: var(--cyan); font-size: 12px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
-.news-article h1 { max-width: 19em; margin: 20px 0; color: var(--navy); font-size: clamp(32px, 5vw, 52px); line-height: 1.3; }
-.news-article-date { margin: 0; color: var(--ink-soft); font-size: 14px; }
-.news-article-summary { max-width: 44em; margin: 32px 0 0; color: var(--ink); font-size: clamp(17px, 2vw, 21px); line-height: 1.85; }
-.news-article-body { max-width: 49em; padding-top: 35px; color: var(--ink); font-size: 17px; line-height: 2; white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 700px) {
   .news-detail-main { padding: 40px 0 70px; }
   .news-article { margin-top: 34px; }
-  .news-article-head { padding-bottom: 26px; }
-  .news-article-body { padding-top: 24px; font-size: 16px; line-height: 1.9; }
 }

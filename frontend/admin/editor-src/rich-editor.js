@@ -57,8 +57,12 @@ function legacyDocument(body) {
 }
 
 function safeHref(value) {
+  const href = String(value || "").trim();
+  if (!href || /[\u0000-\u0020]/.test(href)) return null;
+  // Keep site links relative so moving from localhost to the public domain does not change their destination.
+  if (/^\/(?![\/\\])/.test(href)) return href;
   try {
-    const url = new URL(String(value || ""), window.location.origin);
+    const url = new URL(href);
     if (["http:", "https:"].includes(url.protocol)) return url.href;
   } catch (_) { /* invalid links are omitted */ }
   return null;
@@ -120,7 +124,7 @@ function createToolbar(root, editor, controller) {
   button("两端", "两端对齐", () => editor.chain().focus().setTextAlign("justify").run());
   button("链接", "插入或编辑链接", () => {
     const current = editor.getAttributes("link").href || "";
-    const value = window.prompt("请输入 http(s) 链接", current);
+    const value = window.prompt("请输入 http(s) 链接或本站路径（如 /people.html）", current);
     if (value === null) return;
     if (!value.trim()) return editor.chain().focus().unsetLink().run();
     const href = safeHref(value);
