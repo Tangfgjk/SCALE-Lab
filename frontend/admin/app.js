@@ -4,6 +4,8 @@
   var $ = function (id) { return document.getElementById(id); };
   var form = $("news-form");
   var richEditor = null, newsMedia = {};
+  var currentPublished = false, busy = false, newsPage = 1, listRequest = 0;
+  var stateLabels = { draft: "草稿", ready: "已核查待发布", published: "已发布", changes: "有新草稿（旧版仍公开）" };
   function escapeHtml(value) { return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
   async function api(path, options, withMeta) {
     options = options || {};
@@ -17,26 +19,46 @@
   function message(text, error, target) { var node = $(target || "editor-message"); node.textContent = text; node.classList.toggle("error", !!error); }
   function showLogin() { $("login").hidden = false; $("workspace").hidden = true; csrf = ""; }
   function showWorkspace(user) { csrf = user.csrfToken; window.scaleAdmin.currentUser = user; $("user-name").textContent = user.displayName; $("account-users-card").hidden = user.role !== "admin"; $("account-create-card").hidden = user.role !== "admin"; $("accounts-description").textContent = user.role === "admin" ? "仅管理员可创建、停用账号和重置密码。启用账号最多 5 个；所有账号均可编辑和发布内容。" : "你可以在此修改自己的登录密码；其他账号由管理员维护。"; $("login").hidden = true; $("workspace").hidden = false; loadNews(); }
+  function publicLink(slug, locale) { return "/news.html?slug=" + encodeURIComponent(slug) + "&lang=" + (locale === "en" ? "en" : "zh"); }
   async function loadNews() {
+    var request = ++listRequest;
+    $("news-prev").disabled = true; $("news-next").disabled = true;
     try {
-      var rows = await api("/api/admin/v1/news?q=" + encodeURIComponent($("search").value));
+      var query = new URLSearchParams({q: $("search").value, state: $("news-state").value, sort: $("news-sort").value, page: newsPage, pageSize: 20});
+      var result = await api("/api/admin/v1/news?" + query, {}, true);
+      if (request !== listRequest) return;
+      var pages = Math.max(1, Math.ceil(result.meta.total / result.meta.pageSize));
+      if (newsPage > pages) { newsPage = pages; return loadNews(); }
+      $("news-page").textContent = "共 " + result.meta.total + " 条 · 第 " + newsPage + " / " + pages + " 页";
+      $("news-prev").disabled = newsPage <= 1; $("news-next").disabled = newsPage >= pages;
       var list = $("news-list"); list.replaceChildren();
-      if (!rows.length) { list.innerHTML = '<div class="empty">暂无新闻。点击“新建新闻”开始。</div>'; return; }
-      rows.forEach(function (row) {
+      if (!result.data.length) { list.innerHTML = '<div class="empty">没有符合条件的新闻，可调整搜索或状态筛选。</div>'; return; }
+      result.data.forEach(function (row) {
         var el = document.createElement("div"); el.className = "list-row";
-        el.innerHTML = '<div><strong>' + escapeHtml(row.title || row.slug) + '</strong><small>' + escapeHtml(row.slug) + ' · 修订 v' + row.version + ' · ' + escapeHtml(row.happened_at || "") + '</small></div><span class="status">' + (row.published_zh ? "已发布" : "草稿") + '</span>';
+        el.innerHTML = '<div><strong>' + escapeHtml(row.title || row.slug) + '</strong><small>' + escapeHtml(row.slug) + ' · 修订 v' + row.version + ' · 新闻日期 ' + escapeHtml(row.happened_at || "") + '</small></div><span class="status">' + escapeHtml(stateLabels[row.workflow_state]) + '</span>';
+        if (row.published_zh) { var link = document.createElement("a"); link.href = publicLink(row.slug,"zh"); link.target = "_blank"; link.rel = "noopener"; link.textContent = "查看公开页"; el.appendChild(link); }
         var button = document.createElement("button"); button.type = "button"; button.textContent = "编辑"; button.addEventListener("click", function () { openNews(row.id); }); el.appendChild(button); list.appendChild(el);
       });
-    } catch (error) { $("news-list").innerHTML = '<div class="empty">' + escapeHtml(error.message) + '</div>'; }
+    } catch (error) { if (request !== listRequest) return; $("news-page").textContent = "加载失败"; $("news-list").innerHTML = '<div class="empty">' + escapeHtml(error.message) + '</div>'; }
+  }
+  function setBusy(value) {
+    busy = value; form.inert = value; $("news-fields").disabled = value;
+    form.setAttribute("aria-busy", String(value));
+    ["new-news", "close-editor", "logout"].forEach(function(id) { $(id).disabled = value; });
+    updateButtons();
   }
   function updateButtons() {
     var mediaIssues = getMediaIssues();
-    $("check").disabled = !currentId || checked || dirty;
-    $("preview").disabled = !currentId || dirty;
-    $("publish").disabled = !currentId || !checked || dirty || mediaIssues.length > 0;
-    $("withdraw").disabled = !currentId || !published || dirty;
-    $("news-media-status").textContent = mediaIssues.length ? "有 " + mediaIssues.length + " 张图片已停用或授权不完整；请在媒体库处理后重新打开新闻。" : "";
+    $("news-save").disabled = busy;
+    $("check").disabled = busy || !currentId || checked || dirty;
+    $("preview").disabled = busy || !currentId || dirty;
+    $("publish").disabled = busy || currentPublished || !currentId || !checked || dirty || mediaIssues.length > 0;
+    $("withdraw").disabled = busy || !currentId || !published || dirty;
+    $("news-media-status").textContent = mediaIssues.length ? "以下图片已停用或授权不完整：" + mediaIssues.map(function(id) { return newsMedia[id]?.displayName || id; }).join("、") + "。请在媒体库处理后重新打开新闻。" : "";
     $("news-media-status").classList.toggle("error", mediaIssues.length > 0);
+    $("news-workflow").textContent = busy ? "正在处理，请稍候…" : dirty ? (published ? "有未保存改动；网站仍展示原公开版本。" : "有未保存改动，请先保存草稿。") : currentPublished ? "当前修订已公开。修改后保存草稿，再核查并发布才能更新网站。" : published ? "新草稿尚未发布；网站仍展示原公开版本。" : checked ? "当前修订已核查，可以发布。" : "草稿未公开：保存 → 核查当前修订 → 发布。";
+    $("news-public-link").hidden = !published;
+    if (published) $("news-public-link").href = publicLink(form.elements.slug.value, activeLocale);
   }
   function getMediaIssues() {
     var ids = new Set();
@@ -75,7 +97,7 @@
     var date = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, "0"), String(today.getDate()).padStart(2, "0")].join("-");
     form.elements.happenedAt.value = date;
     form.elements.slug.value = "news-" + date.replace(/-/g, "") + "-" + Math.floor(Math.random() * 36 ** 6).toString(36).padStart(6, "0");
-    form.elements.slug.disabled = false; currentId = null; version = null; checked = false; published = false; dirty = false; activeLocale = "zh";
+    form.elements.slug.disabled = false; currentId = null; version = null; checked = false; published = false; currentPublished = false; dirty = false; activeLocale = "zh";
     initRichEditor(null, "");
     renderLiveArticle();
     $("editor-title").textContent = "新建新闻"; $("preview-box").hidden = true; $("history").textContent = ""; message(""); updateButtons();
@@ -83,7 +105,7 @@
   }
   async function openNews(id, locale) {
     try {
-      var row = await api("/api/admin/v1/news/" + id + "?locale=" + (locale || "zh")); resetEditor(); currentId = row.id; version = row.version; checked = row.reviewState === "ready"; published = row.published; activeLocale = row.locale;
+      var row = await api("/api/admin/v1/news/" + id + "?locale=" + (locale || "zh")); resetEditor(); currentId = row.id; version = row.version; checked = row.reviewState === "ready"; published = row.published; currentPublished = row.currentPublished; activeLocale = row.locale;
       ["slug", "locale", "title", "summary", "sourceUrl", "sourceNote"].forEach(function (key) { form.elements[key].value = row[key] || ""; });
       newsMedia=row.media || {};form.elements.coverAssetId.value=row.coverAssetId || "";
       initRichEditor(row.richText, row.body || "");
@@ -120,7 +142,8 @@
   $("news-cover-remove").onclick=function(){form.elements.coverAssetId.value="";dirty=true;renderLiveArticle();};
   form.addEventListener("input",renderLiveArticle);
   async function operation(suffix, body, success) {
-    if (!currentId) return;
+    if (!currentId || busy || dirty) return;
+    setBusy(true);
     try {
       if (suffix === "/publish") {
         var fresh = await api("/api/admin/v1/news/" + currentId + "/preview?locale=" + activeLocale);
@@ -132,16 +155,17 @@
       await openNews(currentId, activeLocale); message(success); loadNews();
     }
     catch (error) { message(error.message, true); }
+    finally { setBusy(false); }
   }
   function hasUnsavedNews() { return !$("news-panel").hidden && !$("editor-card").hidden && dirty; }
-  function confirmLeaveNews() { return !hasUnsavedNews() || window.confirm("当前新闻有未保存的改动，离开将丢失。确定离开？"); }
+  function confirmLeaveNews() { if (busy) return false; return !hasUnsavedNews() || window.confirm("当前新闻有未保存的改动，离开将丢失。确定离开？"); }
   function closeNewsEditor() {
     dirty = false;
     $("editor-card").hidden = true;
     $("list-card").hidden = false;
   }
   window.addEventListener("beforeunload", function (event) {
-    if (!hasUnsavedNews()) return;
+    if (!hasUnsavedNews() && !busy) return;
     event.preventDefault(); event.returnValue = "";
   });
   $("login-form").addEventListener("submit", async function (event) {
@@ -152,13 +176,20 @@
   $("logout").addEventListener("click", async function () { if (!confirmLeaveNews()) return; try { await api("/api/admin/v1/session", { method: "DELETE" }); } finally { closeNewsEditor(); showLogin(); } });
   $("new-news").addEventListener("click", function () { if (confirmLeaveNews()) resetEditor(); });
   $("close-editor").addEventListener("click", function () { if (!confirmLeaveNews()) return; closeNewsEditor(); loadNews(); });
-  $("search").addEventListener("input", function () { clearTimeout(window.searchTimer); window.searchTimer = setTimeout(loadNews, 250); });
+  $("search").addEventListener("input", function () { clearTimeout(window.searchTimer); newsPage = 1; ++listRequest; window.searchTimer = setTimeout(loadNews, 250); });
+  ["news-state","news-sort"].forEach(function(id) { $(id).onchange = function() { newsPage = 1; loadNews(); }; });
+  $("news-prev").onclick = function() { newsPage--; loadNews(); };
+  $("news-next").onclick = function() { newsPage++; loadNews(); };
   form.addEventListener("submit", async function (event) {
     event.preventDefault();
+    if (busy) return;
+    // Read FormData before disabling its fieldset; disabled controls are omitted.
+    var data = payload(); setBusy(true);
     try {
-      var data = payload(), result = await api(currentId ? "/api/admin/v1/news/" + currentId + "/draft" : "/api/admin/v1/news", { method: currentId ? "PUT" : "POST", body: JSON.stringify(data) });
-      await openNews(result.id, data.locale); message("草稿已保存。当前语言版本尚未公开，请核查内容后发布。"); loadNews();
+      var result = await api(currentId ? "/api/admin/v1/news/" + currentId + "/draft" : "/api/admin/v1/news", { method: currentId ? "PUT" : "POST", body: JSON.stringify(data) });
+      await openNews(result.id, data.locale); message(published ? "新草稿已保存，网站仍展示原公开版本。核查并发布后才会更新。" : "草稿已保存，尚未公开。请核查后发布。"); loadNews();
     } catch (error) { message(error.message, true); }
+    finally { setBusy(false); }
   });
   form.addEventListener("input", function (event) { if (event.target.name === "locale" || event.target.name === "body" || event.target.name === "richText") return; dirty = true; updateButtons(); message("表单有未保存的改动，请先保存草稿。"); });
   form.elements.locale.addEventListener("change", function () {

@@ -77,7 +77,8 @@
     });
     var saved = "zh";
     try { saved = localStorage.getItem("scale-lab-language") || "zh"; } catch (error) { /* keep Chinese default */ }
-    setLanguage(saved);
+    var requested = new URLSearchParams(window.location.search).get("lang");
+    setLanguage(["zh", "en"].includes(requested) ? requested : saved);
     var dynamicObserver = new MutationObserver(function (records) {
       records.forEach(function (record) { Array.prototype.forEach.call(record.addedNodes, function (added) {
         function translateText(node) { var item = { node: node, original: node.nodeValue }; textNodes.push(item); if (document.documentElement.lang === "en") node.nodeValue = convert(item.original); }

@@ -9,6 +9,7 @@
     "db:migrate": "node db/migrate.js",
     "db:bootstrap-admin": "node scripts/bootstrap-admin.js",
     "data:audit": "node scripts/audit-legacy-data.js",
+    "test:news-workflow": "node tests/news-workflow-smoke.js",
     "test:smoke": "node tests/news-smoke.js",
     "test:bilingual-news": "node tests/news-bilingual-smoke.js",
     "test:research": "node tests/research-smoke.js",

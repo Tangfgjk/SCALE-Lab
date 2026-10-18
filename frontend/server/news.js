@@ -115,17 +115,29 @@ function versionOf(req, item) {
 admin.use(requireUser);
 admin.get("/news", wrap(async (req, res) => {
   const q = String(req.query.q || "").trim();
-  const result = await pool.query(`SELECT i.id,i.slug,i.status,i.version,i.created_at,i.updated_at,
-    l.title,l.summary,l.review_state,l.locale,to_char(n.happened_at,'YYYY-MM-DD') AS happened_at,
-    EXISTS(SELECT 1 FROM content_publications p WHERE p.content_id=i.id AND p.locale='zh') AS published_zh
+  const state = req.query.state || "all", sort = req.query.sort || "updated";
+  const page = Number(req.query.page || 1), pageSize = Number(req.query.pageSize || 100);
+  if (!["all","draft","ready","published","changes"].includes(state) || !["updated","date"].includes(sort) ||
+      !Number.isSafeInteger(page) || page < 1 || page > 1000000 || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100)
+    throw fail(400,"INVALID_FILTER","新闻筛选或分页参数无效");
+  const result = await pool.query(`WITH listing AS (
+    SELECT i.id,i.slug,i.status,i.version,i.created_at,i.updated_at,
+      l.title,l.summary,l.review_state,l.locale,to_char(n.happened_at,'YYYY-MM-DD') AS happened_at,
+      p.revision_id IS NOT NULL AS published_zh,
+      CASE WHEN p.revision_id=zh.id THEN 'published' WHEN p.revision_id IS NOT NULL THEN 'changes'
+        WHEN l.review_state='ready' THEN 'ready' ELSE 'draft' END AS workflow_state
     FROM content_items i LEFT JOIN LATERAL (
       SELECT r.id FROM content_revisions r JOIN content_localizations lc ON lc.revision_id=r.id AND lc.locale='zh'
       WHERE r.content_id=i.id ORDER BY r.version DESC LIMIT 1
     ) zh ON true LEFT JOIN content_localizations l ON l.revision_id=zh.id AND l.locale='zh'
     LEFT JOIN news_revisions n ON n.revision_id=zh.id
+    LEFT JOIN content_publications p ON p.content_id=i.id AND p.locale='zh'
     WHERE i.type='news' AND ($1='' OR i.slug ILIKE '%'||$1||'%' OR l.title ILIKE '%'||$1||'%')
-    ORDER BY i.updated_at DESC LIMIT 100`, [q]);
-  response(req, res, result.rows, { total: result.rowCount });
+  ), filtered AS (SELECT * FROM listing WHERE $2='all' OR workflow_state=$2),
+  paged AS (SELECT * FROM filtered ORDER BY ${sort === "date" ? "happened_at" : "updated_at"} DESC NULLS LAST,id DESC LIMIT $3 OFFSET $4)
+  SELECT (SELECT count(*)::int FROM filtered) AS total,
+    COALESCE((SELECT json_agg(paged) FROM paged),'[]'::json) AS rows`, [q,state,pageSize,(page-1)*pageSize]);
+  response(req, res, result.rows[0].rows, { total: result.rows[0].total, page, pageSize });
 }));
 admin.get("/news/:id", wrap(async (req, res) => {
   const item = (await pool.query("SELECT id,slug,status,version FROM content_items WHERE type='news' AND id=$1", [req.params.id])).rows[0];
@@ -133,13 +145,15 @@ admin.get("/news/:id", wrap(async (req, res) => {
   const locale = localeOf(req);
   const row = await latestLocale(pool, item, locale);
   const fallback = row || await latestLocale(pool, item, "zh");
+  const publication = await publishedFacts(pool, item, locale);
   response(req, res, {
     id: item.id, slug: item.slug, status: item.status, version: item.version, locale,
     revisionId: row?.revision_id || null, title: row?.title || "", summary: row?.summary || "", body: row?.body || "",
     reviewState: row?.review_state || "unverified", category: fallback?.category || "news", happenedAt: fallback?.happened_at || "",
     richText: row?.extra_json?.richText || null, sourceUrl: row?.source_url || "", sourceNote: row?.source_note || "", checkedAt: row?.checked_at || null,
     ...await revisionMedia(pool,row || {},locale,true),
-    published: !!(await publishedFacts(pool, item, locale))
+    published: !!publication, publishedRevisionId: publication?.revision_id || null,
+    currentPublished: !!publication && publication.revision_id === row?.revision_id
   });
 }));
 admin.get("/news/:id/revisions", wrap(async (req, res) => {

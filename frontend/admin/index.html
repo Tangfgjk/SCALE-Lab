@@ -46,9 +46,9 @@
       <main>
         <section id="news-panel">
           <div class="page-head"><div><div class="eyebrow">CONTENT MANAGEMENT</div><h1>新闻动态</h1><p>先创建中文新闻，再按语言分别保存、核查和发布。</p></div><button id="new-news" type="button" class="primary">＋ 新建新闻</button></div>
-          <div class="card" id="list-card"><div class="card-head"><h2>内容列表</h2><input id="search" type="search" placeholder="搜索标题或标识" aria-label="搜索新闻"></div><div id="news-list" class="list"></div></div>
+          <div class="card" id="list-card"><div class="card-head"><h2>内容列表</h2><input id="search" type="search" placeholder="搜索标题或标识" aria-label="搜索新闻"></div><div class="news-filters"><label>中文发布状态<select id="news-state"><option value="all">全部状态</option><option value="draft">草稿</option><option value="ready">已核查待发布</option><option value="published">已发布</option><option value="changes">有新草稿（旧版仍公开）</option></select></label><label>排序<select id="news-sort"><option value="updated">最近编辑在前</option><option value="date">新闻日期从新到旧</option></select></label></div><div id="news-list" class="list"></div><div class="news-pagination"><button id="news-prev" type="button">上一页</button><span id="news-page" role="status"></span><button id="news-next" type="button">下一页</button></div></div>
           <div class="card editor" id="editor-card" hidden><div class="card-head"><h2 id="editor-title">新建新闻</h2><button type="button" id="close-editor" class="quiet">返回列表</button></div>
-            <form id="news-form"><div class="fields">
+            <p id="news-workflow" class="message" role="status"></p><a id="news-public-link" target="_blank" rel="noopener" hidden>查看公开页 ↗</a><form id="news-form"><fieldset id="news-fields"><div class="fields">
               <label>URL 标识 <small class="field-required">必填</small><small class="field-help">已自动生成；创建前可修改，创建后固定。仅用英文小写、数字和连字符，构成新闻详情链接。</small><input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" title="仅支持英文小写字母、数字和连字符"></label>
               <label>语言 <small class="field-required">必填</small><small class="field-help">先创建中文版；英文版可在保存中文后添加。</small><select name="locale" required><option value="zh">中文</option><option value="en">English</option></select></label>
               <label class="wide">标题 <small class="field-required">必填</small><small class="field-help">展示在首页最新动态和新闻详情页。</small><input name="title" required maxlength="200"></label>
@@ -66,7 +66,7 @@
               <label class="wide">来源链接 <small class="field-optional">选填</small><small class="field-help">例如学校官网的活动报道；仅供后台核查。</small><input name="sourceUrl" type="url" placeholder="https://..."></label>
               <label class="wide">来源说明 <small class="field-optional">选填</small><small class="field-help">例如活动记录或组织者提供的信息；仅供后台核查。</small><textarea name="sourceNote" rows="2"></textarea></label>
             </div>
-              <div class="editor-actions"><button type="submit" class="primary">保存草稿</button><button type="button" id="check" disabled>核查当前修订</button><button type="button" id="preview" disabled>预览</button><button type="button" id="publish" disabled>发布</button><button type="button" id="withdraw" disabled>撤回</button></div></form>
+              <div class="editor-actions"><button id="news-save" type="submit" class="primary">保存草稿</button><button type="button" id="check" disabled>核查当前修订</button><button type="button" id="preview" disabled>预览</button><button type="button" id="publish" disabled>发布</button><button type="button" id="withdraw" disabled>撤回</button></div></fieldset></form>
             <p id="editor-message" class="message" role="status"></p>
             <label>预览宽度<select id="news-preview-size"><option value="desktop">桌面</option><option value="mobile">手机</option></select></label>
             <div id="live-preview" class="rich-preview-panel"><div class="preview-label">实时预览 · 当前编辑内容</div><article id="news-live-article" class="news-article"></article></div>
