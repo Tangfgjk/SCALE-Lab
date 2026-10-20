@@ -1,6 +1,7 @@
 "use strict";
 
 const express = require("express");
+const { listContent } = require("./content-list");
 const { pool, transaction } = require("./db/pool");
 const { requireUser, requireCsrf } = require("./auth");
 const { richTextOf, plainTextOf, imageIds, uuid } = require("./rich-text");
@@ -25,16 +26,18 @@ function input(body, creating = false) {
   const normalizedBody = richText ? plainTextOf(richText) : text;
   const happenedAt = String(body.happenedAt || "").trim();
   const category = String(body.category || "news").trim();
+  const location = String(body.location || "").trim();
+  if (location.length > 300) throw fail(400,"INVALID_LOCATION","地点最多 300 字");
   const sourceUrl = String(body.sourceUrl || "").trim();
   const sourceNote = String(body.sourceNote || "").trim();
   if (creating && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw fail(400, "INVALID_SLUG", "标识只能使用英文小写、数字和连字符");
   if (!["zh", "en"].includes(locale)) throw fail(400, "INVALID_LOCALE", "语言只能是 zh 或 en");
-  if (!title || title.length > 200 || !summary || summary.length > 500 || !normalizedBody || normalizedBody.length > 30000) throw fail(400, "INVALID_CONTENT", "请填写标题、摘要和正文，并检查长度");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(happenedAt) || Number.isNaN(Date.parse(`${happenedAt}T00:00:00Z`))) throw fail(400, "INVALID_DATE", "请填写有效的事件日期");
-  if (!category || category.length > 50) throw fail(400, "INVALID_CATEGORY", "分类无效");
+  if (!title || title.length > 200 || !summary || summary.length > (category === "activity" ? 1000 : 500) || !normalizedBody || normalizedBody.length > 30000) throw fail(400, "INVALID_CONTENT", "请填写标题、摘要和正文，并检查长度");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(happenedAt) || (Number.isNaN(Date.parse(`${happenedAt}T00:00:00Z`)) || new Date(`${happenedAt}T00:00:00Z`).toISOString().slice(0,10)!==happenedAt)) throw fail(400, "INVALID_DATE", "请填写有效的事件日期");
+  if (!["news","activity"].includes(category)) throw fail(400, "INVALID_CATEGORY", "分类无效");
   if (sourceUrl && (!/^https?:\/\//i.test(sourceUrl) || sourceUrl.length > 2000)) throw fail(400, "INVALID_SOURCE_URL", "来源链接必须是 http(s) 地址");
   if (sourceNote.length > 2000) throw fail(400, "INVALID_SOURCE_NOTE", "来源说明过长");
-  return { slug, locale, title, summary, body: normalizedBody, richText, coverAssetId, happenedAt, category, sourceUrl, sourceNote };
+  return { slug, locale, title, summary, body: normalizedBody, richText, coverAssetId, happenedAt, category, location, sourceUrl, sourceNote };
 }
 
 async function assertMedia(client, ids, publish = false) {
@@ -74,7 +77,7 @@ async function addRevision(client, item, data, actor) {
     "INSERT INTO content_localizations(revision_id,locale,title,summary,body,extra_json) VALUES($1,$2,$3,$4,$5,$6)",
     [revision.id, data.locale, data.title, data.summary, data.body, JSON.stringify(data.richText ? { richText: data.richText } : {})]
   );
-  await client.query("INSERT INTO news_revisions(revision_id,category,happened_at,cover_asset_id) VALUES($1,$2,$3,$4)", [revision.id, data.category, data.happenedAt,data.coverAssetId]);
+  await client.query("INSERT INTO news_revisions(revision_id,category,happened_at,cover_asset_id,location) VALUES($1,$2,$3,$4,$5)", [revision.id, data.category, data.happenedAt,data.coverAssetId,data.location]);
   for (const [position,id] of bodyIds.entries()) await client.query("INSERT INTO news_revision_assets(revision_id,asset_id,purpose,position) VALUES($1,$2,'body',$3)",[revision.id,id,position]);
   if(data.coverAssetId) await client.query("INSERT INTO news_revision_assets(revision_id,asset_id,purpose,position) VALUES($1,$2,'cover',0)",[revision.id,data.coverAssetId]);
   if (data.sourceUrl || data.sourceNote) {
@@ -92,7 +95,7 @@ async function lockedItem(client, id) {
 }
 async function latestLocale(client, item, locale) {
   return (await client.query(`SELECT r.id AS revision_id,r.version,l.locale,l.title,l.summary,l.body,l.extra_json,l.review_state,
-    n.category,n.cover_asset_id,to_char(n.happened_at,'YYYY-MM-DD') AS happened_at,s.source_url,s.source_note,s.checked_at
+    n.category,n.location,n.cover_asset_id,to_char(n.happened_at,'YYYY-MM-DD') AS happened_at,s.source_url,s.source_note,s.checked_at
     FROM content_revisions r JOIN content_localizations l ON l.revision_id=r.id AND l.locale=$2
     JOIN news_revisions n ON n.revision_id=r.id LEFT JOIN content_sources s ON s.revision_id=r.id
     WHERE r.content_id=$1 ORDER BY r.version DESC LIMIT 1`, [item.id, locale])).rows[0] || null;
@@ -114,30 +117,8 @@ function versionOf(req, item) {
 
 admin.use(requireUser);
 admin.get("/news", wrap(async (req, res) => {
-  const q = String(req.query.q || "").trim();
-  const state = req.query.state || "all", sort = req.query.sort || "updated";
-  const page = Number(req.query.page || 1), pageSize = Number(req.query.pageSize || 100);
-  if (!["all","draft","ready","published","changes"].includes(state) || !["updated","date"].includes(sort) ||
-      !Number.isSafeInteger(page) || page < 1 || page > 1000000 || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100)
-    throw fail(400,"INVALID_FILTER","新闻筛选或分页参数无效");
-  const result = await pool.query(`WITH listing AS (
-    SELECT i.id,i.slug,i.status,i.version,i.created_at,i.updated_at,
-      l.title,l.summary,l.review_state,l.locale,to_char(n.happened_at,'YYYY-MM-DD') AS happened_at,
-      p.revision_id IS NOT NULL AS published_zh,
-      CASE WHEN p.revision_id=zh.id THEN 'published' WHEN p.revision_id IS NOT NULL THEN 'changes'
-        WHEN l.review_state='ready' THEN 'ready' ELSE 'draft' END AS workflow_state
-    FROM content_items i LEFT JOIN LATERAL (
-      SELECT r.id FROM content_revisions r JOIN content_localizations lc ON lc.revision_id=r.id AND lc.locale='zh'
-      WHERE r.content_id=i.id ORDER BY r.version DESC LIMIT 1
-    ) zh ON true LEFT JOIN content_localizations l ON l.revision_id=zh.id AND l.locale='zh'
-    LEFT JOIN news_revisions n ON n.revision_id=zh.id
-    LEFT JOIN content_publications p ON p.content_id=i.id AND p.locale='zh'
-    WHERE i.type='news' AND ($1='' OR i.slug ILIKE '%'||$1||'%' OR l.title ILIKE '%'||$1||'%')
-  ), filtered AS (SELECT * FROM listing WHERE $2='all' OR workflow_state=$2),
-  paged AS (SELECT * FROM filtered ORDER BY ${sort === "date" ? "happened_at" : "updated_at"} DESC NULLS LAST,id DESC LIMIT $3 OFFSET $4)
-  SELECT (SELECT count(*)::int FROM filtered) AS total,
-    COALESCE((SELECT json_agg(paged) FROM paged),'[]'::json) AS rows`, [q,state,pageSize,(page-1)*pageSize]);
-  response(req, res, result.rows[0].rows, { total: result.rows[0].total, page, pageSize });
+  const result = await listContent("news", req.query);
+  response(req, res, result.data, result.meta);
 }));
 admin.get("/news/:id", wrap(async (req, res) => {
   const item = (await pool.query("SELECT id,slug,status,version FROM content_items WHERE type='news' AND id=$1", [req.params.id])).rows[0];
@@ -149,7 +130,7 @@ admin.get("/news/:id", wrap(async (req, res) => {
   response(req, res, {
     id: item.id, slug: item.slug, status: item.status, version: item.version, locale,
     revisionId: row?.revision_id || null, title: row?.title || "", summary: row?.summary || "", body: row?.body || "",
-    reviewState: row?.review_state || "unverified", category: fallback?.category || "news", happenedAt: fallback?.happened_at || "",
+    reviewState: row?.review_state || "unverified", category: fallback?.category || "news", location: row?.location || "", happenedAt: fallback?.happened_at || "",
     richText: row?.extra_json?.richText || null, sourceUrl: row?.source_url || "", sourceNote: row?.source_note || "", checkedAt: row?.checked_at || null,
     ...await revisionMedia(pool,row || {},locale,true),
     published: !!publication, publishedRevisionId: publication?.revision_id || null,
@@ -168,7 +149,7 @@ admin.get("/news/:id/preview", wrap(async (req, res) => {
   if (!item) throw fail(404, "NOT_FOUND", "新闻不存在");
   const row = await latestLocale(pool, item, localeOf(req));
   if (!row) throw fail(404, "NOT_FOUND", "预览内容不存在");
-  response(req, res, { slug: item.slug, version: row.version, locale: row.locale, title: row.title, summary: row.summary, body: row.body, richText: row.extra_json?.richText || null, category: row.category, happenedAt: row.happened_at,...await revisionMedia(pool,row,row.locale,true) });
+  response(req, res, { slug: item.slug, version: row.version, locale: row.locale, title: row.title, summary: row.summary, body: row.body, richText: row.extra_json?.richText || null, category: row.category, location: row.location, happenedAt: row.happened_at,...await revisionMedia(pool,row,row.locale,true) });
 }));
 admin.post("/news", requireCsrf, wrap(async (req, res) => {
   const data = input(req.body, true);
@@ -262,24 +243,59 @@ admin.get("/audit-events", wrap(async (req, res) => {
   response(req, res, result.rows);
 }));
 
+// Public activity collection uses the same revisions and renderer as news.
+publicApi.get("/activities", wrap(async (req,res) => {
+  const locale=localeOf(req);
+  const result=await pool.query(`SELECT i.slug,l.title,l.summary,l.body,l.extra_json,n.location,n.cover_asset_id,
+    to_char(n.happened_at,'YYYY-MM-DD') AS "activityDate"
+    FROM content_publications p JOIN content_items i ON i.id=p.content_id
+    JOIN content_localizations l ON l.revision_id=p.revision_id AND l.locale=p.locale
+    JOIN news_revisions n ON n.revision_id=p.revision_id
+    WHERE i.type='news' AND n.category='activity' AND p.locale=$1
+    ORDER BY n.happened_at DESC,p.published_at DESC,i.id DESC`,[locale]);
+  const rows=await Promise.all(result.rows.map(async row=>{
+    const richText=row.extra_json?.richText || null;
+    const assets=await revisionMedia(pool,row,locale);
+    const captions=new Map();
+    function visit(node){if(node?.type==='image') captions.set(node.attrs.assetId,node.attrs.caption || ''); (node?.content || []).forEach(visit);}
+    visit(richText);
+    const ids=[...new Set([row.cover_asset_id,...imageIds(richText)].filter(Boolean))];
+    const images=ids.filter(id=>assets.media[id]).map(id=>({...assets.media[id],caption:captions.get(id) || ''}));
+    return {slug:row.slug,title:row.title,summary:row.summary,body:row.body,location:row.location,
+      activityDate:row.activityDate,richText,...assets,cover:assets.cover || images[0] || null,images};
+  }));
+  res.set('Cache-Control','no-store');
+  response(req,res,rows,{total:rows.length});
+}));
+
 publicApi.get("/news", wrap(async (req, res) => {
   const locale = localeOf(req);
   const result = await pool.query(`SELECT i.slug,l.title,l.summary,l.body,n.category,to_char(n.happened_at,'YYYY-MM-DD') AS "happenedAt",p.published_at AS "publishedAt"
     FROM content_publications p JOIN content_items i ON i.id=p.content_id
     JOIN content_localizations l ON l.revision_id=p.revision_id AND l.locale=p.locale
     JOIN news_revisions n ON n.revision_id=p.revision_id
-    WHERE i.type='news' AND p.locale=$1 ORDER BY n.happened_at DESC,p.published_at DESC LIMIT 100`, [locale]);
+    WHERE i.type='news' AND n.category<>'activity' AND p.locale=$1 ORDER BY n.happened_at DESC,p.published_at DESC,i.id DESC`, [locale]);
   response(req, res, result.rows, { total: result.rowCount });
 }));
-publicApi.get("/news/:slug", wrap(async (req, res) => {
-  const result = await pool.query(`SELECT i.slug,l.title,l.summary,l.body,l.extra_json,n.cover_asset_id,n.category,to_char(n.happened_at,'YYYY-MM-DD') AS "happenedAt",p.published_at AS "publishedAt"
+publicApi.get(["/news/:slug","/activities/:slug"], wrap(async (req, res) => {
+  const result = await pool.query(`SELECT i.slug,l.title,l.summary,l.body,l.extra_json,n.location,n.cover_asset_id,n.category,to_char(n.happened_at,'YYYY-MM-DD') AS "happenedAt",p.published_at AS "publishedAt"
     FROM content_publications p JOIN content_items i ON i.id=p.content_id
     JOIN content_localizations l ON l.revision_id=p.revision_id AND l.locale=p.locale
     JOIN news_revisions n ON n.revision_id=p.revision_id
     WHERE i.type='news' AND i.slug=$1 AND p.locale=$2`, [req.params.slug, localeOf(req)]);
   if (!result.rowCount) throw fail(404, "NOT_FOUND", "内容不存在或尚未发布");
-  const row = result.rows[0]; row.richText = row.extra_json?.richText || null;
+  const row = result.rows[0];
+  if(req.path.startsWith("/activities/") && row.category!=="activity") throw fail(404,"NOT_FOUND","活动不存在或尚未发布");
+  row.richText = row.extra_json?.richText || null;
   Object.assign(row,await revisionMedia(pool,row,localeOf(req)));
+  if(req.path.startsWith("/activities/")) {
+    row.activityDate=row.happenedAt;
+    const captions=new Map();
+    function visit(node){if(node?.type==='image') captions.set(node.attrs.assetId,node.attrs.caption || ''); (node?.content || []).forEach(visit);}
+    visit(row.richText);
+    row.images=[...new Set([row.coverAssetId,...imageIds(row.richText)].filter(Boolean))].filter(id=>row.media[id]).map(id=>({...row.media[id],caption:captions.get(id) || ''}));
+    row.cover ||= row.images[0] || null;
+  }
   delete row.extra_json; delete row.cover_asset_id;
   res.set("Cache-Control","no-store");
   response(req, res, row);

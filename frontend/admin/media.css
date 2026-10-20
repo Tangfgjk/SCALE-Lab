@@ -14,3 +14,5 @@
 .media-picker .fields{margin-top:18px}.media-picker summary,details.card>summary{cursor:pointer;font-weight:700;padding:12px 0}
 .media-picker .media-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 @media(max-width:600px){.media-picker{padding:14px}.media-browser-tools label{min-width:110px}.media-pages{font-size:13px}}
+.album-preview-body { margin: 24px 0; line-height: 1.95; white-space: normal; }
+.album-preview-body p { margin: 0 0 18px; }

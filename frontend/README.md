@@ -89,3 +89,10 @@ npm run test:accounts
 ## 发布前仍需完成
 
 选择云服务器、域名和 HTTPS 反向代理，设置生产密钥与独立账号，演练 PostgreSQL 与 `server/storage/media/` 的备份恢复；补齐真实内容、英文译文、分页和完整可访问性回归。当前 `platform.js` 仅监听本机 `127.0.0.1`，不能直接视为已完成公网部署。
+
+
+### 2026-10-20：新闻/活动统一编辑
+
+活动不再单独编辑，使用后台“新闻/活动”的发布位置选择。运行前执行包含011的数据库迁移；历史活动、照片和状态会保留。公开活动集合仍为 `/api/v1/activities`，详情共用 `/news.html?slug=…`，旧后台 `/api/admin/v1/activities` 返回410。新回归 `npm run test:news-activities`；`test:media-albums` 别名已改为统一流程。
+
+图文编辑器源文件为 `admin/editor-src/rich-editor.js`，在 `admin` 执行 `npm run build` 生成bundle。支持跨文字图片选择、全选、复制剪切粘贴与撤销；图片调整位置使用剪切/粘贴。共享回到顶部组件在 `shared/back-to-top.js` 和 `.css`。

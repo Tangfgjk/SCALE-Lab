@@ -1,6 +1,7 @@
 "use strict";
 
 const express = require("express");
+const { listContent } = require("./content-list");
 const { pool, transaction } = require("./db/pool");
 const { requireUser, requireCsrf } = require("./auth");
 const { activeAsset, publicAsset } = require("./media");
@@ -18,6 +19,7 @@ function input(body, creating) {
   const value = {
     locale: body.locale || "zh",
     slug: trim(body.slug, 100).toLowerCase(), nameZh: trim(body.nameZh, 100), nameEn: trim(body.nameEn, 100),
+    profileDetails: trim(body.profileDetails, 20000),
     category: trim(body.category, 30), role: trim(body.role, 200), bio: trim(body.bio, 10000),
     interests: body.interests, homepageUrl: trim(body.homepageUrl, 2000), orcidUrl: trim(body.orcidUrl, 2000),
     githubUrl: trim(body.githubUrl, 2000), publicEmail: trim(body.publicEmail, 320),
@@ -28,7 +30,8 @@ function input(body, creating) {
   if (!["zh", "en"].includes(value.locale)) throw fail(400, "INVALID_LOCALE", "语言只能是 zh 或 en");
   if (creating && value.locale !== "zh") throw fail(409, "CHINESE_REQUIRED", "请先创建中文成员档案");
   if (!value.nameZh || value.nameZh.length > 100 || value.nameEn.length > 100 || !value.role || value.role.length > 200 || value.bio.length > 10000) throw fail(400, "INVALID_MEMBER", "请填写姓名和角色，并检查长度");
-  if (!["advisor", "researcher", "student", "alumni"].includes(value.category)) throw fail(400, "INVALID_CATEGORY", "成员类别无效");
+  if (value.profileDetails.length > 20000) throw fail(400, "INVALID_DETAILS", "成员详情最多20000字");
+  if (!["advisor", "researcher", "postdoc", "student", "alumni"].includes(value.category)) throw fail(400, "INVALID_CATEGORY", "成员类别无效");
   if (!Array.isArray(value.interests) || value.interests.length > 30 || value.interests.some(item => typeof item !== "string" || !item.trim() || item.length > 100)) throw fail(400, "INVALID_INTERESTS", "研究兴趣应为简短条目数组");
   if (![value.homepageUrl, value.orcidUrl, value.githubUrl, value.sourceUrl].every(validUrl)) throw fail(400, "INVALID_URL", "链接须为有效的 http(s) 地址");
   if (value.publicEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.publicEmail)) throw fail(400, "INVALID_EMAIL", "邮箱格式无效");
@@ -48,7 +51,7 @@ function version(req, item) {
 async function saveRevision(client, item, value, actor) {
   const nextVersion = item.version + 1;
   const rev = (await client.query("INSERT INTO content_revisions(content_id,version,changed_by) VALUES($1,$2,$3) RETURNING id", [item.id, nextVersion, actor])).rows[0];
-  await client.query("INSERT INTO content_localizations(revision_id,locale,title,summary,body) VALUES($1,$2,$3,$4,$5)", [rev.id, value.locale, value.nameZh, value.role, value.bio]);
+  await client.query("INSERT INTO content_localizations(revision_id,locale,title,summary,body,extra_json) VALUES($1,$2,$3,$4,$5,$6)", [rev.id, value.locale, value.nameZh, value.role, value.bio, JSON.stringify({profileDetails:value.profileDetails})]);
   await client.query(`INSERT INTO member_revisions(revision_id,category,name_en,member_role,interests,homepage_url,orcid_url,github_url,public_email,destination,display_order,photo_asset_id)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`, [rev.id, value.category, value.nameEn, value.role, JSON.stringify(value.interests), value.homepageUrl || null, value.orcidUrl || null, value.githubUrl || null, value.publicEmail || null, value.destination || null, value.displayOrder, value.photoAssetId || null]);
   await client.query("INSERT INTO content_sources(revision_id,source_url,source_note) VALUES($1,$2,$3)", [rev.id, value.sourceUrl || null, value.sourceNote || null]);
@@ -58,7 +61,7 @@ async function saveRevision(client, item, value, actor) {
 }
 async function details(client, id, locale = "zh", published = false) {
   const revisionJoin = published ? "JOIN content_publications p ON p.content_id=i.id AND p.locale=$2 JOIN content_revisions r ON r.id=p.revision_id" : "JOIN LATERAL (SELECT r.* FROM content_revisions r JOIN content_localizations lc ON lc.revision_id=r.id AND lc.locale=$2 WHERE r.content_id=i.id ORDER BY r.version DESC LIMIT 1) r ON true";
-  return (await client.query(`SELECT i.id,i.slug,i.status,i.version,r.id AS "revisionId",l.title AS "nameZh",l.body AS bio,l.review_state AS "reviewState",
+  return (await client.query(`SELECT i.id,i.slug,i.status,i.version,r.id AS "revisionId",l.title AS "nameZh",l.body AS bio,COALESCE(l.extra_json->>'profileDetails','') AS "profileDetails",l.review_state AS "reviewState",
     m.category,m.name_en AS "nameEn",m.member_role AS role,m.interests,m.homepage_url AS "homepageUrl",m.orcid_url AS "orcidUrl",m.github_url AS "githubUrl",
     m.public_email AS "publicEmail",m.destination,m.display_order AS "displayOrder",m.photo_asset_id AS "photoAssetId",s.source_url AS "sourceUrl",s.source_note AS "sourceNote",s.checked_at AS "checkedAt"
     FROM content_items i ${revisionJoin} JOIN content_localizations l ON l.revision_id=r.id AND l.locale=$2
@@ -75,10 +78,12 @@ async function permissions(client, id) {
   const result = await client.query("SELECT field,permitted,evidence_note AS \"evidenceNote\",changed_at AS \"changedAt\" FROM member_permissions WHERE content_id=$1", [id]);
   return Object.fromEntries(fields.map(field => [field, result.rows.find(row => row.field === field) || { field, permitted: false, evidenceNote: null }]));
 }
-function publicShape(row, permission, photo) {
+function publicShape(row, permission, photo, includeDetails = false) {
   return {
     slug: row.slug, category: row.category, nameZh: row.nameZh, nameEn: row.nameEn, role: row.role,
-    bio: permission.bio?.permitted ? row.bio : "", interests: row.interests, tags: row.interests,
+    bio: permission.bio?.permitted ? row.bio : "",
+    hasDetails: !!(permission.bio?.permitted && row.profileDetails),
+    ...(includeDetails ? {profileDetails: permission.bio?.permitted ? row.profileDetails || "" : ""} : {}), interests: row.interests, tags: row.interests,
     homepage: row.homepageUrl || "", links: { orcid: row.orcidUrl || "", github: row.githubUrl || "", email: permission.email?.permitted ? row.publicEmail || "" : "" },
     destination: permission.destination?.permitted ? row.destination || "" : "",
     photo: permission.photo?.permitted && photo ? publicAsset(photo).url : "", displayOrder: row.displayOrder
@@ -87,16 +92,8 @@ function publicShape(row, permission, photo) {
 
 admin.use(requireUser);
 admin.get("/", wrap(async (req, res) => {
-  const q = trim(req.query.q, 100);
-  const result = await pool.query(`SELECT i.id,i.slug,i.version,i.status,l.title AS "nameZh",m.category,
-    EXISTS(SELECT 1 FROM content_publications p WHERE p.content_id=i.id AND p.locale='zh') AS published
-    FROM content_items i JOIN LATERAL (
-      SELECT r.id FROM content_revisions r JOIN content_localizations lc ON lc.revision_id=r.id AND lc.locale='zh'
-      WHERE r.content_id=i.id ORDER BY r.version DESC LIMIT 1
-    ) zh ON true JOIN content_localizations l ON l.revision_id=zh.id AND l.locale='zh'
-    JOIN member_revisions m ON m.revision_id=zh.id
-    WHERE i.type='member' AND ($1='' OR i.slug ILIKE '%'||$1||'%' OR l.title ILIKE '%'||$1||'%') ORDER BY m.display_order,i.updated_at DESC LIMIT 100`, [q]);
-  send(req, res, result.rows, { total: result.rowCount });
+  const result = await listContent("member", req.query);
+  send(req, res, result.data, result.meta);
 }));
 admin.post("/", requireCsrf, wrap(async (req, res) => {
   const value = input(req.body, true);
@@ -111,7 +108,7 @@ admin.get("/:id", wrap(async (req, res) => {
   const row = await details(pool, req.params.id, locale);
   const chinese = row || await details(pool, req.params.id, "zh");
   if (!chinese) throw fail(404, "NOT_FOUND", "成员不存在");
-  const result = row || { ...chinese, role: "", bio: "", interests: [], destination: "", sourceUrl: "", sourceNote: "", checkedAt: null, reviewState: "unverified", revisionId: null };
+  const result = row || { ...chinese, role: "", bio: "", profileDetails: "", interests: [], destination: "", sourceUrl: "", sourceNote: "", checkedAt: null, reviewState: "unverified", revisionId: null };
   result.locale = locale;
   result.permissions = await permissions(pool, result.id);
   result.published = (await pool.query("SELECT 1 FROM content_publications WHERE content_id=$1 AND locale=$2", [result.id, locale])).rowCount > 0;
@@ -218,7 +215,7 @@ admin.post("/:id/withdraw", requireCsrf, wrap(async (req, res) => {
   send(req, res, result);
 }));
 
-async function listPublic(locale = "zh") {
+async function listPublic(locale = "zh", includeDetails = false) {
   const result = await pool.query(`SELECT i.id FROM content_items i JOIN content_publications p ON p.content_id=i.id AND p.locale=$1
     JOIN member_permissions permission ON permission.content_id=i.id AND permission.field='profile' AND permission.permitted=true
     WHERE i.type='member'`, [locale]);
@@ -228,10 +225,10 @@ async function listPublic(locale = "zh") {
     if (row) {
       const permission = await permissions(pool, item.id);
       const photo = permission.photo?.permitted && row.photoAssetId ? await activeAsset(pool, row.photoAssetId) : null;
-      rows.push(publicShape(row, permission, photo));
+      rows.push(publicShape(row, permission, photo, includeDetails));
     }
   }
-  const categoryOrder = { advisor: 0, researcher: 1, student: 2, alumni: 3 };
+  const categoryOrder = { advisor: 0, researcher: 1, postdoc: 2, student: 3, alumni: 4 };
   rows.sort((a, b) => categoryOrder[a.category] - categoryOrder[b.category] || a.displayOrder - b.displayOrder || a.nameZh.localeCompare(b.nameZh, "zh"));
   return rows;
 }
@@ -240,7 +237,7 @@ publicApi.get("/", wrap(async (req, res) => {
   send(req, res, rows, { total: rows.length });
 }));
 publicApi.get("/:slug", wrap(async (req, res) => {
-  const rows = await listPublic(localeOf(req));
+  const rows = await listPublic(localeOf(req), true);
   const row = rows.find(item => item.slug === req.params.slug);
   if (!row) throw fail(404, "NOT_FOUND", "成员不存在或未获公开授权");
   send(req, res, row);

@@ -16,18 +16,9 @@
     $("album-editor-title").textContent = "新建相册"; $("album-preview-box").hidden = true; $("album-history").textContent = ""; msg("");
     $("album-list-card").hidden = true; $("album-editor-card").hidden = false; renderImages(); buttons();
   }
-  async function list() {
-    try {
-      var rows = await api("/api/admin/v1/activities?q=" + encodeURIComponent($("album-search").value));
-      var node = $("album-list"); node.replaceChildren();
-      if (!rows.length) { node.innerHTML = '<div class="empty">暂无活动相册。创建草稿后选择已核准图片。</div>'; return; }
-      rows.forEach(function (row) {
-        var item = document.createElement("div"); item.className = "list-row";
-        item.innerHTML = '<div><strong>' + esc(row.title) + '</strong><small>' + esc(row.slug) + ' · ' + esc(row.activityDate) + ' · v' + row.version + '</small></div><span class="status">' + (row.published ? "已发布" : "草稿") + '</span>';
-        var button = document.createElement("button"); button.type = "button"; button.textContent = "编辑"; button.addEventListener("click", function () { open(row.id); }); item.appendChild(button); node.appendChild(item);
-      });
-    } catch (error) { $("album-list").textContent = error.message; }
-  }
+  var contentList = window.ScaleContentList.create({ cardId: "album-list-card", listId: "album-list", searchId: "album-search", endpoint: function() { return "/api/admin/v1/activities"; }, open: open });
+  function list() { return contentList.load(); }
+
   function renderImages() {
     var node = $("album-images"); node.replaceChildren();
     if (!images.length) { node.innerHTML = '<div class="empty">暂无图片；保存草稿可以稍后添加，发布前至少需要一张已核准图片。</div>'; return; }
@@ -93,9 +84,10 @@
     try {
       var row = await api("/api/admin/v1/activities/" + currentId + "/preview?locale=" + activeLocale);
       $("album-preview-box").innerHTML = '<h3>' + esc(row.title) + '</h3><p>' + esc(row.activityDate) + ' · ' + esc(row.location) + '</p><p>' + esc(row.summary) + '</p>' +
+        '<div class="album-preview-body">' + (row.body || '').split(/\r?\n\s*\r?\n/).filter(Boolean).map(function (paragraph) { return '<p>' + esc(paragraph).replace(/\r?\n/g, '<br>') + '</p>'; }).join('') + '</div>' +
         row.images.map(function (image) { return '<div class="album-image"><img src="/api/admin/v1/assets/' + encodeURIComponent(image.assetId) + '/file" alt=""><span>' + esc(image.caption) + '</span></div>'; }).join("");
       $("album-preview-box").hidden = false;
     } catch (error) { msg(error.message, true); }
   });
-  window.albumAdmin = { show: function () { $("album-editor-card").hidden = true; $("album-list-card").hidden = false; $("album-search").value = ""; list(); } };
+  window.albumAdmin = { show: function () { $("album-editor-card").hidden = true; $("album-list-card").hidden = false; $("album-search").value = ""; contentList.reset(); list(); } };
 })();

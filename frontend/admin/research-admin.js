@@ -24,22 +24,9 @@
     $("research-preview-box").hidden = true; $("research-history").textContent = ""; msg(""); buttons();
     $("research-list-card").hidden = true; $("research-editor-card").hidden = false;
   }
-  async function list() {
-    if (!module) return;
-    var requested = module;
-    try {
-      var rows = await api(endpoint("?q=" + encodeURIComponent($("research-search").value)));
-      if (requested !== module) return;
-      var node = $("research-list"); node.replaceChildren();
-      if (!rows.length) { node.innerHTML = '<div class="empty">暂无内容。点击“新建内容”开始。</div>'; return; }
-      rows.forEach(function (row) {
-        var element = document.createElement("div"); element.className = "list-row";
-        element.innerHTML = '<div><strong>' + esc(row.title || row.slug) + '</strong><small>' + esc(row.slug) + ' · 修订 v' + row.version + '</small></div><span class="status">' + (row.published ? "已发布" : "草稿") + '</span>';
-        var button = document.createElement("button"); button.type = "button"; button.textContent = "编辑"; button.addEventListener("click", function () { open(row.id); });
-        element.appendChild(button); node.appendChild(element);
-      });
-    } catch (error) { $("research-list").innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; }
-  }
+  var contentList = window.ScaleContentList.create({ cardId: "research-list-card", listId: "research-list", searchId: "research-search", endpoint: function() { return endpoint(); }, open: open });
+  function list() { return contentList.load(); }
+
   function areaLines(areas) { return (areas || []).map(function (area) { return area.title + "｜" + area.items.join("；"); }).join("\n"); }
   function parseAreas(value) {
     return value.split(/\r?\n/).map(function (line) { return line.trim(); }).filter(Boolean).map(function (line) {
@@ -106,6 +93,6 @@
     if (module === "directions") form.elements.summary.insertAdjacentHTML("beforebegin", "<small class=\"field-guide-note research-summary-help\">仅核准名称时留空；简介核准后再补充。</small>");
     window.refreshFieldGuide?.();
     $("research-editor-card").hidden = true; $("research-list-card").hidden = false;
-    $("research-search").value = ""; list();
+    $("research-search").value = ""; contentList.reset(); list();
   } };
 })();

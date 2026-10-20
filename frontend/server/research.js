@@ -1,6 +1,7 @@
 "use strict";
 
 const express = require("express");
+const { listContent } = require("./content-list");
 const { pool, transaction } = require("./db/pool");
 const { requireUser, requireCsrf } = require("./auth");
 
@@ -129,16 +130,8 @@ function sameFacts(kind, a, b) { return JSON.stringify(sharedFacts(kind, a)) ===
 
 admin.use(requireUser);
 admin.get("/:kind", wrap(async (req, res) => {
-  const kind = kindOf(req);
-  const query = text(req.query.q, 100);
-  const result = await pool.query(`SELECT i.id,i.slug,i.version,i.status,i.updated_at,l.title,l.review_state AS "reviewState",
-    EXISTS(SELECT 1 FROM content_publications p WHERE p.content_id=i.id AND p.locale='zh') AS published
-    FROM content_items i LEFT JOIN LATERAL (
-      SELECT r.id FROM content_revisions r JOIN content_localizations lc ON lc.revision_id=r.id AND lc.locale='zh'
-      WHERE r.content_id=i.id ORDER BY r.version DESC LIMIT 1
-    ) zh ON true LEFT JOIN content_localizations l ON l.revision_id=zh.id AND l.locale='zh'
-    WHERE i.type=$1 AND ($2='' OR i.slug ILIKE '%'||$2||'%' OR l.title ILIKE '%'||$2||'%') ORDER BY i.updated_at DESC LIMIT 100`, [kind.type, query]);
-  send(req, res, result.rows, { total: result.rowCount });
+  const result = await listContent(kindOf(req).type, req.query);
+  send(req, res, result.data, result.meta);
 }));
 admin.post("/:kind", requireCsrf, wrap(async (req, res) => {
   const data = validate(req, true);

@@ -1,6 +1,7 @@
 "use strict";
 
 const express = require("express");
+const { listContent } = require("./content-list");
 const { pool, transaction } = require("./db/pool");
 const { requireUser, requireCsrf } = require("./auth");
 const media = require("./media");
@@ -87,14 +88,8 @@ async function publicShape(row, locale) {
 
 admin.use(requireUser);
 admin.get("/", wrap(async (req, res) => {
-  const q = clean(req.query.q, 100);
-  const result = await pool.query(`SELECT i.id,i.slug,i.version,i.status,l.title,to_char(a.activity_date,'YYYY-MM-DD') AS "activityDate",
-    EXISTS(SELECT 1 FROM content_publications p WHERE p.content_id=i.id AND p.locale='zh') AS published
-    FROM content_items i JOIN LATERAL (SELECT r.id FROM content_revisions r JOIN content_localizations lc ON lc.revision_id=r.id AND lc.locale='zh'
-      WHERE r.content_id=i.id ORDER BY r.version DESC LIMIT 1) zh ON true
-    JOIN content_localizations l ON l.revision_id=zh.id AND l.locale='zh' JOIN activity_revisions a ON a.revision_id=zh.id
-    WHERE i.type='activity' AND ($1='' OR i.slug ILIKE '%'||$1||'%' OR l.title ILIKE '%'||$1||'%') ORDER BY i.updated_at DESC LIMIT 100`, [q]);
-  send(req, res, result.rows, { total: result.rowCount });
+  const result = await listContent("activity", req.query);
+  send(req, res, result.data, result.meta);
 }));
 admin.post("/", requireCsrf, wrap(async (req, res) => {
   const value = input(req.body, true);

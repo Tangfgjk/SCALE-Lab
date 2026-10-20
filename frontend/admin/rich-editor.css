@@ -32,6 +32,17 @@
 .rich-editor-surface figure[data-align="left"] img{margin-left:0}
 .rich-editor-surface figure[data-align="right"] img{margin-right:0}
 .rich-editor-surface .ProseMirror-selectednode{outline:3px solid #147dac}
+.rich-editor-surface .rich-image-in-selection{outline:3px solid #147dac;background:#d9edf8;box-shadow:0 0 0 5px #147dac24}
+.rich-editor-surface img{-webkit-user-drag:none}
+.rich-editor-surface .ProseMirror{min-height:240px;outline:none;overflow-wrap:anywhere}
+.news-editor-head{position:sticky;top:0;z-index:35;background:#fff;padding:14px 0;margin:0;border-bottom:1px solid #dbe6ec;box-shadow:0 8px 12px #18324a08}
+.news-editor-head h2{font-size:16px}
+.news-editor-head small{display:block;color:#617789;margin-top:6px;font-size:12px}
+.news-head-actions{display:flex;gap:8px;flex-shrink:0}
+#news-form .editor-actions{position:sticky;bottom:0;z-index:30;background:#fffffff5;padding:12px 0;box-shadow:0 -8px 16px #18324a0a}
+#news-rich-toolbar{position:sticky;top:80px;z-index:25}
+#editor-card{scroll-margin-top:12px}
+@media(max-width:700px){.news-editor-head{gap:8px;flex-wrap:nowrap}.news-editor-head h2{font-size:13px}.news-head-actions button{padding:9px 7px;font-size:12px}#news-rich-toolbar{position:static}}
 .rich-editor-surface figcaption{font-size:13px;color:#627587}
 .rich-preview-panel[data-size="mobile"]{max-width:390px;margin-inline:auto}
 .rich-editor-surface [data-text-preset="small"]{font-size:.85em}

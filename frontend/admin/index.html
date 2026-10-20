@@ -29,12 +29,11 @@
       <div class="brand"><span class="brand-mark">S</span><span><strong>SCALE Lab</strong><small>内容管理工作台</small></span></div>
       <div class="nav-label">内容管理</div>
       <nav id="nav">
-        <button type="button" class="active" data-module="news">新闻动态 <span>已接入</span></button>
+        <button type="button" class="active" data-module="news">新闻/活动 <span>已接入</span></button>
         <button type="button" data-module="members">团队成员 <span>已接入</span></button>
         <button type="button" data-module="publications">论文成果 <span>已接入</span></button>
         <button type="button" data-module="projects">科研项目 <span>已接入</span></button>
         <button type="button" data-module="directions">研究方向 <span>已接入</span></button>
-        <button type="button" data-module="albums">活动相册 <span>已接入</span></button>
         <button type="button" data-module="media">媒体资源 <span>已接入</span></button>
       </nav>
       <div class="nav-label">系统</div>
@@ -42,26 +41,28 @@
       <div class="sidebar-foot"><a href="/" target="_blank" rel="noopener">查看公开网站 ↗</a></div>
     </aside>
     <div class="main-shell">
-      <header class="topbar"><span>网站内容 / <b id="breadcrumb">新闻动态</b></span><div><span id="user-name"></span><button type="button" id="logout">退出</button></div></header>
+      <header class="topbar"><span>网站内容 / <b id="breadcrumb">新闻/活动</b></span><div><span id="user-name"></span><button type="button" id="logout">退出</button></div></header>
       <main>
         <section id="news-panel">
-          <div class="page-head"><div><div class="eyebrow">CONTENT MANAGEMENT</div><h1>新闻动态</h1><p>先创建中文新闻，再按语言分别保存、核查和发布。</p></div><button id="new-news" type="button" class="primary">＋ 新建新闻</button></div>
-          <div class="card" id="list-card"><div class="card-head"><h2>内容列表</h2><input id="search" type="search" placeholder="搜索标题或标识" aria-label="搜索新闻"></div><div class="news-filters"><label>中文发布状态<select id="news-state"><option value="all">全部状态</option><option value="draft">草稿</option><option value="ready">已核查待发布</option><option value="published">已发布</option><option value="changes">有新草稿（旧版仍公开）</option></select></label><label>排序<select id="news-sort"><option value="updated">最近编辑在前</option><option value="date">新闻日期从新到旧</option></select></label></div><div id="news-list" class="list"></div><div class="news-pagination"><button id="news-prev" type="button">上一页</button><span id="news-page" role="status"></span><button id="news-next" type="button">下一页</button></div></div>
-          <div class="card editor" id="editor-card" hidden><div class="card-head"><h2 id="editor-title">新建新闻</h2><button type="button" id="close-editor" class="quiet">返回列表</button></div>
+          <div class="page-head"><div><div class="eyebrow">CONTENT MANAGEMENT</div><h1>新闻/活动</h1><p>统一编辑图文；选择发布位置，再按语言保存、核查和发布。</p></div><button id="new-news" type="button" class="primary">＋ 新建新闻/活动</button></div>
+          <div class="card" id="list-card"><div class="card-head"><h2>内容列表</h2><input id="search" type="search" placeholder="搜索标题或标识" aria-label="搜索新闻或活动"></div><div id="news-list" class="list"></div></div>
+          <div class="card editor" id="editor-card" hidden><div class="card-head news-editor-head"><div><h2 id="editor-title">新建新闻/活动</h2><small id="news-sticky-state" role="status"></small></div><div class="news-head-actions"><button type="submit" id="news-quick-save" form="news-form" class="primary">保存草稿</button><button type="button" id="close-editor" class="quiet">返回列表</button></div></div>
             <p id="news-workflow" class="message" role="status"></p><a id="news-public-link" target="_blank" rel="noopener" hidden>查看公开页 ↗</a><form id="news-form"><fieldset id="news-fields"><div class="fields">
+              <label class="wide">发布位置 <small class="field-required">必填</small><small class="field-help" id="news-destination-note">新闻：展示于首页最新动态和新闻页；活动：展示于首页实验室现场和实验室文化页。修改已发布内容的位置后，需重新发布才生效。</small><select name="category" required><option value="news">新闻动态</option><option value="activity">实验室活动</option></select></label>
               <label>URL 标识 <small class="field-required">必填</small><small class="field-help">已自动生成；创建前可修改，创建后固定。仅用英文小写、数字和连字符，构成新闻详情链接。</small><input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" title="仅支持英文小写字母、数字和连字符"></label>
               <label>语言 <small class="field-required">必填</small><small class="field-help">先创建中文版；英文版可在保存中文后添加。</small><select name="locale" required><option value="zh">中文</option><option value="en">English</option></select></label>
-              <label class="wide">标题 <small class="field-required">必填</small><small class="field-help">展示在首页最新动态和新闻详情页。</small><input name="title" required maxlength="200"></label>
-              <label class="wide">摘要 <small class="field-required">必填</small><small class="field-help">首页最新动态展示的简短介绍，最多 500 字。</small><textarea name="summary" required maxlength="500" rows="2"></textarea></label>
+              <label class="wide">标题 <small class="field-required">必填</small><small class="field-help">展示在所选栏目的概览和内容详情页。</small><input name="title" required maxlength="200"></label>
+              <label class="wide">摘要 <small class="field-required">必填</small><small class="field-help">概览卡片展示的简短介绍；新闻最多 500 字，活动最多 1000 字。</small><textarea name="summary" required maxlength="500" rows="2"></textarea></label>
               <div class="wide rich-editor-field">
                 <div><input name="coverAssetId" type="hidden"><button type="button" id="news-cover-pick">选择封面图片</button> <button type="button" id="news-cover-remove">移除封面</button><small id="news-cover-label">未设置封面</small><p id="news-media-status" class="news-media-status" role="status"></p></div>
-                <div class="field-label">正文 <small class="field-required">必填</small><small class="field-help">使用工具栏编辑标题层级、强调、列表、引用和链接；访客详情页会使用同一套正文渲染规则。</small></div>
-                <div id="news-rich-toolbar" class="rich-toolbar" role="toolbar" aria-label="新闻正文格式工具"></div>
-                <div id="news-rich-editor" class="rich-editor-surface" role="textbox" aria-multiline="true" aria-label="新闻正文编辑区"></div>
+                <div class="field-label">正文 <small class="field-required">必填</small><small class="field-help">使用工具栏编辑标题层级、强调、列表、引用和链接；访客详情页会使用同一套正文渲染规则。可跨段落与图片拖选，或用 Shift 扩选；“全选图文”/Ctrl+A 选中整篇，Ctrl+C/X/V 复制、剪切和粘贴。</small></div>
+                <div id="news-rich-toolbar" class="rich-toolbar" role="toolbar" aria-label="图文正文格式工具"></div>
+                <div id="news-rich-editor" class="rich-editor-surface" role="textbox" aria-multiline="true" aria-label="图文正文编辑区"></div>
                 <textarea name="body" hidden aria-hidden="true"></textarea>
                 <input name="richText" type="hidden">
               </div>
-              <label class="wide">新闻日期 <small class="field-required">必填</small><small class="field-help">首页按此日期从新到旧排序。转载报道可填原文发布日期，实际活动日期写入正文；与后台发布操作时间不同。</small><input name="happenedAt" type="date" required></label>
+              <label class="wide">内容日期 <small class="field-required">必填</small><small class="field-help">所选栏目按此日期从新到旧排序。转载报道可填原文发布日期，实际活动日期写入正文；与后台发布操作时间不同。</small><input name="happenedAt" type="date" required></label>
+              <label class="wide" id="news-location-field" hidden>活动地点 <small class="field-optional">选填</small><small class="field-help">例如华中师范大学、武汉东湖，展示在活动概览中。</small><input name="location" maxlength="300"></label>
               <p class="field-intro wide"><strong>核查依据 · 选填</strong><br>如有外部报道可填链接；也可用文字记录内部依据。两项均可留空，发布前仍需核对新闻内容。</p>
               <label class="wide">来源链接 <small class="field-optional">选填</small><small class="field-help">例如学校官网的活动报道；仅供后台核查。</small><input name="sourceUrl" type="url" placeholder="https://..."></label>
               <label class="wide">来源说明 <small class="field-optional">选填</small><small class="field-help">例如活动记录或组织者提供的信息；仅供后台核查。</small><textarea name="sourceNote" rows="2"></textarea></label>
@@ -97,10 +98,11 @@
             <form id="member-form"><div class="fields">
               <label>URL 标识 <small>创建后不可改</small><input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*"></label>
               <label>语言<select name="locale"><option value="zh">中文</option><option value="en">English</option></select></label>
-              <label>类别<select name="category"><option value="advisor">导师</option><option value="researcher">科研人员</option><option value="student">在读学生</option><option value="alumni">毕业校友</option></select></label>
+              <label>类别<select name="category"><option value="advisor">导师</option><option value="researcher">科研人员</option><option value="postdoc">博士后</option><option value="student">在读学生</option><option value="alumni">毕业校友</option></select></label>
               <label>中文姓名<input name="nameZh" required maxlength="100"></label><label>英文姓名<input name="nameEn" maxlength="100"></label>
               <label class="wide">身份／称谓<input name="role" required maxlength="200"></label>
               <label class="wide">简介 <small>单独授权后才公开</small><textarea name="bio" rows="5"></textarea></label>
+              <label class="wide">成员详情 <small>选填 · 详情页显示，随简介授权公开</small><small class="field-help">简短介绍用于团队概览；这里可补充教育经历、论文、项目与学术服务。使用“## 小标题”分段、“- 条目”列举，请勿填写手机号、证件或家庭信息。</small><textarea name="profileDetails" rows="15" maxlength="20000" placeholder="## 教育经历&#10;- 时间、学校、专业与学位&#10;## 代表性论文&#10;- 论文题目与发表信息"></textarea></label>
               <label class="wide">研究兴趣 <small>用逗号分隔</small><input name="interestsText"></label>
               <label>个人主页<input name="homepageUrl" type="url"></label><label>ORCID 链接<input name="orcidUrl" type="url"></label>
               <label>GitHub 链接<input name="githubUrl" type="url"></label><label>公开邮箱 <small>单独授权</small><input name="publicEmail" type="email"></label>
@@ -136,21 +138,6 @@
             <div id="media-clearances" class="permission-list"></div>
             <div class="editor-actions"><button id="media-activate" type="button" class="primary">启用公开图片</button><button id="media-disable" type="button">停用图片</button><button id="media-archive" type="button">归档图片</button></div>
             <p id="media-detail-message" class="message" role="status"></p><div id="media-usages" class="history"></div></div></div>
-          </div>
-        </section>
-        <section id="album-panel" hidden>
-          <div class="page-head"><div><div class="eyebrow">ACTIVITY GALLERY</div><h1>活动相册</h1><p>先在媒体库核对图片，再为活动设置封面、顺序和逐图说明。</p></div><button id="album-new" type="button" class="primary">＋ 新建相册</button></div>
-          <div class="card" id="album-list-card"><div class="card-head"><h2>相册列表</h2><input id="album-search" type="search" placeholder="搜索活动标题或标识" aria-label="搜索相册"></div><div id="album-list" class="list"></div></div>
-          <div class="card editor" id="album-editor-card" hidden><div class="card-head"><h2 id="album-editor-title">新建相册</h2><button id="album-close" type="button" class="quiet">返回列表</button></div>
-            <form id="album-form"><div class="fields">
-              <label>URL 标识 <small>创建后不可改</small><input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*"></label><label>语言<select name="locale"><option value="zh">中文</option><option value="en">English</option></select></label>
-              <label class="wide">活动标题<input name="title" required maxlength="200"></label><label class="wide">简介<textarea name="summary" required maxlength="1000" rows="2"></textarea></label>
-              <label class="wide">正文／活动记录<textarea name="body" maxlength="10000" rows="4"></textarea></label>
-              <label>活动日期<input name="activityDate" type="date" required></label><label>地点<input name="location" maxlength="300"></label>
-              <label class="wide">活动来源链接<input name="sourceUrl" type="url"></label><label class="wide">来源说明<textarea name="sourceNote" rows="2" maxlength="2000"></textarea></label>
-            </div><div class="album-image-head"><h3>相册图片 <small>第一张作为封面</small></h3><div><button id="album-add-image" type="button">从媒体库添加图片</button></div></div><div id="album-images" class="album-images"></div>
-            <div class="editor-actions"><button type="submit" class="primary">保存草稿</button><button id="album-check" type="button" disabled>核查当前修订</button><button id="album-preview" type="button" disabled>预览</button><button id="album-publish" type="button" disabled>发布</button><button id="album-withdraw" type="button" disabled>撤回</button></div></form>
-            <p id="album-message" class="message" role="status"></p><div id="album-preview-box" class="preview" hidden></div><div id="album-history" class="history"></div>
           </div>
         </section>
         <section id="settings-panel" hidden>
@@ -196,15 +183,16 @@
   </div>
   <script src="/shared/rich-renderer.js"></script>
   <script src="/shared/news-article.js"></script>
-  <script src="./editor.bundle.js?v=20261015-editor-fix"></script>
+  <script src="./editor.bundle.js?v=20261020-unified-editor"></script>
+  <script src="./content-list.js" defer></script>
   <script src="./app.js" defer></script>
   <script src="./research-admin.js" defer></script>
   <script src="./member-admin.js" defer></script>
   <script src="./media-browser.js" defer></script>
   <script src="./media-admin.js" defer></script>
-  <script src="./album-admin.js" defer></script>
   <script src="./settings-admin.js" defer></script>
   <script src="./accounts-admin.js" defer></script>
   <script src="./field-guide.js" defer></script>
+<script src="/shared/back-to-top.js" defer></script>
 </body>
 </html>

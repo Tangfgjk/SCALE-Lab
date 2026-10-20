@@ -258,7 +258,7 @@ admin.post("/:id/archive", requireCsrf, wrap(async (req, res) => {
 admin.get("/:id/usages", wrap(async (req, res) => {
   const result = await pool.query(`SELECT i.id,i.type,i.slug,r.version,ca.display_order AS "displayOrder",p.locale AS "publishedLocale"
     FROM content_assets ca JOIN content_revisions r ON r.id=ca.revision_id JOIN content_items i ON i.id=r.content_id
-    LEFT JOIN content_publications p ON p.revision_id=r.id WHERE ca.asset_id=$1
+    LEFT JOIN content_publications p ON p.revision_id=r.id WHERE ca.asset_id=$1 AND i.type='activity'
     UNION ALL
     SELECT i.id,i.type,i.slug,r.version,0 AS "displayOrder",p.locale AS "publishedLocale"
     FROM member_revisions m JOIN content_revisions r ON r.id=m.revision_id JOIN content_items i ON i.id=r.content_id

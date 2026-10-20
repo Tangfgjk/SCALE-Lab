@@ -28,13 +28,16 @@
     const get=s=>root.querySelector(s), lib=get("[data-library]"), folder=get("[data-folder]");
     async function load() {
       const request=++seq;
-      const params=new URLSearchParams({page,pageSize:24,q:get("[data-search]").value,status:get("[data-status]").value,libraryId:lib.value,folderId:folder.value});
+      const params=new URLSearchParams({page,pageSize:10,q:get("[data-search]").value,status:get("[data-status]").value,libraryId:lib.value,folderId:folder.value});
       if(picker) params.set("usable",String(!get("[data-extra]").checked));
       else params.set("archived",String(get("[data-extra]").checked));
       get("[data-message]").textContent="正在加载图片…";
+      get("[data-prev]").disabled=get("[data-next]").disabled=true;
       try {
         const result=await api("/api/admin/v1/assets?"+params,{},true);
         if(disposed || request!==seq) return;
+        const lastPage=Math.max(1,Math.ceil(result.meta.total/10));
+        if(page>lastPage) {page=lastPage;return load();}
         const grid=get("[data-grid]"); grid.replaceChildren();
         result.data.forEach(asset=>{
           const tile=document.createElement("button"); tile.type="button";tile.className="media-tile";
@@ -44,9 +47,9 @@
           tile.append(img,label,info);tile.addEventListener("click",()=>onSelect(asset));grid.append(tile);
         });
         get("[data-message]").textContent=result.data.length ? "点击图片"+(picker?"选择使用":"查看资料与引用") : "此位置没有符合条件的图片。";
-        get("[data-page]").textContent="第 "+page+" 页 / 共 "+Math.max(1,Math.ceil(result.meta.total/24))+" 页 · "+result.meta.total+" 张";
+        get("[data-page]").textContent="第 "+page+" 页 / 共 "+Math.max(1,Math.ceil(result.meta.total/10))+" 页 · "+result.meta.total+" 张";
         get("[data-prev]").disabled=page<=1;
-        get("[data-next]").disabled=page*24>=result.meta.total;
+        get("[data-next]").disabled=page*10>=result.meta.total;
       } catch(error) {if(!disposed && request===seq) get("[data-message]").textContent=error.message;}
     }
     function folderFilter() {folderOptions(folder,lib.value ? libraries.filter(l=>l.id===lib.value) : libraries,"","全部文件夹");}

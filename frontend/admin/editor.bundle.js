@@ -20077,7 +20077,20 @@ img.ProseMirror-separator {
     name: "image",
     group: "block",
     atom: true,
-    draggable: true,
+    draggable: false,
+    // A drag beginning on a picture should extend the document selection rather
+    // than start native image dragging. Cut/paste can still move image blocks.
+    addProseMirrorPlugins() {
+      return [new Plugin({ props: { decorations(state) {
+        const { from: from2, to, empty: empty2 } = state.selection;
+        if (empty2) return DecorationSet.empty;
+        const decorations = [];
+        state.doc.nodesBetween(from2, to, (node, pos) => {
+          if (node.type.name === "image") decorations.push(Decoration.node(pos, pos + node.nodeSize, { class: "rich-image-in-selection" }));
+        });
+        return DecorationSet.create(state.doc, decorations);
+      } } })];
+    },
     addAttributes() {
       return { assetId: { default: null }, caption: { default: "" }, width: { default: "large" }, align: { default: "center" } };
     },
@@ -20085,15 +20098,21 @@ img.ProseMirror-separator {
     parseHTML() {
       return [{ tag: "figure[data-asset-id]", getAttrs: (el) => {
         const id = el.getAttribute("data-asset-id");
-        return /^[0-9a-f-]{36}$/i.test(id || "") ? { assetId: id, caption: el.querySelector("figcaption")?.textContent || "" } : false;
+        const width = el.querySelector("img")?.getAttribute("data-width"), align = el.getAttribute("data-align");
+        return /^[0-9a-f-]{36}$/i.test(id || "") ? {
+          assetId: id,
+          caption: el.hasAttribute("data-caption") ? el.getAttribute("data-caption") : el.querySelector("figcaption")?.textContent || "",
+          width: ["small", "medium", "large"].includes(width) ? width : "large",
+          align: ["left", "center", "right"].includes(align) ? align : "center"
+        } : false;
       } }];
     },
     renderHTML({ node }) {
       const a = node.attrs;
       return [
         "figure",
-        { "data-asset-id": a.assetId, "data-align": a.align },
-        ["img", { src: "/api/admin/v1/assets/" + encodeURIComponent(a.assetId) + "/file", "data-width": a.width, alt: a.caption || "\u5A92\u4F53\u5E93\u56FE\u7247" }],
+        { "data-asset-id": a.assetId, "data-align": a.align, "data-caption": a.caption },
+        ["img", { draggable: "false", src: "/api/admin/v1/assets/" + encodeURIComponent(a.assetId) + "/file", "data-width": a.width, alt: a.caption || "\u5A92\u4F53\u5E93\u56FE\u7247" }],
         ["figcaption", {}, a.caption || "\u9009\u4E2D\u56FE\u7247\u540E\u70B9\u51FB\u300C\u56FE\u7247\u8BBE\u7F6E\u300D\u8C03\u6574\u56FE\u6CE8\u3001\u5BBD\u5EA6\u548C\u5BF9\u9F50"]
       ];
     }
@@ -20152,6 +20171,7 @@ img.ProseMirror-separator {
       node.title = title;
       node.setAttribute("aria-label", title);
       Object.entries(attributes).forEach(([key, value]) => node.dataset[key] = value);
+      node.addEventListener("mousedown", (event) => event.preventDefault());
       node.addEventListener("click", () => command2());
       root.appendChild(node);
       return node;
@@ -20171,6 +20191,7 @@ img.ProseMirror-separator {
         if (editor.isActive("textPreset", { preset: node.dataset.preset })) node.dataset.active = "true";
       });
     };
+    button("\u5168\u9009\u56FE\u6587", "\u9009\u4E2D\u6574\u7BC7\u6587\u5B57\u548C\u56FE\u7247\uFF08Ctrl+A / \u2318A\uFF09", () => editor.chain().focus().selectAll().run());
     button("B", "\u7C97\u4F53\uFF08Ctrl+B\uFF09", () => editor.chain().focus().toggleBold().run(), { mark: "bold" });
     button("I", "\u659C\u4F53\uFF08Ctrl+I\uFF09", () => editor.chain().focus().toggleItalic().run(), { mark: "italic" });
     button("U", "\u4E0B\u5212\u7EBF", () => editor.chain().focus().toggleUnderline().run(), { mark: "underline" });

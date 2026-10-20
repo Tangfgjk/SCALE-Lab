@@ -53,3 +53,13 @@
 @media (max-width: 700px) { #news-list .list-row { flex-wrap: wrap; } #news-list .list-row > div { flex-basis: 100%; } }
 
 @media (max-width: 700px) { #list-card .card-head { align-items: stretch; flex-direction: column; } #list-card .card-head input { width: 100%; } #news-panel .page-head > button { flex-shrink: 0; } }
+
+.content-list-controls { padding: 16px 0; display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: center; }
+.content-state-tabs { display: flex; flex-wrap: wrap; gap: 8px; flex-basis: 100%; }
+.content-state-tabs button { border-radius: 30px; padding: 9px 15px; font-size: 13px; }
+.content-state-tabs button[aria-pressed="true"] { background: #183c51; color: #fff; border-color: #183c51; }
+.content-list-controls label { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #496174; }
+.content-list-controls .field-help { flex-basis: 100%; margin: 0; color: #657d8a; font-size: 12px; line-height: 1.7; }
+.list .list-row > div { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.list .list-row .status { flex-shrink: 0; }
+@media (max-width:700px) { .list .list-row { flex-wrap: wrap; } .list .list-row > div { flex-basis: 100%; } .card-head { flex-wrap: wrap; } }

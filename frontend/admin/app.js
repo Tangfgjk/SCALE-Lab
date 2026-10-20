@@ -4,8 +4,8 @@
   var $ = function (id) { return document.getElementById(id); };
   var form = $("news-form");
   var richEditor = null, newsMedia = {};
-  var currentPublished = false, busy = false, newsPage = 1, listRequest = 0;
-  var stateLabels = { draft: "草稿", ready: "已核查待发布", published: "已发布", changes: "有新草稿（旧版仍公开）" };
+  var currentPublished = false, busy = false;
+
   function escapeHtml(value) { return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
   async function api(path, options, withMeta) {
     options = options || {};
@@ -20,36 +20,17 @@
   function showLogin() { $("login").hidden = false; $("workspace").hidden = true; csrf = ""; }
   function showWorkspace(user) { csrf = user.csrfToken; window.scaleAdmin.currentUser = user; $("user-name").textContent = user.displayName; $("account-users-card").hidden = user.role !== "admin"; $("account-create-card").hidden = user.role !== "admin"; $("accounts-description").textContent = user.role === "admin" ? "仅管理员可创建、停用账号和重置密码。启用账号最多 5 个；所有账号均可编辑和发布内容。" : "你可以在此修改自己的登录密码；其他账号由管理员维护。"; $("login").hidden = true; $("workspace").hidden = false; loadNews(); }
   function publicLink(slug, locale) { return "/news.html?slug=" + encodeURIComponent(slug) + "&lang=" + (locale === "en" ? "en" : "zh"); }
-  async function loadNews() {
-    var request = ++listRequest;
-    $("news-prev").disabled = true; $("news-next").disabled = true;
-    try {
-      var query = new URLSearchParams({q: $("search").value, state: $("news-state").value, sort: $("news-sort").value, page: newsPage, pageSize: 20});
-      var result = await api("/api/admin/v1/news?" + query, {}, true);
-      if (request !== listRequest) return;
-      var pages = Math.max(1, Math.ceil(result.meta.total / result.meta.pageSize));
-      if (newsPage > pages) { newsPage = pages; return loadNews(); }
-      $("news-page").textContent = "共 " + result.meta.total + " 条 · 第 " + newsPage + " / " + pages + " 页";
-      $("news-prev").disabled = newsPage <= 1; $("news-next").disabled = newsPage >= pages;
-      var list = $("news-list"); list.replaceChildren();
-      if (!result.data.length) { list.innerHTML = '<div class="empty">没有符合条件的新闻，可调整搜索或状态筛选。</div>'; return; }
-      result.data.forEach(function (row) {
-        var el = document.createElement("div"); el.className = "list-row";
-        el.innerHTML = '<div><strong>' + escapeHtml(row.title || row.slug) + '</strong><small>' + escapeHtml(row.slug) + ' · 修订 v' + row.version + ' · 新闻日期 ' + escapeHtml(row.happened_at || "") + '</small></div><span class="status">' + escapeHtml(stateLabels[row.workflow_state]) + '</span>';
-        if (row.published_zh) { var link = document.createElement("a"); link.href = publicLink(row.slug,"zh"); link.target = "_blank"; link.rel = "noopener"; link.textContent = "查看公开页"; el.appendChild(link); }
-        var button = document.createElement("button"); button.type = "button"; button.textContent = "编辑"; button.addEventListener("click", function () { openNews(row.id); }); el.appendChild(button); list.appendChild(el);
-      });
-    } catch (error) { if (request !== listRequest) return; $("news-page").textContent = "加载失败"; $("news-list").innerHTML = '<div class="empty">' + escapeHtml(error.message) + '</div>'; }
-  }
+  var newsList = window.ScaleContentList.create({ cardId: "list-card", listId: "news-list", searchId: "search", endpoint: function() { return "/api/admin/v1/news"; }, open: openNews, news: true });
+  function loadNews() { return newsList.load(); }
   function setBusy(value) {
     busy = value; form.inert = value; $("news-fields").disabled = value;
     form.setAttribute("aria-busy", String(value));
-    ["new-news", "close-editor", "logout"].forEach(function(id) { $(id).disabled = value; });
+    ["new-news", "close-editor", "news-quick-save", "logout"].forEach(function(id) { $(id).disabled = value; });
     updateButtons();
   }
   function updateButtons() {
     var mediaIssues = getMediaIssues();
-    $("news-save").disabled = busy;
+    $("news-save").disabled = busy; $("news-quick-save").disabled = busy;
     $("check").disabled = busy || !currentId || checked || dirty;
     $("preview").disabled = busy || !currentId || dirty;
     $("publish").disabled = busy || currentPublished || !currentId || !checked || dirty || mediaIssues.length > 0;
@@ -57,6 +38,7 @@
     $("news-media-status").textContent = mediaIssues.length ? "以下图片已停用或授权不完整：" + mediaIssues.map(function(id) { return newsMedia[id]?.displayName || id; }).join("、") + "。请在媒体库处理后重新打开新闻。" : "";
     $("news-media-status").classList.toggle("error", mediaIssues.length > 0);
     $("news-workflow").textContent = busy ? "正在处理，请稍候…" : dirty ? (published ? "有未保存改动；网站仍展示原公开版本。" : "有未保存改动，请先保存草稿。") : currentPublished ? "当前修订已公开。修改后保存草稿，再核查并发布才能更新网站。" : published ? "新草稿尚未发布；网站仍展示原公开版本。" : checked ? "当前修订已核查，可以发布。" : "草稿未公开：保存 → 核查当前修订 → 发布。";
+    $("news-sticky-state").textContent = busy ? "正在处理…" : dirty ? "有未保存改动" : currentPublished ? "当前修订已发布" : "草稿 · 尚未发布";
     $("news-public-link").hidden = !published;
     if (published) $("news-public-link").href = publicLink(form.elements.slug.value, activeLocale);
   }
@@ -100,18 +82,19 @@
     form.elements.slug.disabled = false; currentId = null; version = null; checked = false; published = false; currentPublished = false; dirty = false; activeLocale = "zh";
     initRichEditor(null, "");
     renderLiveArticle();
-    $("editor-title").textContent = "新建新闻"; $("preview-box").hidden = true; $("history").textContent = ""; message(""); updateButtons();
+    $("editor-title").textContent = "新建新闻/活动"; $("preview-box").hidden = true; $("history").textContent = ""; message(""); updateButtons();
     $("list-card").hidden = true; $("editor-card").hidden = false;
+    $("editor-card").scrollIntoView({block:"start"});
   }
   async function openNews(id, locale) {
     try {
       var row = await api("/api/admin/v1/news/" + id + "?locale=" + (locale || "zh")); resetEditor(); currentId = row.id; version = row.version; checked = row.reviewState === "ready"; published = row.published; currentPublished = row.currentPublished; activeLocale = row.locale;
-      ["slug", "locale", "title", "summary", "sourceUrl", "sourceNote"].forEach(function (key) { form.elements[key].value = row[key] || ""; });
+      ["slug", "locale", "title", "summary", "category", "location", "sourceUrl", "sourceNote"].forEach(function (key) { form.elements[key].value = row[key] || ""; });
       newsMedia=row.media || {};form.elements.coverAssetId.value=row.coverAssetId || "";
       initRichEditor(row.richText, row.body || "");
       form.elements.happenedAt.value = String(row.happenedAt || "").slice(0, 10); form.elements.slug.disabled = true;
       renderLiveArticle();
-      dirty = false; $("editor-title").textContent = "编辑新闻 · " + (row.locale === "en" ? "English" : "中文") + " · v" + version; updateButtons(); loadHistory();
+      dirty = false; $("editor-title").textContent = "编辑" + (row.category === "activity" ? "活动" : "新闻") + " · " + (row.locale === "en" ? "English" : "中文") + " · v" + version; updateButtons(); loadHistory();
     } catch (error) { message(error.message, true); }
   }
   async function loadHistory() {
@@ -122,12 +105,16 @@
     syncRichText(); var data = Object.fromEntries(new FormData(form).entries()); data.expectedVersion = version; return data;
   }
   function renderLiveArticle() {
+    var activity=form.elements.category.value === "activity";
+    $("news-location-field").hidden=!activity; form.elements.summary.maxLength=activity ? 1000 : 500;
     var id=form.elements.coverAssetId.value;
     $("news-cover-label").textContent=id ? (newsMedia[id]?.displayName || "已选择封面") : "未设置封面";
     window.ScaleNewsArticle.render($("news-live-article"), {
       title: form.elements.title.value,
       summary: form.elements.summary.value,
       happenedAt: form.elements.happenedAt.value,
+      category: form.elements.category.value,
+      location: form.elements.location.value,
       coverAssetId: id,
       richText: richEditor?.getJSON() || null
     }, { media: newsMedia, locale: form.elements.locale.value });
@@ -176,10 +163,7 @@
   $("logout").addEventListener("click", async function () { if (!confirmLeaveNews()) return; try { await api("/api/admin/v1/session", { method: "DELETE" }); } finally { closeNewsEditor(); showLogin(); } });
   $("new-news").addEventListener("click", function () { if (confirmLeaveNews()) resetEditor(); });
   $("close-editor").addEventListener("click", function () { if (!confirmLeaveNews()) return; closeNewsEditor(); loadNews(); });
-  $("search").addEventListener("input", function () { clearTimeout(window.searchTimer); newsPage = 1; ++listRequest; window.searchTimer = setTimeout(loadNews, 250); });
-  ["news-state","news-sort"].forEach(function(id) { $(id).onchange = function() { newsPage = 1; loadNews(); }; });
-  $("news-prev").onclick = function() { newsPage--; loadNews(); };
-  $("news-next").onclick = function() { newsPage++; loadNews(); };
+  $("search").addEventListener("input", function () { clearTimeout(window.searchTimer); newsList.invalidate(); window.searchTimer = setTimeout(loadNews, 250); });
   form.addEventListener("submit", async function (event) {
     event.preventDefault();
     if (busy) return;
@@ -208,14 +192,13 @@
     if (button.dataset.module !== "news" && !confirmLeaveNews()) return;
     if (button.dataset.module !== "news" && !$("editor-card").hidden) closeNewsEditor();
     document.querySelectorAll("[data-module]").forEach(function (item) { item.classList.toggle("active", item === button); });
-    var module = button.dataset.module; var names = { news: "新闻动态", members: "团队成员", publications: "论文成果", projects: "科研项目", directions: "研究方向", albums: "活动相册", media: "媒体资源", settings: "站点设置", accounts: "账号管理", audit: "操作记录" };
+    var module = button.dataset.module; var names = { news: "新闻/活动", members: "团队成员", publications: "论文成果", projects: "科研项目", directions: "研究方向", media: "媒体资源", settings: "站点设置", accounts: "账号管理", audit: "操作记录" };
     var research = ["publications", "projects", "directions"].includes(module);
-    $("breadcrumb").textContent = names[module]; $("news-panel").hidden = module !== "news"; $("audit-panel").hidden = module !== "audit"; $("research-panel").hidden = !research; $("member-panel").hidden = module !== "members"; $("media-panel").hidden = module !== "media"; $("album-panel").hidden = module !== "albums"; $("settings-panel").hidden = module !== "settings"; $("accounts-panel").hidden = module !== "accounts"; $("other-panel").hidden = module === "news" || module === "audit" || module === "members" || module === "media" || module === "albums" || module === "settings" || module === "accounts" || research;
+    $("breadcrumb").textContent = names[module]; $("news-panel").hidden = module !== "news"; $("audit-panel").hidden = module !== "audit"; $("research-panel").hidden = !research; $("member-panel").hidden = module !== "members"; $("media-panel").hidden = module !== "media"; $("settings-panel").hidden = module !== "settings"; $("accounts-panel").hidden = module !== "accounts"; $("other-panel").hidden = module === "news" || module === "audit" || module === "members" || module === "media" || module === "settings" || module === "accounts" || research;
     $("other-title").textContent = names[module]; if (module === "audit") loadAudit(); if (module === "news") loadNews();
     if (research && window.researchAdmin) window.researchAdmin.show(module);
     if (module === "members" && window.memberAdmin) window.memberAdmin.show();
     if (module === "media" && window.mediaAdmin) window.mediaAdmin.show();
-    if (module === "albums" && window.albumAdmin) window.albumAdmin.show();
     if (module === "settings" && window.settingsAdmin) window.settingsAdmin.show();
     if (module === "accounts" && window.accountsAdmin) window.accountsAdmin.show();
   }); });

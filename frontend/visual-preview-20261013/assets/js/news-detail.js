@@ -29,6 +29,14 @@
       var result = await response.json();
       if (currentRequest !== requestNumber) return;
       var news = result.data;
+      var activity=news.category==='activity';
+      document.querySelectorAll('.nav a,.mobile-nav a').forEach(function(link){
+        link.removeAttribute('aria-current');
+        if(link.getAttribute('href')===(activity ? 'culture.html' : 'news-list.html')) link.setAttribute('aria-current','page');
+      });
+      var back=document.querySelector('.news-back');
+      back.href=activity ? 'culture.html#activity-gallery' : 'news-list.html';
+      back.textContent=activity ? (en ? '← Back to lab culture' : '← 返回实验室文化') : (en ? '← Back to news' : '← 返回新闻动态');
       window.ScaleNewsArticle.render(article, news, { media: news.media, locale: en ? "en" : "zh" });
       document.title = news.title + " · SCALE Lab";
       document.querySelector('meta[name="description"]').content = news.summary;

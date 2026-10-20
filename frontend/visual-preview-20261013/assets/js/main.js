@@ -122,7 +122,7 @@
     getPublished('research-directions', locale).then(function (items) {
       if (locale !== language()) return;
       if (!items.length) { grid.textContent = language() === 'en' ? 'No published research directions yet.' : '研究方向内容待发布。'; return; }
-      items = orderFeatured(items, 'directionSlugs');
+      items = orderFeatured(items, 'directionSlugs').slice(0, 3);
       grid.replaceChildren.apply(grid, items.map(function (d, index) {
         var card = (homeDirectionTemplates[index] || homeDirectionTemplates[0]).cloneNode(true);
         card.classList.toggle('name-only', !d.summary);
@@ -162,19 +162,37 @@
     node.textContent = locale === 'en' ? 'Loading activity photos…' : '正在加载活动照片…';
     getPublished('activities', locale).then(function (albums) {
       if (locale !== language()) return;
-      var photos = coversOnly ? albums.map(function (album) { return { album: album, image: album.cover }; }) :
+      var photos = coversOnly ? albums.slice().sort(function(a, b) { return String(b.activityDate || '').localeCompare(String(a.activityDate || '')); }).slice(0, 3).map(function (album) { return { album: album, image: album.cover }; }) :
         albums.flatMap(function (album) { return (album.images || []).map(function (image) { return { album: album, image: image }; }); });
-      if (!photos.length) { node.textContent = locale === 'en' ? 'Activity photos are being reviewed.' : '活动照片正在核验，暂无已授权公开的图片。'; return; }
+      node.classList.toggle('is-empty', coversOnly ? !photos.length : !albums.length);
+      if (coversOnly ? !photos.length : !albums.length) { node.textContent = locale === 'en' ? 'More moments from lab life will be shared here.' : '活动影像将陆续更新，记录研究之外的相聚与日常。'; return; }
+      if (!coversOnly) {
+        node.classList.add('activity-collection');
+        node.innerHTML = albums.map(function (album) {
+          var story = (album.body || '').split(/\r?\n\s*\r?\n/).filter(Boolean).map(function (paragraph) {
+            return '<p>' + render(paragraph).replace(/\r?\n/g, '<br>') + '</p>';
+          }).join('');
+          return '<article class="activity-record"><header><p class="activity-meta"><time datetime="' + esc(album.activityDate) + '">' + render(album.activityDate) + '</time>' + (album.location ? ' · ' + render(album.location) : '') + '</p><h3 class="declaration">' + render(album.title) + '</h3><p class="activity-summary">' + render(album.summary) + '</p></header>' +
+            (!album.richText && story ? '<details class="activity-story"><summary>' + (locale === 'en' ? 'Read the activity story' : '展开活动记录') + '</summary><div>' + story + '</div></details>' : '') +
+            (album.richText ? '<a class="text-link" href="news.html?slug=' + encodeURIComponent(album.slug) + '&amp;lang=' + locale + '">' + (locale === 'en' ? 'Read the activity story ↗' : '阅读完整活动图文 ↗') + '</a>' : '') +
+            '<div class="activity-photo-grid">' + (album.images || []).map(function (image) {
+              return '<figure class="shot has-image"><img src="' + esc(image.url) + '" alt="' + esc(image.alt) + '" loading="lazy"><span>' + render(image.caption || album.title) + '</span></figure>';
+            }).join('') + '</div></article>';
+        }).join('');
+        return;
+      }
       node.innerHTML = photos.map(function (entry) {
-        var caption = entry.album.title + (entry.image.caption ? ' · ' + entry.image.caption : '');
-        return '<figure class="shot has-image"><img src="' + esc(entry.image.url) + '" alt="' + esc(entry.image.alt) + '" loading="lazy"><span>' + render(caption) + '</span></figure>';
+        var detailUrl = 'news.html?slug=' + encodeURIComponent(entry.album.slug) + '&lang=' + locale;
+        var label = (locale === 'en' ? 'Read activity: ' : '阅读活动：') + entry.album.title;
+        return '<a class="shot activity-link' + (entry.image ? ' has-image' : '') + '" href="' + esc(detailUrl) + '" aria-label="' + esc(label) + '">' +
+          (entry.image ? '<img src="' + esc(entry.image.url) + '" alt="' + esc(entry.image.alt) + '" loading="lazy">' : '') + '<span>' + render(entry.album.title) + '</span></a>';
       }).join('');
     }).catch(function () { if (locale === language()) node.textContent = locale === 'en' ? 'Activity photos are temporarily unavailable.' : '活动照片暂时无法加载。'; });
   }
 
   function renderNews(node, items) {
     node.innerHTML = items.map(function (n) {
-      var detailUrl = 'news.html?slug=' + encodeURIComponent(n.slug);
+      var detailUrl = 'news.html?slug=' + encodeURIComponent(n.slug) + '&lang=' + language();
       return '<div class="news-item">' +
         '<div class="date">' + render(String(n.happenedAt || '').slice(0, 10)) + '</div>' +
         '<div><h3><a class="news-title-link" href="' + esc(detailUrl) + '">' + render(n.title) + '</a></h3><p>' + render(n.summary) + '</p><a class="news-read-link" href="' + esc(detailUrl) + '">' + (language() === 'en' ? 'Read full story' : '阅读全文') + ' <span aria-hidden="true">↗</span></a></div>' +
@@ -194,7 +212,7 @@
         node.textContent = locale === 'en' ? 'No published news yet.' : '暂无已发布新闻。';
         return;
       }
-      renderNews(node, orderFeatured(result.data, 'newsSlugs'));
+      renderNews(node, result.data.slice(0, 3));
     }).catch(function () {
       if (locale === language()) node.textContent = locale === 'en' ? 'News is temporarily unavailable.' : '新闻暂时无法加载，请稍后再试。';
     });
@@ -209,6 +227,7 @@
     if (links.github && links.github !== "@@@") linkHtml += '<a href="' + esc(links.github) + '">GitHub</a>';
     if (links.email && links.email !== "@@@") linkHtml += '<a href="mailto:' + esc(links.email) + '">Email</a>';
     if (m.homepage && m.homepage !== "@@@") linkHtml += '<a href="' + esc(m.homepage) + '">主页</a>';
+    if (m.hasDetails) linkHtml += '<a href="member.html?slug=' + encodeURIComponent(m.slug) + '&amp;lang=' + language() + '">' + (language() === 'en' ? 'View profile ↗' : '查看详情 ↗') + '</a>';
     var photo = (m.photo && m.photo !== "@@@")
       ? '<img src="' + esc(m.photo) + '" alt="' + esc(m.nameZh) + ' 照片" />'
       : '<div class="ph-ico">📷</div><div style="font-size:12px;margin-top:6px;">@@@ 照片</div>';
@@ -248,6 +267,7 @@
         }).join("") + '</div>' : '') +
         '<div class="advisor-facts"><span>华中师范大学人工智能教育学部</span>' +
           (m.location ? '<span>办公地点：' + render(m.location) + '</span>' : '') + homepage +
+          (m.hasDetails ? '<a class="text-link" href="member.html?slug=' + encodeURIComponent(m.slug) + '&amp;lang=' + language() + '">' + (language() === 'en' ? 'View profile ↗' : '查看详情 ↗') + '</a>' : '') +
         '</div>' +
       '</div>' +
     '</article>';
@@ -264,13 +284,14 @@
       root.innerHTML = [
         { key: 'advisor', title: '导师', sub: 'Advisor' },
         { key: 'researcher', title: '科研人员', sub: 'Researchers' },
+        { key: 'postdoc', title: '博士后', sub: 'Postdoctoral Researchers' },
         { key: 'student', title: '在读学生', sub: 'Current Students' },
         { key: 'alumni', title: '毕业校友', sub: 'Alumni' }
       ].map(function (group) {
         var members = items.filter(function (item) { return item.category === group.key; });
         if (!members.length) return '';
-        var teachers = group.key === 'advisor' || group.key === 'researcher';
-        return '<div class="group-title"><h3>' + group.title + '</h3><span class="count">' + group.sub + ' · ' + members.length + ' 人</span></div>' +
+        var teachers = group.key === 'advisor' || group.key === 'researcher' || group.key === 'postdoc';
+        return '<div class="group-title" id="people-' + group.key + '"><h3>' + group.title + '</h3><span class="count">' + group.sub + ' · ' + members.length + ' 人</span></div>' +
           '<div class="grid ' + (teachers ? 'researcher-grid' : 'grid-4') + '">' + members.map(function (member) {
             return teachers ? researcherFeature(member) : profileCard(member, true);
           }).join('') + '</div>';
@@ -370,7 +391,9 @@
               '<li><a href="index.html">首页</a></li>' +
               '<li><a href="people.html">团队成员</a></li>' +
               '<li><a href="research.html">研究成果</a></li>' +
+              '<li><a href="news-list.html">新闻动态</a></li>' +
               '<li><a href="culture.html">实验室文化</a></li>' +
+              '<li><a href="join.html">加入我们</a></li>' +
             '</ul>' +
           '</div>' +
           '<div>' +

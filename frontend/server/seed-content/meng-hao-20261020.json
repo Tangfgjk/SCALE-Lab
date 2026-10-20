@@ -1,0 +1,24 @@
+{
+  "slug": "meng-hao",
+  "locale": "zh",
+  "nameZh": "孟皓",
+  "nameEn": "Hao Meng",
+  "category": "postdoc",
+  "role": "博士后",
+  "bio": "主要研究智慧教育、数学推理系统、可解释人工智能与人机智能协同，具有教育技术学和计算机科学交叉研究背景。在数学应用题机器解答、物性关系推理与智能辅导系统等方面开展研究。",
+  "profileDetails": "## 教育经历\n- 2023.07—2026.03：伍伦贡大学，计算机科学，博士；导师：沈俊。\n- 2019.09—2025.12：华中师范大学，教育技术学，博士；导师：余新国。\n- 2017.09—2019.06：华中师范大学 / 伍伦贡大学，计算机技术，双硕士；导师：余新国、王雷。\n- 2013.09—2017.06：太原理工大学，软件工程，学士。\n- 2015.07—2015.12：国立高雄师范大学，交换学习。\n\n## 研究基础\n- 研究方向：智慧教育、数学推理系统、可解释人工智能、人机智能协同。\n- 长期围绕智能教育、数学应用题机器解答、物性关系推理、关系流算法与可解释人工智能开展研究。博士论文题为《基于物性关系增强与情境分解的数学解答算法及应用研究》。\n- 具有教育技术学与计算机科学交叉训练背景，能够开展教育问题抽象、算法设计、知识库构建、数据处理、程序实现、实验评估和系统集成。\n- 在数学应用题数据集处理、物性关系模板设计、推理路径搜索、方程组自动生成、SymPy符号求解和可解释结果呈现方面具有研究积累。\n\n## 代表性论文与成果\n- 2026 · EvoAgent-SQL: An Evolutionary Multi-Agent Text2SQL Framework Integrating User Feedback and Reflective Adaptation · Symmetry · 通讯作者。\n- 2024 · Comparative study of typical neural solvers in solving math word problems · Complex & Intelligent Systems · 第四作者。\n- 2023 · Solving Arithmetic Word Problems of Entailing Deep Implicit Relations by Qualia Syntax-Semantic Model · Computers, Materials & Continua · 第一作者。\n- 2023 · Qualia Role-Based Quantity Relation Extraction for Solving Algebra Story Problems · CMES · 共同第一作者。\n- 2025 · The Collaborative Intelligence Mathematics Tutoring Service · WWW 2025 Companion · 第一作者。\n- 2025 · A Documentation-Driven Framework for AI-Assisted Full-Circle Agile Software Development · IEIR 2025 · 第一作者。\n- 2024 · The Collaborative Intelligent Mathematics Tutoring Agent Platform · IEEE ICA 2024 · 第一作者。\n- 2023 · Reasoning arithmetic word problems entailing implicit relations based on the chain-of-thought model · STEM Education · 第一作者。\n- 2022 · Prompt-Based Missing Entity Recovery for Solving Arithmetic Word Problems · IEIR 2022 · 第一作者。\n- 2021 · A Bi-Channel Math Word Problem Solver with Understanding and Reasoning · IEEE TALE 2021 · 第一作者。\n- 2021 · The Context-Oriented System Based on ELECTRA for Solving Math Word Problem · IEEE TALE 2021 · 第一作者。\n\n## 科研项目经历\n- 主持：华中师范大学优秀博士生毕业论文培育项目“基于物性结构模型自动解答含有常识关系的数学代数型题目研究”（2022.09—2023.06）。\n- 主要参与：国家留学基金委创新型人才联合培养项目“人机智能协同领域创新型人才培养”（2023.07—2025.07）。\n- 参与国家自然科学基金面上项目：“基于深度关系网络的代数机器解答研究”（2020—2023）、“基于关系推理的初等数学机器解答研究”（2022—2025）、“面向智能化作业辅导的图文混合题可理解机器解答研究”（2022—2025），承担算法设计、数据处理、实验验证和系统实现等工作。\n\n## 专利与竞赛\n- 发明专利：一种融合物性知识提示的数学应用题机器解答系统及方法，CN202311049125.9，第三发明人。\n- 中国计算机学会NLPCC 2023“数学应用题解决”任务竞赛第1名。\n- 2023首届全国人工智能应用场景创新挑战赛优胜奖（队长）。\n\n## 学术与教学服务\n- 期刊审稿：Knowledge-Based Systems、IEEE Transactions on Learning Technologies、International Journal of Computational Intelligence Systems、Journal of Educational Computing Research、Complex & Intelligent Systems等。\n- 会议审稿：AAAI 2024、ICPR 2024、TALE 2021、IEIR 2022/2023、IJCKG 2023、SAC 2024、ICSOC 2024等。\n- 承担4门计算机相关课程助教工作；IEEE Member。\n\n## 研究计划\n- 拟围绕“人机智能协同指导研究生算法创新的方法研究”开展博士后工作，将数学解题中的物性关系建模、情境分解和可解释推理拓展到研究生算法创新支持。\n- 计划构建“问题情境—知识单元—算法模式—实验评价”的结构化表示，融合教育大模型、领域知识库、多智能体协同和用户反馈机制，形成方案生成、评价、反思和修正的智能指导闭环。",
+  "interests": [
+    "智慧教育",
+    "数学推理系统",
+    "可解释人工智能",
+    "人机智能协同"
+  ],
+  "displayOrder": 0,
+  "homepageUrl": "",
+  "orcidUrl": "",
+  "githubUrl": "",
+  "publicEmail": "",
+  "destination": "",
+  "sourceUrl": "",
+  "sourceNote": "来源：用户2026-10-20提供的《孟皓_个人简历.pdf》（三页）及指定头像，并明确说明为本组新来的博士后、要求加入团队。当前博士后身份据用户说明；教育、论文、项目和服务据简历整理，研究计划保留“拟/计划”表述。未公开私人联系方式、出生年月、政治面貌、民族及完整简历PDF；不附加未经外部核验的期刊分区或会议等级。"
+}

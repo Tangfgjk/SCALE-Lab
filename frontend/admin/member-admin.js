@@ -27,19 +27,9 @@
     }
     select.value = selected || "";
   }
-  async function list() {
-    try {
-      var rows = await api("/api/admin/v1/members?q=" + encodeURIComponent($("member-search").value));
-      var node = $("member-list"); node.replaceChildren();
-      if (!rows.length) { node.innerHTML = '<div class="empty">暂无成员资料。录入后默认为待核草稿。</div>'; return; }
-      rows.forEach(function (row) {
-        var element = document.createElement("div"); element.className = "list-row";
-        element.innerHTML = '<div><strong>' + esc(row.nameZh) + '</strong><small>' + esc(row.slug) + ' · ' + esc(row.category) + ' · 修订 v' + row.version + '</small></div><span class="status">' + (row.published ? "已发布" : "草稿") + '</span>';
-        var button = document.createElement("button"); button.type = "button"; button.textContent = "编辑"; button.addEventListener("click", function () { open(row.id); });
-        element.appendChild(button); node.appendChild(element);
-      });
-    } catch (error) { $("member-list").innerHTML = '<div class="empty">' + esc(error.message) + '</div>'; }
-  }
+  var contentList = window.ScaleContentList.create({ cardId: "member-list-card", listId: "member-list", searchId: "member-search", endpoint: function() { return "/api/admin/v1/members"; }, open: open });
+  function list() { return contentList.load(); }
+
   function renderPermissions() {
     var node = $("member-permission-list"); node.replaceChildren();
     Object.keys(names).forEach(function (field) {
@@ -64,7 +54,7 @@
   async function open(id, locale) {
     try {
       var row = await api("/api/admin/v1/members/" + id + "?locale=" + (locale || "zh")); reset(); currentId = row.id; version = row.version; checked = row.reviewState === "ready"; published = row.published; permission = row.permissions || {}; activeLocale = row.locale;
-      ["slug", "locale", "nameZh", "nameEn", "category", "role", "bio", "homepageUrl", "orcidUrl", "githubUrl", "publicEmail", "destination", "sourceUrl", "sourceNote", "displayOrder"].forEach(function (name) { form.elements[name].value = row[name] == null ? "" : row[name]; });
+      ["slug", "locale", "nameZh", "nameEn", "category", "role", "bio", "profileDetails", "homepageUrl", "orcidUrl", "githubUrl", "publicEmail", "destination", "sourceUrl", "sourceNote", "displayOrder"].forEach(function (name) { form.elements[name].value = row[name] == null ? "" : row[name]; });
       form.elements.interestsText.value = (row.interests || []).join("，"); await loadPhotoOptions(row.photoAssetId); form.elements.slug.disabled = true; dirty = false;
       $("member-editor-title").textContent = "编辑成员 · " + (row.locale === "en" ? "English" : "中文") + " · v" + version; $("member-permissions").hidden = false; renderPermissions(); buttons(); history();
     } catch (error) { msg(error.message, true); }
@@ -99,5 +89,5 @@
   $("member-check").addEventListener("click", function () { action("/check", "当前修订已核查。"); });
   $("member-publish").addEventListener("click", function () { action("/publish", "成员档案已发布；敏感字段仍按各自授权显示。"); });
   $("member-withdraw").addEventListener("click", function () { action("/withdraw", "成员档案已撤回。"); });
-  window.memberAdmin = { show: function () { $("member-editor-card").hidden = true; $("member-list-card").hidden = false; $("member-search").value = ""; list(); } };
+  window.memberAdmin = { show: function () { $("member-editor-card").hidden = true; $("member-list-card").hidden = false; $("member-search").value = ""; contentList.reset(); list(); } };
 })();

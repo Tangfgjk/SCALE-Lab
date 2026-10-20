@@ -42,8 +42,50 @@
     "暂停自动切换研究方向": "Pause research rotation", "继续自动切换研究方向": "Resume research rotation",
     "相册切换": "Gallery controls", "上一张相册内容": "Previous gallery item", "下一张相册内容": "Next gallery item", "。": "."
   };
-  var entries = Object.keys(translations).sort(function (a, b) { return b.length - a.length; });
   var originalTitle = document.title;
+  Object.assign(translations, {
+  "加入我们": "Join Us",
+  "查看全部新闻": "View All News",
+  "走进实验室生活": "Life in the Lab",
+  "探索全部研究": "Explore All Research",
+  "返回新闻动态": "Back to Lab News",
+  "了解如何加入我们": "Find Out How to Join",
+  "研究在前行，故事在发生。": "Research moves forward. Stories unfold.",
+  "学术交流、研究进展与团队动态，在这里了解 SCALE Lab 的最新消息。": "Discover academic exchanges, research progress and news from the SCALE Lab community.",
+  "搜索新闻": "Search News",
+  "新闻年份": "Year",
+  "输入标题或摘要关键词": "Search titles and summaries",
+  "上一页": "Previous",
+  "下一页": "Next",
+  "活动影像将陆续更新，记录研究之外的相聚与日常。": "More moments from lab life will be shared here.",
+  "认同这里的研究方式？": "Does our approach resonate with you?",
+  "一起把问题，研究得更深一点。": "Let’s explore meaningful questions together.",
+  "让好奇心，走向真实的问题。": "Turn curiosity into meaningful questions.",
+  "欢迎对学习、教育与人工智能感兴趣的同学，与我们一起提出问题、理解证据、探索有价值的研究。": "We welcome students interested in learning, education and AI to explore questions, examine evidence and pursue meaningful research together.",
+  "与我们联系": "Get in Touch",
+  "不同背景，共同探索": "Different Backgrounds, Shared Curiosity",
+  "无论你来自计算机、教育学、教育技术、电子信息，还是其他相关学科，只要愿意认真理解学习过程、关注真实教育场景，都欢迎了解 SCALE Lab。": "Students from computing, education, educational technology, electronic information and related disciplines are welcome to discover SCALE Lab and its focus on learning in real educational settings.",
+  "你可以从教育数据挖掘、多模态课堂分析、教育人工智能理论与实证这三个方向开始，找到自己想持续追问的问题。": "Explore educational data mining, multimodal classroom analysis, and theoretical and empirical research on AI in education to find questions you want to pursue.",
+  "了解我们的研究": "Explore Our Research",
+  "我们期待这样的同行者": "What We Value in Collaborators",
+  "不要求一开始就拥有所有答案，更看重持续学习与认真协作。": "You do not need all the answers to begin. We value ongoing learning and thoughtful collaboration.",
+  "对问题保持好奇": "Stay Curious",
+  "愿意阅读文献、观察学习与课堂现象，把兴趣逐步转化为清晰、可研究的问题。": "Read widely, observe learning and classroom practice, and develop interests into clear research questions.",
+  "尊重证据与研究规范": "Respect Evidence and Research Practice",
+  "认真记录研究过程，重视数据质量、可复现性和隐私，能够讨论不同结果及其局限。": "Document research carefully, value data quality, reproducibility and privacy, and discuss results alongside their limitations.",
+  "主动沟通，乐于协作": "Communicate and Collaborate",
+  "愿意分享进展、提出疑问、接受反馈，也愿意理解不同学科伙伴的思考方式。": "Share progress, ask questions, welcome feedback and learn how collaborators from other disciplines think.",
+  "持续学习，踏实行动": "Keep Learning and Take Action",
+  "结合自己的背景，逐步积累研究方法、数据分析或技术实现能力，用实际工作推进问题解决。": "Build on your background to develop research, data analysis or technical skills, and make progress through practical work.",
+  "从一封邮件开始": "Start with an Email",
+  "欢迎简单介绍你的学习背景、研究兴趣，以及希望了解或参与的问题。若已有相关经历，可附上个人简历、项目介绍或代表性作品，帮助我们更好地了解你。": "Introduce your academic background, research interests and the questions you hope to explore. You may include a CV, project description or examples of your work.",
+  "联系王志锋老师：": "Contact Prof. Wang Zhifeng: ",
+  "备用邮箱：": "Alternative email: ",
+  "招生专业、资格和时间安排以学校及教师主页的正式信息为准；此页面用于介绍研究兴趣与联系方式。": "For programmes, eligibility and application dates, please consult official university information and the faculty profile.",
+  "查看教师主页与招生信息": "Faculty Profile and Admissions Information"
+});
+  Object.assign(translations, { "博士后": "Postdoctoral Researchers", "成员详情": "Member Profile", "返回团队成员": "Back to People", "档案目录": "Profile Contents" });
+  var entries = Object.keys(translations).sort(function (a, b) { return b.length - a.length; });
   var textNodes = [], attributes = [];
   function convert(value) {
     var result = value.replace(/\s+/g, " ");

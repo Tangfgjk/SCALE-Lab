@@ -9,7 +9,6 @@ const news = require("./news");
 const research = require("./research");
 const members = require("./members");
 const media = require("./media");
-const albums = require("./albums");
 const settings = require("./settings");
 const accounts = require("./accounts");
 
@@ -33,7 +32,7 @@ app.delete("/api/admin/v1/session", auth.requireUser, auth.requireCsrf, (req, re
 app.use("/api/admin/v1", news.admin);
 app.use("/api/admin/v1/members", members.admin);
 app.use("/api/admin/v1/assets", media.admin);
-app.use("/api/admin/v1/activities", albums.admin);
+app.use("/api/admin/v1/activities", auth.requireUser, (req,res) => res.status(410).json({error:{code:"MODULE_MERGED",message:"活动相册已合并到新闻/活动，请使用 /api/admin/v1/news"}}));
 app.use("/api/admin/v1/settings", settings.admin);
 app.use("/api/admin/v1", accounts.admin);
 app.use("/api/admin/v1", research.admin);
@@ -45,13 +44,12 @@ app.get("/api/v1/home", async (req, res, next) => {
       FROM content_publications p JOIN content_items i ON i.id=p.content_id
       JOIN content_localizations l ON l.revision_id=p.revision_id AND l.locale=p.locale
       JOIN news_revisions n ON n.revision_id=p.revision_id
-      WHERE i.type='news' AND p.locale=$1 ORDER BY n.happened_at DESC LIMIT 5`, [locale]);
+      WHERE i.type='news' AND n.category<>'activity' AND p.locale=$1 ORDER BY n.happened_at DESC LIMIT 5`, [locale]);
     res.json({ data: { latestNews: result.rows }, meta: null, requestId: req.requestId });
   } catch (error) { next(error); }
 });
 app.use("/api/v1/members", members.publicApi);
 app.use("/api/v1/assets", media.publicApi);
-app.use("/api/v1/activities", albums.publicApi);
 app.use("/api/v1/settings", settings.publicApi);
 app.use("/api/v1", research.publicApi);
 

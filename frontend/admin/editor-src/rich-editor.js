@@ -3,6 +3,8 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
+import { Plugin } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
 const renderer = window.ScaleRichRenderer;
 const textPresets = new Set(["small", "lead", "emphasis"]);
@@ -16,17 +18,33 @@ const TextPreset = Mark.create({
   renderHTML({mark}){return ["span",{"data-text-preset":textPresets.has(mark.attrs.preset) ? mark.attrs.preset : "small"},0];}
 });
 const MediaImage = Node.create({
-  name:"image",group:"block",atom:true,draggable:true,
+  name:"image",group:"block",atom:true,draggable:false,
+  // A drag beginning on a picture should extend the document selection rather
+  // than start native image dragging. Cut/paste can still move image blocks.
+  addProseMirrorPlugins(){return [new Plugin({props:{decorations(state){
+    const {from,to,empty}=state.selection;
+    if(empty) return DecorationSet.empty;
+    const decorations=[];
+    state.doc.nodesBetween(from,to,(node,pos)=>{
+      if(node.type.name==='image') decorations.push(Decoration.node(pos,pos+node.nodeSize,{class:'rich-image-in-selection'}));
+    });
+    return DecorationSet.create(state.doc,decorations);
+  }}})];},
   addAttributes(){return {assetId:{default:null},caption:{default:""},width:{default:"large"},align:{default:"center"}};},
   // Only our own internal figures can be pasted; arbitrary image URLs never become assets.
   parseHTML(){return [{tag:"figure[data-asset-id]",getAttrs:el=>{
     const id=el.getAttribute("data-asset-id");
-    return /^[0-9a-f-]{36}$/i.test(id || "") ? {assetId:id,caption:el.querySelector("figcaption")?.textContent || ""} : false;
+    const width=el.querySelector('img')?.getAttribute('data-width'),align=el.getAttribute('data-align');
+    return /^[0-9a-f-]{36}$/i.test(id || "") ? {
+      assetId:id,caption:el.hasAttribute('data-caption') ? el.getAttribute('data-caption') : el.querySelector("figcaption")?.textContent || "",
+      width:['small','medium','large'].includes(width) ? width : 'large',
+      align:['left','center','right'].includes(align) ? align : 'center'
+    } : false;
   }}];},
   renderHTML({node}){
     const a=node.attrs;
-    return ["figure",{"data-asset-id":a.assetId,"data-align":a.align},
-      ["img",{src:"/api/admin/v1/assets/"+encodeURIComponent(a.assetId)+"/file","data-width":a.width,alt:a.caption || "媒体库图片"}],
+    return ["figure",{"data-asset-id":a.assetId,"data-align":a.align,"data-caption":a.caption},
+      ["img",{draggable:"false",src:"/api/admin/v1/assets/"+encodeURIComponent(a.assetId)+"/file","data-width":a.width,alt:a.caption || "媒体库图片"}],
       ["figcaption",{},a.caption || "选中图片后点击「图片设置」调整图注、宽度和对齐"]];
   }
 });
@@ -78,6 +96,7 @@ function createToolbar(root, editor, controller) {
     node.title = title;
     node.setAttribute("aria-label", title);
     Object.entries(attributes).forEach(([key, value]) => node.dataset[key] = value);
+    node.addEventListener("mousedown", event => event.preventDefault());
     node.addEventListener("click", () => command());
     root.appendChild(node);
     return node;
@@ -98,6 +117,7 @@ function createToolbar(root, editor, controller) {
     });
   };
 
+  button("全选图文", "选中整篇文字和图片（Ctrl+A / ⌘A）", () => editor.chain().focus().selectAll().run());
   button("B", "粗体（Ctrl+B）", () => editor.chain().focus().toggleBold().run(), { mark: "bold" });
   button("I", "斜体（Ctrl+I）", () => editor.chain().focus().toggleItalic().run(), { mark: "italic" });
   button("U", "下划线", () => editor.chain().focus().toggleUnderline().run(), { mark: "underline" });

@@ -1,0 +1,118 @@
+[
+  {
+    "group": "graduation",
+    "index": 1,
+    "file": "graduation-01.jpg",
+    "sourceArchive": "C:/Users/21709/Desktop/毕业合照.zip",
+    "sourceEntry": "毕业合照/IMG_6636.JPG",
+    "sourceSha256": "b88a7c3fe6b6f8cb180188ae68aac28d480c05a1bea4adec69f9a5dc84bef907",
+    "sourceSize": [
+      6000,
+      4000
+    ],
+    "preparedSha256": "33208fe04871d985e3cc3084f0b7ada912cf41cea59e1f974e79efd994764c98"
+  },
+  {
+    "group": "graduation",
+    "index": 2,
+    "file": "graduation-02.jpg",
+    "sourceArchive": "C:/Users/21709/Desktop/毕业合照.zip",
+    "sourceEntry": "毕业合照/IMG_6640.JPG",
+    "sourceSha256": "78bc38f6eb77873d8933dfbccf96eb1d14bb89baaa0528e55e0fb78e8bdb6ed3",
+    "sourceSize": [
+      6000,
+      4000
+    ],
+    "preparedSha256": "c8a3ec5a2545b86f79a73196aa2c07c4621eddc2006eb1b94cffbb6d13fae4d8"
+  },
+  {
+    "group": "graduation",
+    "index": 3,
+    "file": "graduation-03.jpg",
+    "sourceArchive": "C:/Users/21709/Desktop/毕业合照.zip",
+    "sourceEntry": "毕业合照/IMG_6646.JPG",
+    "sourceSha256": "212bf4a8472c4cb939d26cb888ee346b402af8a0146778f3a1ed03c087f65777",
+    "sourceSize": [
+      6000,
+      4000
+    ],
+    "preparedSha256": "2027a6edaa4052062901880f55a4febd7cd2e20e9f28e8f17892a914f2e94561"
+  },
+  {
+    "group": "graduation",
+    "index": 4,
+    "file": "graduation-04.jpg",
+    "sourceArchive": "C:/Users/21709/Desktop/毕业合照.zip",
+    "sourceEntry": "毕业合照/IMG_6655.JPG",
+    "sourceSha256": "2ec00f4dbf6a8a6b4fddf072b7e61bf84cb798c552a4a1d6c9c88ad58fd0da15",
+    "sourceSize": [
+      6000,
+      4000
+    ],
+    "preparedSha256": "01b3b48fde6ebd07172685d4fdd69ea14cd0a5861d274dc20b3eb5b712e637a0"
+  },
+  {
+    "group": "graduation",
+    "index": 5,
+    "file": "graduation-05.jpg",
+    "sourceArchive": "C:/Users/21709/Desktop/毕业合照.zip",
+    "sourceEntry": "毕业合照/IMG_6708.JPG",
+    "sourceSha256": "279eb30655d95227be46b2d70f6e497cd514d28bbc074acc502eeecbc93212ec",
+    "sourceSize": [
+      6000,
+      4000
+    ],
+    "preparedSha256": "95bcf22caa7e0a56913c24102c95fe46dde398387774657ee00e03f47848a3cb"
+  },
+  {
+    "group": "donghu",
+    "index": 1,
+    "file": "donghu-01.jpg",
+    "sourceArchive": "C:/Users/21709/Desktop/东湖团建.zip",
+    "sourceEntry": "东湖团建/0e207680fbb5596f556671ca2e2cf322.png",
+    "sourceSha256": "82a909a1317e24a75f4eb3451e99dcf6aa7552aec2a2e974d1af134fc1d2077b",
+    "sourceSize": [
+      1628,
+      1094
+    ],
+    "preparedSha256": "75e642820bb22389f9c5588d49e1115bbb1813f45701432382ceab6e20be54a2"
+  },
+  {
+    "group": "donghu",
+    "index": 2,
+    "file": "donghu-02.jpg",
+    "sourceArchive": "C:/Users/21709/Desktop/东湖团建.zip",
+    "sourceEntry": "东湖团建/10394e229fe4b65f450883cb32d407d3.png",
+    "sourceSha256": "9443caf18013133ec4ef3efda9214d83591109d1c3d99fd5f07a83f043d0366c",
+    "sourceSize": [
+      716,
+      830
+    ],
+    "preparedSha256": "0ecfca3f22cbccf8b20fb709102f637749837f2adf33b59714dd314eb18c38f4"
+  },
+  {
+    "group": "donghu",
+    "index": 3,
+    "file": "donghu-03.jpg",
+    "sourceArchive": "C:/Users/21709/Desktop/东湖团建.zip",
+    "sourceEntry": "东湖团建/c9fcb4656c4dffeab829b7b34a4b1194.jpg",
+    "sourceSha256": "0cd3f342e2c6d22a1b2065c39809edaddc673fb4c3ea7b6700a9c1e0d56eb904",
+    "sourceSize": [
+      1280,
+      960
+    ],
+    "preparedSha256": "dd3f27f61827ea9277a68b64153ffd050359d8e2cf1b5f15c7c72b9c8fd29da3"
+  },
+  {
+    "group": "donghu",
+    "index": 4,
+    "file": "donghu-bbq.jpg",
+    "sourceFile": "C:\\Users\\21709\\AppData\\Local\\Temp\\codex-clipboard-39c0e81e-3ed2-42b7-8ba1-2578c5ee51db.png",
+    "sourceSha256": "2b0b6f1d5ae2a0ad4c53b38f33a44f912995c02f18371fd83d7e7c21cce0fe17",
+    "sourceSize": [
+      1646,
+      1130
+    ],
+    "preparedSha256": "75fa23572d6ca7b7c155d7b930e93d1f887ee30a4fd924b6d08bf72351e2bae8"
+  }
+]

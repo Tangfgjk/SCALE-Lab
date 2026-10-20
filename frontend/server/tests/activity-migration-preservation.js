@@ -1,0 +1,14 @@
+const fs=require('node:fs');const assert=require('node:assert/strict');const {pool}=require('../db/pool');
+(async()=>{
+ const snapshot=async()=>({items:(await pool.query("select id,type,slug,version,status,current_revision_id from content_items where type in ('news','activity') order by id")).rows,localizations:(await pool.query("select l.revision_id,l.locale,l.title,l.summary,l.body,l.review_state,l.reviewed_at from content_localizations l join content_revisions r on r.id=l.revision_id join content_items i on i.id=r.content_id where i.type in ('news','activity') order by l.revision_id,l.locale")).rows,publications:(await pool.query('select * from content_publications order by content_id,locale')).rows,permissions:(await pool.query('select * from asset_clearances order by asset_id,clearance_type')).rows});
+ const file=require('node:path').join(__dirname,'../storage/import-reports/unified-before-20261020.json');
+ if(process.argv.includes('--before')){fs.writeFileSync(file,JSON.stringify(await snapshot(),null,2));console.log('Saved content and publication snapshot');}
+ else {const before=JSON.parse(fs.readFileSync(file)),after=JSON.parse(JSON.stringify(await snapshot()));
+ const itemIds=new Set(before.items.map(x=>x.id)),revisions=new Set(before.localizations.map(x=>x.revision_id)),assetIds=new Set(before.permissions.map(x=>x.asset_id));
+ after.items=after.items.filter(x=>itemIds.has(x.id));after.localizations=after.localizations.filter(x=>revisions.has(x.revision_id));after.publications=after.publications.filter(x=>itemIds.has(x.content_id));before.publications=before.publications.filter(x=>itemIds.has(x.content_id));after.permissions=after.permissions.filter(x=>assetIds.has(x.asset_id));
+ assert.deepEqual(after,{...before,items:before.items.map(x=>({...x,type:'news'}))});
+ const rows=(await pool.query("select l.body,l.extra_json,l.locale,r.id from content_localizations l join content_revisions r on r.id=l.revision_id join activity_revisions a on a.revision_id=r.id")).rows;
+ for(const row of rows){const images=(await pool.query('select asset_id,caption_zh,caption_en from content_assets where revision_id=$1 order by display_order',[row.id])).rows;const doc=row.extra_json.richText;assert.deepEqual(doc.content.filter(n=>n.type==='image').map(n=>[n.attrs.assetId,n.attrs.caption]),images.map(x=>[x.asset_id,row.locale==='en'?x.caption_en:x.caption_zh]));assert.equal(doc.content.filter(n=>n.type==='paragraph').map(n=>n.content[0].text).join('\n\n'),row.body.split(/\n[\r\n ]*\n/).filter(x=>x.trim()).join('\n\n'));}
+ console.log('PASS migration: IDs, versions, review, source text, publications and asset permissions unchanged; '+rows.length+' historical activity localizations/images preserved');}
+ await pool.end();
+})().catch(e=>{console.error(e);process.exitCode=1;pool.end()});
