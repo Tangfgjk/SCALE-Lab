@@ -12,21 +12,34 @@
   <link rel="stylesheet" href="./rich-editor.css">
   <link rel="stylesheet" href="/shared/rich-renderer.css">
   <link rel="stylesheet" href="/shared/news-article.css">
+  <link rel="stylesheet" href="./studio.css?v=20261021" />
 </head>
 <body>
   <div id="login" class="login-screen">
-    <form id="login-form" class="login-card">
-      <div class="eyebrow">SCALE LAB / CONTENT STUDIO</div>
-      <h1>内容工作台</h1><p>登录后管理实验室网站的内容。</p>
-      <label>登录名<input name="login" autocomplete="username" required></label>
-      <label>密码<input name="password" type="password" autocomplete="current-password" required></label>
-      <button type="submit" class="primary">登录工作台</button>
-      <p id="login-message" class="message" role="status"></p>
-    </form>
+    <div class="login-layout">
+      <section class="login-intro" aria-labelledby="login-intro-title">
+        <a class="login-brand" href="/" aria-label="返回SCALE Lab公开网站"><img src="/assets/images/scale-lab-logo.png" width="320" height="110" alt="SCALE Lab 智能学习分析与评价实验室"></a>
+        <p class="login-affiliation">华中师范大学 · 人工智能教育学部</p>
+        <h2 id="login-intro-title">让研究被看见，<br>让内容有序更新。</h2>
+        <p class="login-intro-copy">这里是智能学习分析与评价实验室的网站内容管理平台，为实验室指定的内容维护人员提供统一的编辑与发布入口。</p>
+        <ul class="login-features"><li><strong>记录团队的进展</strong><span>编辑新闻活动，分享研究与实验室生活。</span></li><li><strong>维护学术档案</strong><span>更新团队成员、论文成果和科研项目。</span></li><li><strong>管理内容与影像</strong><span>整理媒体素材，预览内容并确认发布。</span></li></ul>
+        <img class="login-campus" src="/assets/images/ccnu-campus-skyline.png" width="1080" height="221" alt="" aria-hidden="true">
+      </section>
+      <form id="login-form" class="login-card">
+        <div class="eyebrow">SCALE LAB / CONTENT STUDIO</div>
+        <h1>网站内容管理</h1><p class="login-description">欢迎回来，请使用你的工作台账号登录。</p>
+        <label>登录名<input name="login" autocomplete="username" placeholder="请输入登录名" required></label>
+        <label>密码<input name="password" type="password" autocomplete="current-password" placeholder="请输入密码" required></label>
+        <button type="submit" class="primary">登录工作台</button>
+        <p id="login-message" class="message" role="status"></p>
+        <p class="login-account-note">账号由实验室管理员分配。如需开通账号或重置密码，请联系管理员。</p>
+        <a class="login-back" href="/">← 返回实验室网站</a>
+      </form>
+    </div>
   </div>
   <div id="workspace" class="workspace" hidden>
     <aside class="sidebar">
-      <div class="brand"><span class="brand-mark">S</span><span><strong>SCALE Lab</strong><small>内容管理工作台</small></span></div>
+      <div class="brand"><img class="workspace-logo" src="/assets/images/scale-lab-logo.png" alt="SCALE Lab 智能学习分析与评价实验室"><small>内容管理工作台</small></div>
       <div class="nav-label">内容管理</div>
       <nav id="nav">
         <button type="button" class="active" data-module="news">新闻/活动 <span>已接入</span></button>

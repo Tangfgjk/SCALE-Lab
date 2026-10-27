@@ -377,16 +377,19 @@
     var node = $("#site-footer");
     if (!node || !LAB.lab) return;
     var lab = publicLab();
+    var footerLogo = siteSettings && siteSettings.logo;
+    var footerLogoUrl = footerLogo ? footerLogo.url : 'assets/images/scale-lab-logo.png';
+    var footerLogoAlt = footerLogo ? footerLogo.alt : 'SCALE Lab 智能学习分析与评价实验室';
     var kw = (lab.keywords || []).map(function (k) { return "<span>" + render(k) + "</span>"; }).join("");
     node.innerHTML = '' +
       '<div class="container">' +
         '<div class="top">' +
           '<div>' +
-            '<div class="brand-f">' + render(lab.shortName || 'SCALE Lab') + '</div>' +
+            '<a class="brand-f footer-brand" href="index.html" aria-label="' + (language() === 'en' ? 'SCALE Lab home' : '返回实验室首页') + '"><img src="' + esc(footerLogoUrl) + '" alt="' + esc(footerLogoAlt) + '" width="160" height="68" loading="lazy" decoding="async"></a>' +
             '<p class="footer-intro">' + render(lab.intro || "") + '</p>' +
             '<div class="keywords">' + kw + '</div>' +
           '</div>' +
-          '<div>' +
+          '<div class="footer-navigation">' +
             '<h4>导航</h4><ul>' +
               '<li><a href="index.html">首页</a></li>' +
               '<li><a href="people.html">团队成员</a></li>' +
@@ -406,6 +409,7 @@
         '</div>' +
         '<div class="bottom">' +
           '<span>© ' + new Date().getFullYear() + ' ' + render(lab.nameZh) + ' · ' + render(lab.university) + '</span>' +
+          '<div id="campus-signature" class="campus-signature" aria-hidden="true"><img src="assets/images/ccnu-campus-skyline.png" width="1080" height="221" alt="" loading="lazy" decoding="async"></div>' +
         '</div>' +
       '</div>';
   }

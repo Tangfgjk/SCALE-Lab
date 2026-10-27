@@ -1,0 +1,15 @@
+{
+  "source": "User-provided campus sketch-to-color GIF, 2026-10-21",
+  "sourceSha256": "a670a55f3db1ee056ec71660a40ac5839506d943822a0228e4511bcd99132db5",
+  "sourceFrames": 224,
+  "sourceDurationMs": 6720,
+  "startFrameInclusive": 12,
+  "endFrameExclusive": 154,
+  "retainedFrames": 142,
+  "sourceIntervalMs": 4260,
+  "outputWidth": 1026,
+  "outputHeight": 328,
+  "outputBytes": 518304,
+  "outputSha256": "8e4445097fb48d5b4e4d29e6e1830546c7cffff2f1ee9bb98e616919f61497d7",
+  "note": "Campus sign retained. Faculty end card and QR code excluded. One white pixel pads the right edge for H.264. No audio."
+}

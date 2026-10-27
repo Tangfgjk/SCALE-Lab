@@ -1,0 +1,59 @@
+/* 2026-10-21: a recognizable login entrance and a softer content workspace. */
+:root { color: #243e4b; background: #f5f7f5; }
+.primary { background: #236a73; border-color: #236a73; color: #fff; }
+.primary:hover:not(:disabled) { background: #1b5860; border-color: #1b5860; color: #fff; }
+.eyebrow { color: #246f78; }
+.sidebar { background: #e7efee; color: #344f5c; border-right: 1px solid #d3dfde; scrollbar-color: #9bb5b4 #e7efee; }
+.sidebar .brand { display: block; margin: 0 10px 25px; }
+.workspace-logo { display: block; width: 196px; height: auto; max-width: 100%; }
+.sidebar .brand small { color: #526d76; margin: 10px 0 0 4px; font-size: 12px; }
+.sidebar .nav-label { color: #526d76; }
+.sidebar nav button { color: #344f5c; }
+.sidebar nav button:hover { background: #dce8e5; color: #244e56; }
+.sidebar nav button.active { background: #d0e1df; color: #214d54; box-shadow: inset 3px 0 #347d81; }
+.sidebar nav span,.sidebar-foot { color: #526d76; }
+.sidebar-foot a:hover { color: #1b6570; }
+.topbar { background: #fcfdfb; border-bottom-color: #dce5e2; color: #617884; }
+.card { border-color: #dce5e2; box-shadow: 0 5px 18px #31554f04; }
+.content-state-tabs button[aria-pressed="true"] { background: #dcebe7; color: #28545a; border-color: #a8c8c1; }
+.page-head p,.list-row small { color: #607581; }
+
+.login-screen { padding: 48px 24px; background: radial-gradient(ellipse at 12% 15%,#e1eeea,transparent 52%),linear-gradient(130deg,#f0f5f2,#f7f8f5); }
+.login-layout { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(340px,1fr); width: min(1040px,100%); background: #fff; border: 1px solid #d8e4df; border-radius: 20px; box-shadow: 0 20px 65px #284f4910; overflow: hidden; }
+.login-intro { padding: 44px; background: linear-gradient(145deg,#edf5f0,#e4efec); }
+.login-brand { display: inline-block; }
+.login-brand img { display: block; width: 244px; max-width: 100%; height: auto; }
+.login-affiliation { margin: 14px 0 30px; color: #526d70; font-size: 13px; }
+.login-intro h2 { color: #294c55; font-family: "Songti SC","SimSun",serif; font-size: clamp(27px,2.5vw,35px); line-height: 1.5; font-weight: 600; margin: 0 0 20px; }
+.login-intro-copy { color: #526a70; font-size: 14px; line-height: 1.9; margin-bottom: 24px; }
+.login-features { list-style: none; margin: 0; padding: 0; }
+.login-features li { padding: 12px 0; border-top: 1px solid #ccdcd5; }
+.login-features strong { display: block; color: #31565d; font-size: 14px; font-weight: 600; }
+.login-features span { display: block; margin-top: 6px; color: #536c73; font-size: 13px; line-height: 1.6; }
+.login-campus { display: block; width: 100%; height: auto; margin-top: 30px; }
+.login-card { align-self: center; width: 100%; padding: 48px 42px; border: 0; border-radius: 0; box-shadow: none; min-width: 0; }
+.login-card h1 { color: #294754; font-size: 30px; margin-top: 18px; }
+.login-card .login-description { color: #5d737c; font-size: 14px; line-height: 1.8; margin-bottom: 30px; }
+.login-card input { padding: 13px 12px; background: #fcfdfb; }
+.login-card .primary { padding: 13px; }
+.login-card .login-account-note { color: #60737b; font-size: 12px; line-height: 1.9; margin-top: 24px; padding-top: 20px; border-top: 1px solid #e3eae6; }
+.login-back { display: inline-block; color: #276d75; font-size: 13px; margin-top: 8px; padding: 4px 0; }
+.login-back:hover { text-decoration: underline; }
+.login-card .message:empty { display: none; }
+.login-card .message.error { color: #a03c36; }
+.login-card input:focus { outline-color: #73a6a6; }
+@media(max-width:850px) {
+  .sidebar .brand { margin-bottom: 10px; }
+  .workspace-logo { width: 165px; }
+  .sidebar .brand small { margin-top: 6px; }
+  .login-screen { padding: 24px 16px; }
+  .login-layout { grid-template-columns: 1fr; max-width: 540px; }
+  .login-intro { padding: 28px; }
+  .login-affiliation { margin-bottom: 18px; }
+  .login-intro h2 { font-size: 27px; }
+  .login-features,.login-campus { display: none; }
+  .login-intro-copy { margin-bottom: 0; }
+  .login-brand img { width: 212px; }
+  .login-card { padding: 32px 28px; }
+}
+@media(max-width:400px) { .login-intro,.login-card { padding: 24px; } .login-card h1 { font-size: 27px; } }
