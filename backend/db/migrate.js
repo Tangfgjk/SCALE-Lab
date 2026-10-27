@@ -12,13 +12,19 @@ async function main() {
     await client.query("CREATE TABLE IF NOT EXISTS schema_migrations (filename text PRIMARY KEY, checksum text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now())");
     for (const filename of files) {
       const sql = fs.readFileSync(path.join(__dirname, "migrations", filename), "utf8");
-      const checksum = crypto.createHash("sha256").update(sql).digest("hex");
+      // Historical Windows backups may contain CRLF hashes. Accept only newline variants,
+      // never arbitrary SQL changes, and store a canonical LF checksum going forward.
+      const canonical = sql.replace(/\r\n/g, "\n");
+      const digest = text => crypto.createHash("sha256").update(text).digest("hex");
+      const checksum = digest(canonical);
+      const acceptedChecksums = new Set([checksum, digest(canonical.replace(/\n/g, "\r\n"))]);
       await client.query("BEGIN");
       try {
         await client.query("SELECT pg_advisory_xact_lock(731027)");
         const existing = await client.query("SELECT checksum FROM schema_migrations WHERE filename=$1", [filename]);
         if (existing.rows.length) {
-          if (existing.rows[0].checksum !== checksum) throw new Error(`Applied migration changed: ${filename}`);
+          if (!acceptedChecksums.has(existing.rows[0].checksum)) throw new Error(`Applied migration changed: ${filename}`);
+          if (existing.rows[0].checksum !== checksum) await client.query("UPDATE schema_migrations SET checksum=$1 WHERE filename=$2", [checksum, filename]);
           await client.query("COMMIT");
           process.stdout.write(`Already applied ${filename}\n`);
           continue;

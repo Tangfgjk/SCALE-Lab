@@ -1,4 +1,5 @@
 *.sh text eol=lf
 *.yml text eol=lf
+backend/db/migrations/*.sql text eol=lf
 # Third-party generated bundle contains meaningful string whitespace and vendor comments.
 frontend/admin/editor.bundle.js -whitespace linguist-generated=true
