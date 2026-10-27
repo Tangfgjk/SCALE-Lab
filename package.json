@@ -1,0 +1,10 @@
+{
+  "name": "scale-lab",
+  "private": true,
+  "scripts": {
+    "start": "npm start --prefix backend",
+    "check": "node scripts/check.js",
+    "build": "npm run build --prefix frontend/admin",
+    "test": "npm run test:isolated --prefix backend"
+  }
+}

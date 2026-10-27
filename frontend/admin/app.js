@@ -106,7 +106,7 @@
   }
   function renderLiveArticle() {
     var activity=form.elements.category.value === "activity";
-    $("news-location-field").hidden=!activity; form.elements.summary.maxLength=activity ? 1000 : 500;
+    $("news-location-field").hidden=!activity; form.elements.summary.maxLength=activity ? window.ScaleContentRules.activitySummaryMax : window.ScaleContentRules.newsSummaryMax;
     var id=form.elements.coverAssetId.value;
     $("news-cover-label").textContent=id ? (newsMedia[id]?.displayName || "已选择封面") : "未设置封面";
     window.ScaleNewsArticle.render($("news-live-article"), {

@@ -4,3 +4,10 @@ frontend/server/node_modules/
 frontend/admin/node_modules/
 .idea/
 .playwright-mcp/
+
+backend/storage/
+backend/node_modules/
+backend/.npm-cache/
+.env
+.env.*
+!.env.example

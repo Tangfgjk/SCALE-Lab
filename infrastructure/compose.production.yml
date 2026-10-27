@@ -1,0 +1,59 @@
+services:
+  db:
+    image: postgres:17.11
+    environment:
+      POSTGRES_USER: scale_lab
+      POSTGRES_DB: scale_lab
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set a unique strong database password}
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U scale_lab -d scale_lab']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks: [database]
+  app:
+    build:
+      context: ..
+      dockerfile: infrastructure/Dockerfile
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3004
+      DATABASE_URL: ${DATABASE_URL:?set database URL using db as host}
+      PUBLIC_ORIGIN: https://${SITE_DOMAIN:?set domain}
+      TRUST_PROXY: ${PROXY_IP:-172.30.84.2}/32
+      MEDIA_ROOT: /app/backend/storage/media
+    depends_on:
+      db: {condition: service_healthy}
+    volumes: [media-data:/app/backend/storage/media]
+    read_only: true
+    tmpfs: [/tmp:size=64m]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    networks: [database, edge]
+  proxy:
+    image: caddy:2
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?set domain}
+    ports: ['80:80', '443:443']
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [app]
+    restart: unless-stopped
+    networks:
+      edge: {ipv4_address: '${PROXY_IP:-172.30.84.2}'}
+volumes:
+  postgres-data:
+  media-data:
+  caddy-data:
+  caddy-config:
+networks:
+  database: {internal: true}
+  edge:
+    ipam:
+      config: [{subnet: '${EDGE_SUBNET:-172.30.84.0/24}'}]

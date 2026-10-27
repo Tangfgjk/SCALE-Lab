@@ -181,7 +181,7 @@ class RichEditorController {
     this.editor = new Editor({
       element: options.element,
       extensions: [
-        StarterKit.configure({ heading: { levels: [2, 3] } }),
+        StarterKit.configure({ heading: { levels: [2, 3] }, link:false, underline:false, trailingNode:false }),
         Underline,
         TextPreset,
         MediaImage,
@@ -189,7 +189,7 @@ class RichEditorController {
         Link.configure({
           openOnClick: false,
           protocols: ["http", "https"],
-          validate: href => Boolean(safeHref(href))
+          isAllowedUri: href => Boolean(safeHref(href))
         })
       ],
       content: options.value || legacyDocument(options.body),
@@ -205,7 +205,7 @@ class RichEditorController {
   getJSON() { return {...this.editor.getJSON(),schemaVersion:1}; }
   getText() { return this.editor.getText({ blockSeparator: "\n\n" }); }
   setJSON(value, fallbackBody = "") {
-    this.editor.commands.setContent(value || legacyDocument(fallbackBody), false);
+    this.editor.commands.setContent(value || legacyDocument(fallbackBody), {emitUpdate:false});
     this.render();
   }
   render() {

@@ -1,0 +1,7 @@
+{$SITE_DOMAIN} {
+    encode zstd gzip
+    reverse_proxy app:3004
+    log {
+        output stdout
+    }
+}

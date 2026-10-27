@@ -1,4 +1,16 @@
 (() => {
+  // node_modules/@tiptap/core/dist/rolldown-runtime-D7D4PA-g.js
+  var __defProp = Object.defineProperty;
+  var __exportAll = (all, no_symbols) => {
+    let target = {};
+    for (var name in all) __defProp(target, name, {
+      get: all[name],
+      enumerable: true
+    });
+    if (!no_symbols) __defProp(target, Symbol.toStringTag, { value: "Module" });
+    return target;
+  };
+
   // node_modules/orderedmap/dist/index.js
   function OrderedMap(content) {
     this.content = content;
@@ -6125,6 +6137,658 @@
     }
   };
 
+  // node_modules/prosemirror-commands/dist/index.js
+  var deleteSelection = (state, dispatch) => {
+    if (state.selection.empty)
+      return false;
+    if (dispatch)
+      dispatch(state.tr.deleteSelection().scrollIntoView());
+    return true;
+  };
+  function atBlockStart(state, view) {
+    let { $cursor } = state.selection;
+    if (!$cursor || (view ? !view.endOfTextblock("backward", state) : $cursor.parentOffset > 0))
+      return null;
+    return $cursor;
+  }
+  var joinBackward = (state, dispatch, view) => {
+    let $cursor = atBlockStart(state, view);
+    if (!$cursor)
+      return false;
+    let $cut = findCutBefore($cursor);
+    if (!$cut) {
+      let range = $cursor.blockRange(), target = range && liftTarget(range);
+      if (target == null)
+        return false;
+      if (dispatch)
+        dispatch(state.tr.lift(range, target).scrollIntoView());
+      return true;
+    }
+    let before = $cut.nodeBefore;
+    if (deleteBarrier(state, $cut, dispatch, -1))
+      return true;
+    if ($cursor.parent.content.size == 0 && (textblockAt(before, "end") || NodeSelection.isSelectable(before))) {
+      for (let depth = $cursor.depth; ; depth--) {
+        let delStep = replaceStep(state.doc, $cursor.before(depth), $cursor.after(depth), Slice.empty);
+        if (delStep && delStep.slice.size < delStep.to - delStep.from) {
+          if (dispatch) {
+            let tr2 = state.tr.step(delStep);
+            tr2.setSelection(textblockAt(before, "end") ? Selection.findFrom(tr2.doc.resolve(tr2.mapping.map($cut.pos, -1)), -1) : NodeSelection.create(tr2.doc, $cut.pos - before.nodeSize));
+            dispatch(tr2.scrollIntoView());
+          }
+          return true;
+        }
+        if (depth == 1 || $cursor.node(depth - 1).childCount > 1)
+          break;
+      }
+    }
+    if (before.isAtom && $cut.depth == $cursor.depth - 1) {
+      if (dispatch)
+        dispatch(state.tr.delete($cut.pos - before.nodeSize, $cut.pos).scrollIntoView());
+      return true;
+    }
+    return false;
+  };
+  var joinTextblockBackward = (state, dispatch, view) => {
+    let $cursor = atBlockStart(state, view);
+    if (!$cursor)
+      return false;
+    let $cut = findCutBefore($cursor);
+    return $cut ? joinTextblocksAround(state, $cut, dispatch) : false;
+  };
+  var joinTextblockForward = (state, dispatch, view) => {
+    let $cursor = atBlockEnd(state, view);
+    if (!$cursor)
+      return false;
+    let $cut = findCutAfter($cursor);
+    return $cut ? joinTextblocksAround(state, $cut, dispatch) : false;
+  };
+  function joinTextblocksAround(state, $cut, dispatch) {
+    let before = $cut.nodeBefore, beforeText = before, beforePos = $cut.pos - 1;
+    for (; !beforeText.isTextblock; beforePos--) {
+      if (beforeText.type.spec.isolating)
+        return false;
+      let child = beforeText.lastChild;
+      if (!child)
+        return false;
+      beforeText = child;
+    }
+    let after = $cut.nodeAfter, afterText = after, afterPos = $cut.pos + 1;
+    for (; !afterText.isTextblock; afterPos++) {
+      if (afterText.type.spec.isolating)
+        return false;
+      let child = afterText.firstChild;
+      if (!child)
+        return false;
+      afterText = child;
+    }
+    let step = replaceStep(state.doc, beforePos, afterPos, Slice.empty);
+    if (!step || step.from != beforePos || step instanceof ReplaceStep && step.slice.size >= afterPos - beforePos)
+      return false;
+    if (dispatch) {
+      let tr2 = state.tr.step(step);
+      tr2.setSelection(TextSelection.create(tr2.doc, beforePos));
+      dispatch(tr2.scrollIntoView());
+    }
+    return true;
+  }
+  function textblockAt(node, side, only = false) {
+    for (let scan = node; scan; scan = side == "start" ? scan.firstChild : scan.lastChild) {
+      if (scan.isTextblock)
+        return true;
+      if (only && scan.childCount != 1)
+        return false;
+    }
+    return false;
+  }
+  var selectNodeBackward = (state, dispatch, view) => {
+    let { $head, empty: empty2 } = state.selection, $cut = $head;
+    if (!empty2)
+      return false;
+    if ($head.parent.isTextblock) {
+      if (view ? !view.endOfTextblock("backward", state) : $head.parentOffset > 0)
+        return false;
+      $cut = findCutBefore($head);
+    }
+    let node = $cut && $cut.nodeBefore;
+    if (!node || !NodeSelection.isSelectable(node))
+      return false;
+    if (dispatch)
+      dispatch(state.tr.setSelection(NodeSelection.create(state.doc, $cut.pos - node.nodeSize)).scrollIntoView());
+    return true;
+  };
+  function findCutBefore($pos) {
+    if (!$pos.parent.type.spec.isolating)
+      for (let i = $pos.depth - 1; i >= 0; i--) {
+        if ($pos.index(i) > 0)
+          return $pos.doc.resolve($pos.before(i + 1));
+        if ($pos.node(i).type.spec.isolating)
+          break;
+      }
+    return null;
+  }
+  function atBlockEnd(state, view) {
+    let { $cursor } = state.selection;
+    if (!$cursor || (view ? !view.endOfTextblock("forward", state) : $cursor.parentOffset < $cursor.parent.content.size))
+      return null;
+    return $cursor;
+  }
+  var joinForward = (state, dispatch, view) => {
+    let $cursor = atBlockEnd(state, view);
+    if (!$cursor)
+      return false;
+    let $cut = findCutAfter($cursor);
+    if (!$cut)
+      return false;
+    let after = $cut.nodeAfter;
+    if (deleteBarrier(state, $cut, dispatch, 1))
+      return true;
+    if ($cursor.parent.content.size == 0 && (textblockAt(after, "start") || NodeSelection.isSelectable(after))) {
+      let delStep = replaceStep(state.doc, $cursor.before(), $cursor.after(), Slice.empty);
+      if (delStep && delStep.slice.size < delStep.to - delStep.from) {
+        if (dispatch) {
+          let tr2 = state.tr.step(delStep);
+          tr2.setSelection(textblockAt(after, "start") ? Selection.findFrom(tr2.doc.resolve(tr2.mapping.map($cut.pos)), 1) : NodeSelection.create(tr2.doc, tr2.mapping.map($cut.pos)));
+          dispatch(tr2.scrollIntoView());
+        }
+        return true;
+      }
+    }
+    if (after.isAtom && $cut.depth == $cursor.depth - 1) {
+      if (dispatch)
+        dispatch(state.tr.delete($cut.pos, $cut.pos + after.nodeSize).scrollIntoView());
+      return true;
+    }
+    return false;
+  };
+  var selectNodeForward = (state, dispatch, view) => {
+    let { $head, empty: empty2 } = state.selection, $cut = $head;
+    if (!empty2)
+      return false;
+    if ($head.parent.isTextblock) {
+      if (view ? !view.endOfTextblock("forward", state) : $head.parentOffset < $head.parent.content.size)
+        return false;
+      $cut = findCutAfter($head);
+    }
+    let node = $cut && $cut.nodeAfter;
+    if (!node || !NodeSelection.isSelectable(node))
+      return false;
+    if (dispatch)
+      dispatch(state.tr.setSelection(NodeSelection.create(state.doc, $cut.pos)).scrollIntoView());
+    return true;
+  };
+  function findCutAfter($pos) {
+    if (!$pos.parent.type.spec.isolating)
+      for (let i = $pos.depth - 1; i >= 0; i--) {
+        let parent = $pos.node(i);
+        if ($pos.index(i) + 1 < parent.childCount)
+          return $pos.doc.resolve($pos.after(i + 1));
+        if (parent.type.spec.isolating)
+          break;
+      }
+    return null;
+  }
+  var joinUp = (state, dispatch) => {
+    let sel = state.selection, nodeSel = sel instanceof NodeSelection, point;
+    if (nodeSel) {
+      if (sel.node.isTextblock || !canJoin(state.doc, sel.from))
+        return false;
+      point = sel.from;
+    } else {
+      point = joinPoint(state.doc, sel.from, -1);
+      if (point == null)
+        return false;
+    }
+    if (dispatch) {
+      let tr2 = state.tr.join(point);
+      if (nodeSel)
+        tr2.setSelection(NodeSelection.create(tr2.doc, point - state.doc.resolve(point).nodeBefore.nodeSize));
+      dispatch(tr2.scrollIntoView());
+    }
+    return true;
+  };
+  var joinDown = (state, dispatch) => {
+    let sel = state.selection, point;
+    if (sel instanceof NodeSelection) {
+      if (sel.node.isTextblock || !canJoin(state.doc, sel.to))
+        return false;
+      point = sel.to;
+    } else {
+      point = joinPoint(state.doc, sel.to, 1);
+      if (point == null)
+        return false;
+    }
+    if (dispatch)
+      dispatch(state.tr.join(point).scrollIntoView());
+    return true;
+  };
+  var lift2 = (state, dispatch) => {
+    let { $from, $to } = state.selection;
+    let range = $from.blockRange($to), target = range && liftTarget(range);
+    if (target == null)
+      return false;
+    if (dispatch)
+      dispatch(state.tr.lift(range, target).scrollIntoView());
+    return true;
+  };
+  var newlineInCode = (state, dispatch) => {
+    let { $head, $anchor } = state.selection;
+    if (!$head.parent.type.spec.code || !$head.sameParent($anchor))
+      return false;
+    if (dispatch)
+      dispatch(state.tr.insertText("\n").scrollIntoView());
+    return true;
+  };
+  function defaultBlockAt(match) {
+    for (let i = 0; i < match.edgeCount; i++) {
+      let { type } = match.edge(i);
+      if (type.isTextblock && !type.hasRequiredAttrs())
+        return type;
+    }
+    return null;
+  }
+  var exitCode = (state, dispatch) => {
+    let { $head, $anchor } = state.selection;
+    if (!$head.parent.type.spec.code || !$head.sameParent($anchor))
+      return false;
+    let above = $head.node(-1), after = $head.indexAfter(-1), type = defaultBlockAt(above.contentMatchAt(after));
+    if (!type || !above.canReplaceWith(after, after, type))
+      return false;
+    if (dispatch) {
+      let pos = $head.after(), tr2 = state.tr.replaceWith(pos, pos, type.createAndFill());
+      tr2.setSelection(Selection.near(tr2.doc.resolve(pos), 1));
+      dispatch(tr2.scrollIntoView());
+    }
+    return true;
+  };
+  var createParagraphNear = (state, dispatch) => {
+    let sel = state.selection, { $from, $to } = sel;
+    if (sel instanceof AllSelection || $from.parent.inlineContent || $to.parent.inlineContent)
+      return false;
+    let type = defaultBlockAt($to.parent.contentMatchAt($to.indexAfter()));
+    if (!type || !type.isTextblock)
+      return false;
+    if (dispatch) {
+      let side = (!$from.parentOffset && $to.index() < $to.parent.childCount ? $from : $to).pos;
+      let tr2 = state.tr.insert(side, type.createAndFill());
+      tr2.setSelection(TextSelection.create(tr2.doc, side + 1));
+      dispatch(tr2.scrollIntoView());
+    }
+    return true;
+  };
+  var liftEmptyBlock = (state, dispatch) => {
+    let { $cursor } = state.selection;
+    if (!$cursor || $cursor.parent.content.size)
+      return false;
+    if ($cursor.depth > 1 && $cursor.after() != $cursor.end(-1)) {
+      let before = $cursor.before();
+      if (canSplit(state.doc, before)) {
+        if (dispatch)
+          dispatch(state.tr.split(before).scrollIntoView());
+        return true;
+      }
+    }
+    let range = $cursor.blockRange(), target = range && liftTarget(range);
+    if (target == null)
+      return false;
+    if (dispatch)
+      dispatch(state.tr.lift(range, target).scrollIntoView());
+    return true;
+  };
+  function splitBlockAs(splitNode) {
+    return (state, dispatch) => {
+      if (state.selection instanceof NodeSelection && state.selection.node.isBlock) {
+        let { $from: $from2 } = state.selection;
+        if (!$from2.parentOffset || !canSplit(state.doc, $from2.pos))
+          return false;
+        if (dispatch)
+          dispatch(state.tr.split($from2.pos).scrollIntoView());
+        return true;
+      }
+      if (!state.selection.$from.depth)
+        return false;
+      let tr2 = state.tr;
+      if (!state.selection.empty && (state.selection instanceof TextSelection || state.selection instanceof AllSelection))
+        tr2.deleteSelection();
+      let { $from } = tr2.selection, mapFrom = tr2.steps.length;
+      let types = [];
+      let splitDepth, deflt, atEnd = false, atStart = false;
+      for (let d = $from.depth; ; d--) {
+        let node = $from.node(d);
+        if (node.isBlock) {
+          atEnd = $from.end(d) == $from.pos + ($from.depth - d);
+          atStart = $from.start(d) == $from.pos - ($from.depth - d);
+          deflt = defaultBlockAt($from.node(d - 1).contentMatchAt($from.indexAfter(d - 1)));
+          let splitType = splitNode && splitNode($from.parent, atEnd, $from);
+          types.unshift(splitType || (atEnd && deflt ? { type: deflt } : null));
+          splitDepth = d;
+          break;
+        } else {
+          if (d == 1)
+            return false;
+          types.unshift(null);
+        }
+      }
+      let splitPos = $from.pos;
+      let can = canSplit(tr2.doc, splitPos, types.length, types);
+      if (!can) {
+        types[0] = deflt ? { type: deflt } : null;
+        can = canSplit(tr2.doc, splitPos, types.length, types);
+      }
+      if (!can)
+        return false;
+      tr2.split(splitPos, types.length, types);
+      if (!atEnd && atStart && $from.node(splitDepth).type != deflt) {
+        let mapping = tr2.mapping.slice(mapFrom);
+        let first2 = mapping.map($from.before(splitDepth)), $first = tr2.doc.resolve(first2);
+        if (deflt && $from.node(splitDepth - 1).canReplaceWith($first.index(), $first.index() + 1, deflt))
+          tr2.setNodeMarkup(mapping.map($from.before(splitDepth)), deflt);
+      }
+      if (dispatch)
+        dispatch(tr2.scrollIntoView());
+      return true;
+    };
+  }
+  var splitBlock = splitBlockAs();
+  var selectParentNode = (state, dispatch) => {
+    let { $from, to } = state.selection, pos;
+    let same = $from.sharedDepth(to);
+    if (same == 0)
+      return false;
+    pos = $from.before(same);
+    if (dispatch)
+      dispatch(state.tr.setSelection(NodeSelection.create(state.doc, pos)));
+    return true;
+  };
+  var selectAll = (state, dispatch) => {
+    if (dispatch)
+      dispatch(state.tr.setSelection(new AllSelection(state.doc)));
+    return true;
+  };
+  function joinMaybeClear(state, $pos, dispatch) {
+    let before = $pos.nodeBefore, after = $pos.nodeAfter, index = $pos.index();
+    if (!before || !after || !before.type.compatibleContent(after.type))
+      return false;
+    if (!before.content.size && $pos.parent.canReplace(index - 1, index)) {
+      if (dispatch)
+        dispatch(state.tr.delete($pos.pos - before.nodeSize, $pos.pos).scrollIntoView());
+      return true;
+    }
+    if (!$pos.parent.canReplace(index, index + 1) || !(after.isTextblock || canJoin(state.doc, $pos.pos)))
+      return false;
+    if (dispatch)
+      dispatch(state.tr.join($pos.pos).scrollIntoView());
+    return true;
+  }
+  function deleteBarrier(state, $cut, dispatch, dir) {
+    let before = $cut.nodeBefore, after = $cut.nodeAfter, conn, match;
+    let isolated = before.type.spec.isolating || after.type.spec.isolating;
+    if (!isolated && joinMaybeClear(state, $cut, dispatch))
+      return true;
+    let canDelAfter = !isolated && $cut.parent.canReplace($cut.index(), $cut.index() + 1);
+    if (canDelAfter && (conn = (match = before.contentMatchAt(before.childCount)).findWrapping(after.type)) && match.matchType(conn[0] || after.type).validEnd) {
+      if (dispatch) {
+        let end = $cut.pos + after.nodeSize, wrap2 = Fragment.empty;
+        for (let i = conn.length - 1; i >= 0; i--)
+          wrap2 = Fragment.from(conn[i].create(null, wrap2));
+        wrap2 = Fragment.from(before.copy(wrap2));
+        let tr2 = state.tr.step(new ReplaceAroundStep($cut.pos - 1, end, $cut.pos, end, new Slice(wrap2, 1, 0), conn.length, true));
+        let $joinAt = tr2.doc.resolve(end + 2 * conn.length);
+        if ($joinAt.nodeAfter && $joinAt.nodeAfter.type == before.type && canJoin(tr2.doc, $joinAt.pos))
+          tr2.join($joinAt.pos);
+        dispatch(tr2.scrollIntoView());
+      }
+      return true;
+    }
+    let selAfter = after.type.spec.isolating || dir > 0 && isolated ? null : Selection.findFrom($cut, 1);
+    let range = selAfter && selAfter.$from.blockRange(selAfter.$to), target = range && liftTarget(range);
+    if (target != null && target >= $cut.depth) {
+      if (dispatch)
+        dispatch(state.tr.lift(range, target).scrollIntoView());
+      return true;
+    }
+    if (canDelAfter && textblockAt(after, "start", true) && textblockAt(before, "end")) {
+      let at = before, wrap2 = [];
+      for (; ; ) {
+        wrap2.push(at);
+        if (at.isTextblock)
+          break;
+        at = at.lastChild;
+      }
+      let afterText = after, afterDepth = 1;
+      for (; !afterText.isTextblock; afterText = afterText.firstChild)
+        afterDepth++;
+      if (at.canReplace(at.childCount, at.childCount, afterText.content)) {
+        if (dispatch) {
+          let end = Fragment.empty;
+          for (let i = wrap2.length - 1; i >= 0; i--)
+            end = Fragment.from(wrap2[i].copy(end));
+          let tr2 = state.tr.step(new ReplaceAroundStep($cut.pos - wrap2.length, $cut.pos + after.nodeSize, $cut.pos + afterDepth, $cut.pos + after.nodeSize - afterDepth, new Slice(end, wrap2.length, 0), 0, true));
+          dispatch(tr2.scrollIntoView());
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+  function selectTextblockSide(side) {
+    return function(state, dispatch) {
+      let sel = state.selection, $pos = side < 0 ? sel.$from : sel.$to;
+      let depth = $pos.depth;
+      while ($pos.node(depth).isInline) {
+        if (!depth)
+          return false;
+        depth--;
+      }
+      if (!$pos.node(depth).isTextblock)
+        return false;
+      if (dispatch)
+        dispatch(state.tr.setSelection(TextSelection.create(state.doc, side < 0 ? $pos.start(depth) : $pos.end(depth))));
+      return true;
+    };
+  }
+  var selectTextblockStart = selectTextblockSide(-1);
+  var selectTextblockEnd = selectTextblockSide(1);
+  function wrapIn(nodeType, attrs = null) {
+    return function(state, dispatch) {
+      let { $from, $to } = state.selection;
+      let range = $from.blockRange($to), wrapping = range && findWrapping(range, nodeType, attrs);
+      if (!wrapping)
+        return false;
+      if (dispatch)
+        dispatch(state.tr.wrap(range, wrapping).scrollIntoView());
+      return true;
+    };
+  }
+  function setBlockType2(nodeType, attrs = null) {
+    return function(state, dispatch) {
+      let applicable = false;
+      for (let i = 0; i < state.selection.ranges.length && !applicable; i++) {
+        let { $from: { pos: from2 }, $to: { pos: to } } = state.selection.ranges[i];
+        state.doc.nodesBetween(from2, to, (node, pos) => {
+          if (applicable)
+            return false;
+          if (!node.isTextblock || node.hasMarkup(nodeType, attrs))
+            return;
+          if (node.type == nodeType) {
+            applicable = true;
+          } else {
+            let $pos = state.doc.resolve(pos), index = $pos.index();
+            applicable = $pos.parent.canReplaceWith(index, index + 1, nodeType);
+          }
+        });
+      }
+      if (!applicable)
+        return false;
+      if (dispatch) {
+        let tr2 = state.tr;
+        for (let i = 0; i < state.selection.ranges.length; i++) {
+          let { $from: { pos: from2 }, $to: { pos: to } } = state.selection.ranges[i];
+          tr2.setBlockType(from2, to, nodeType, attrs);
+        }
+        dispatch(tr2.scrollIntoView());
+      }
+      return true;
+    };
+  }
+  function chainCommands(...commands) {
+    return function(state, dispatch, view) {
+      for (let i = 0; i < commands.length; i++)
+        if (commands[i](state, dispatch, view))
+          return true;
+      return false;
+    };
+  }
+  var backspace = chainCommands(deleteSelection, joinBackward, selectNodeBackward);
+  var del = chainCommands(deleteSelection, joinForward, selectNodeForward);
+  var pcBaseKeymap = {
+    "Enter": chainCommands(newlineInCode, createParagraphNear, liftEmptyBlock, splitBlock),
+    "Mod-Enter": exitCode,
+    "Backspace": backspace,
+    "Mod-Backspace": backspace,
+    "Shift-Backspace": backspace,
+    "Delete": del,
+    "Mod-Delete": del,
+    "Mod-a": selectAll
+  };
+  var macBaseKeymap = {
+    "Ctrl-h": pcBaseKeymap["Backspace"],
+    "Alt-Backspace": pcBaseKeymap["Mod-Backspace"],
+    "Ctrl-d": pcBaseKeymap["Delete"],
+    "Ctrl-Alt-Backspace": pcBaseKeymap["Mod-Delete"],
+    "Alt-Delete": pcBaseKeymap["Mod-Delete"],
+    "Alt-d": pcBaseKeymap["Mod-Delete"],
+    "Ctrl-a": selectTextblockStart,
+    "Ctrl-e": selectTextblockEnd
+  };
+  for (let key in pcBaseKeymap)
+    macBaseKeymap[key] = pcBaseKeymap[key];
+  var mac = typeof navigator != "undefined" ? /Mac|iP(hone|[oa]d)/.test(navigator.platform) : typeof os != "undefined" && os.platform ? os.platform() == "darwin" : false;
+
+  // node_modules/prosemirror-schema-list/dist/index.js
+  function wrapInList(listType, attrs = null) {
+    return function(state, dispatch) {
+      let { $from, $to } = state.selection;
+      let range = $from.blockRange($to);
+      if (!range)
+        return false;
+      let tr2 = dispatch ? state.tr : null;
+      if (!wrapRangeInList(tr2, range, listType, attrs))
+        return false;
+      if (dispatch)
+        dispatch(tr2.scrollIntoView());
+      return true;
+    };
+  }
+  function wrapRangeInList(tr2, range, listType, attrs = null) {
+    let doJoin = false, outerRange = range, doc3 = range.$from.doc;
+    if (range.depth >= 2 && range.$from.node(range.depth - 1).type.compatibleContent(listType) && range.startIndex == 0) {
+      if (range.$from.index(range.depth - 1) == 0)
+        return false;
+      let $insert = doc3.resolve(range.start - 2);
+      outerRange = new NodeRange($insert, $insert, range.depth);
+      if (range.endIndex < range.parent.childCount)
+        range = new NodeRange(range.$from, doc3.resolve(range.$to.end(range.depth)), range.depth);
+      doJoin = true;
+    }
+    let wrap2 = findWrapping(outerRange, listType, attrs, range);
+    if (!wrap2)
+      return false;
+    if (tr2)
+      doWrapInList(tr2, range, wrap2, doJoin, listType);
+    return true;
+  }
+  function doWrapInList(tr2, range, wrappers, joinBefore, listType) {
+    let content = Fragment.empty;
+    for (let i = wrappers.length - 1; i >= 0; i--)
+      content = Fragment.from(wrappers[i].type.create(wrappers[i].attrs, content));
+    tr2.step(new ReplaceAroundStep(range.start - (joinBefore ? 2 : 0), range.end, range.start, range.end, new Slice(content, 0, 0), wrappers.length, true));
+    let found2 = 0;
+    for (let i = 0; i < wrappers.length; i++)
+      if (wrappers[i].type == listType)
+        found2 = i + 1;
+    let splitDepth = wrappers.length - found2;
+    let splitPos = range.start + wrappers.length - (joinBefore ? 2 : 0), parent = range.parent;
+    for (let i = range.startIndex, e = range.endIndex, first2 = true; i < e; i++, first2 = false) {
+      if (!first2 && canSplit(tr2.doc, splitPos, splitDepth)) {
+        tr2.split(splitPos, splitDepth);
+        splitPos += 2 * splitDepth;
+      }
+      splitPos += parent.child(i).nodeSize;
+    }
+    return tr2;
+  }
+  function liftListItem(itemType) {
+    return function(state, dispatch) {
+      let { $from, $to } = state.selection;
+      let range = $from.blockRange($to, (node) => node.childCount > 0 && node.firstChild.type == itemType);
+      if (!range)
+        return false;
+      if (!dispatch)
+        return true;
+      if ($from.node(range.depth - 1).type == itemType)
+        return liftToOuterList(state, dispatch, itemType, range);
+      else
+        return liftOutOfList(state, dispatch, range);
+    };
+  }
+  function liftToOuterList(state, dispatch, itemType, range) {
+    let tr2 = state.tr, end = range.end, endOfList = range.$to.end(range.depth);
+    if (end < endOfList) {
+      tr2.step(new ReplaceAroundStep(end - 1, endOfList, end, endOfList, new Slice(Fragment.from(itemType.create(null, range.parent.copy())), 1, 0), 1, true));
+      range = new NodeRange(tr2.doc.resolve(range.$from.pos), tr2.doc.resolve(endOfList), range.depth);
+    }
+    const target = liftTarget(range);
+    if (target == null)
+      return false;
+    tr2.lift(range, target);
+    let $after = tr2.doc.resolve(tr2.mapping.map(end, -1) - 1);
+    if (canJoin(tr2.doc, $after.pos) && $after.nodeBefore.type == $after.nodeAfter.type)
+      tr2.join($after.pos);
+    dispatch(tr2.scrollIntoView());
+    return true;
+  }
+  function liftOutOfList(state, dispatch, range) {
+    let tr2 = state.tr, list = range.parent;
+    for (let pos = range.end, i = range.endIndex - 1, e = range.startIndex; i > e; i--) {
+      pos -= list.child(i).nodeSize;
+      tr2.delete(pos - 1, pos + 1);
+    }
+    let $start = tr2.doc.resolve(range.start), item = $start.nodeAfter;
+    if (tr2.mapping.map(range.end) != range.start + $start.nodeAfter.nodeSize)
+      return false;
+    let atStart = range.startIndex == 0, atEnd = range.endIndex == list.childCount;
+    let parent = $start.node(-1), indexBefore = $start.index(-1);
+    if (!parent.canReplace(indexBefore + (atStart ? 0 : 1), indexBefore + 1, item.content.append(atEnd ? Fragment.empty : Fragment.from(list))))
+      return false;
+    let start = $start.pos, end = start + item.nodeSize;
+    tr2.step(new ReplaceAroundStep(start - (atStart ? 1 : 0), end + (atEnd ? 1 : 0), start + 1, end - 1, new Slice((atStart ? Fragment.empty : Fragment.from(list.copy(Fragment.empty))).append(atEnd ? Fragment.empty : Fragment.from(list.copy(Fragment.empty))), atStart ? 0 : 1, atEnd ? 0 : 1), atStart ? 0 : 1));
+    dispatch(tr2.scrollIntoView());
+    return true;
+  }
+  function sinkListItem(itemType) {
+    return function(state, dispatch) {
+      let { $from, $to } = state.selection;
+      let range = $from.blockRange($to, (node) => node.childCount > 0 && node.firstChild.type == itemType);
+      if (!range)
+        return false;
+      let startIndex = range.startIndex;
+      if (startIndex == 0)
+        return false;
+      let parent = range.parent, nodeBefore = parent.child(startIndex - 1);
+      if (nodeBefore.type != itemType)
+        return false;
+      if (dispatch) {
+        let nestedBefore = nodeBefore.lastChild && nodeBefore.lastChild.type == parent.type;
+        let inner = Fragment.from(nestedBefore ? itemType.create() : null);
+        let slice2 = new Slice(Fragment.from(itemType.create(null, Fragment.from(parent.type.create(null, inner)))), nestedBefore ? 3 : 1, 0);
+        let before = range.start, after = range.end;
+        dispatch(state.tr.step(new ReplaceAroundStep(before - (nestedBefore ? 3 : 1), after, before, after, slice2, 1, true)).scrollIntoView());
+      }
+      return true;
+    };
+  }
+
   // node_modules/prosemirror-view/dist/index.js
   var domIndex = function(node) {
     for (var index = 0; ; index++) {
@@ -6289,7 +6953,7 @@
   var chrome_version = _chrome ? +_chrome[1] : 0;
   var safari = !ie && !!nav && /Apple Computer/.test(nav.vendor);
   var ios = safari && (/Mobile\/\w+/.test(agent) || !!nav && nav.maxTouchPoints > 2);
-  var mac = ios || (nav ? /Mac/.test(nav.platform) : false);
+  var mac2 = ios || (nav ? /Mac/.test(nav.platform) : false);
   var windows = nav ? /Win/.test(nav.platform) : false;
   var android = /Android \d/.test(agent);
   var webkit = !!doc2 && "webkitFontSmoothing" in doc2.documentElement.style;
@@ -8351,7 +9015,7 @@
         if (next && next instanceof NodeSelection)
           return apply(view, next);
         return false;
-      } else if (!(mac && mods.indexOf("m") > -1)) {
+      } else if (!(mac2 && mods.indexOf("m") > -1)) {
         let $head = sel.$head, node = $head.textOffset ? null : dir < 0 ? $head.nodeBefore : $head.nodeAfter, desc;
         if (!node || node.isText)
           return false;
@@ -8557,7 +9221,7 @@
     let sel = view.state.selection;
     if (sel instanceof TextSelection && !sel.empty || mods.indexOf("s") > -1)
       return false;
-    if (mac && mods.indexOf("m") > -1)
+    if (mac2 && mods.indexOf("m") > -1)
       return false;
     let { $from, $to } = sel;
     if (!$from.parent.inlineContent || view.endOfTextblock(dir < 0 ? "up" : "down")) {
@@ -8624,23 +9288,23 @@
   }
   function captureKeyDown(view, event) {
     let code = event.keyCode, mods = getMods(event);
-    if (code == 8 || mac && code == 72 && mods == "c") {
+    if (code == 8 || mac2 && code == 72 && mods == "c") {
       return stopNativeHorizontalDelete(view, -1) || skipIgnoredNodes(view, -1);
-    } else if (code == 46 && !event.shiftKey || mac && code == 68 && mods == "c") {
+    } else if (code == 46 && !event.shiftKey || mac2 && code == 68 && mods == "c") {
       return stopNativeHorizontalDelete(view, 1) || skipIgnoredNodes(view, 1);
     } else if (code == 13 || code == 27) {
       return true;
-    } else if (code == 37 || mac && code == 66 && mods == "c") {
+    } else if (code == 37 || mac2 && code == 66 && mods == "c") {
       let dir = code == 37 ? findDirection(view, view.state.selection.from) == "ltr" ? -1 : 1 : -1;
       return selectHorizontally(view, dir, mods) || skipIgnoredNodes(view, dir);
-    } else if (code == 39 || mac && code == 70 && mods == "c") {
+    } else if (code == 39 || mac2 && code == 70 && mods == "c") {
       let dir = code == 39 ? findDirection(view, view.state.selection.from) == "ltr" ? 1 : -1 : 1;
       return selectHorizontally(view, dir, mods) || skipIgnoredNodes(view, dir);
-    } else if (code == 38 || mac && code == 80 && mods == "c") {
+    } else if (code == 38 || mac2 && code == 80 && mods == "c") {
       return selectVertically(view, -1, mods) || skipIgnoredNodes(view, -1);
-    } else if (code == 40 || mac && code == 78 && mods == "c") {
+    } else if (code == 40 || mac2 && code == 78 && mods == "c") {
       return safariDownArrowBug(view) || selectVertically(view, 1, mods) || skipIgnoredNodes(view, 1);
-    } else if (mods == (mac ? "m" : "c") && (code == 66 || code == 73 || code == 89 || code == 90)) {
+    } else if (mods == (mac2 ? "m" : "c") && (code == 66 || code == 73 || code == 89 || code == 90)) {
       return true;
     }
     return false;
@@ -9024,7 +9688,7 @@
   };
   editHandlers.keypress = (view, _event) => {
     let event = _event;
-    if (inOrNearComposition(view) || !event.charCode || event.ctrlKey && !event.altKey || mac && event.metaKey)
+    if (inOrNearComposition(view) || !event.charCode || event.ctrlKey && !event.altKey || mac2 && event.metaKey)
       return;
     if (view.someProp("handleKeyPress", (f) => f(view, event))) {
       event.preventDefault();
@@ -9137,7 +9801,7 @@
   function forceDOMFlush(view) {
     return endComposition(view);
   }
-  var selectNodeModifier = mac ? "metaKey" : "ctrlKey";
+  var selectNodeModifier = mac2 ? "metaKey" : "ctrlKey";
   handlers.mousedown = (view, _event) => {
     let event = _event;
     view.input.shiftKey = event.shiftKey;
@@ -9529,7 +10193,7 @@
       this.node = node;
     }
   };
-  var dragCopyModifier = mac ? "altKey" : "ctrlKey";
+  var dragCopyModifier = mac2 ? "altKey" : "ctrlKey";
   function dragMoves(view, event) {
     let copy2;
     view.someProp("dragCopies", (test) => {
@@ -11538,7 +12202,7 @@
     221: "}",
     222: '"'
   };
-  var mac2 = typeof navigator != "undefined" && /Mac/.test(navigator.platform);
+  var mac3 = typeof navigator != "undefined" && /Mac/.test(navigator.platform);
   var ie2 = typeof navigator != "undefined" && /MSIE \d|Trident\/(?:[7-9]|\d{2,})\..*rv:(\d+)/.exec(navigator.userAgent);
   for (i = 0; i < 10; i++) base[48 + i] = base[96 + i] = String(i);
   var i;
@@ -11552,7 +12216,7 @@
   for (code in base) if (!shift.hasOwnProperty(code)) shift[code] = base[code];
   var code;
   function keyName(event) {
-    var ignoreKey = mac2 && event.metaKey && event.shiftKey && !event.ctrlKey && !event.altKey || ie2 && event.shiftKey && event.key && event.key.length == 1 || event.key == "Unidentified";
+    var ignoreKey = mac3 && event.metaKey && event.shiftKey && !event.ctrlKey && !event.altKey || ie2 && event.shiftKey && event.key && event.key.length == 1 || event.key == "Unidentified";
     var name = !ignoreKey && event.key || (event.shiftKey ? shift : base)[event.keyCode] || event.key || "Unidentified";
     if (name == "Esc") name = "Escape";
     if (name == "Del") name = "Delete";
@@ -11564,7 +12228,7 @@
   }
 
   // node_modules/prosemirror-keymap/dist/index.js
-  var mac3 = typeof navigator != "undefined" && /Mac|iP(hone|[oa]d)/.test(navigator.platform);
+  var mac4 = typeof navigator != "undefined" && /Mac|iP(hone|[oa]d)/.test(navigator.platform);
   var windows2 = typeof navigator != "undefined" && /Win/.test(navigator.platform);
   function normalizeKeyName(name) {
     let parts = name.split(/-(?!$)/), result = parts[parts.length - 1];
@@ -11582,7 +12246,7 @@
       else if (/^s(hift)?$/i.test(mod))
         shift2 = true;
       else if (/^mod$/i.test(mod)) {
-        if (mac3)
+        if (mac4)
           meta = true;
         else
           ctrl = true;
@@ -11642,5802 +12306,6 @@
     };
   }
 
-  // node_modules/prosemirror-commands/dist/index.js
-  var deleteSelection = (state, dispatch) => {
-    if (state.selection.empty)
-      return false;
-    if (dispatch)
-      dispatch(state.tr.deleteSelection().scrollIntoView());
-    return true;
-  };
-  function atBlockStart(state, view) {
-    let { $cursor } = state.selection;
-    if (!$cursor || (view ? !view.endOfTextblock("backward", state) : $cursor.parentOffset > 0))
-      return null;
-    return $cursor;
-  }
-  var joinBackward = (state, dispatch, view) => {
-    let $cursor = atBlockStart(state, view);
-    if (!$cursor)
-      return false;
-    let $cut = findCutBefore($cursor);
-    if (!$cut) {
-      let range = $cursor.blockRange(), target = range && liftTarget(range);
-      if (target == null)
-        return false;
-      if (dispatch)
-        dispatch(state.tr.lift(range, target).scrollIntoView());
-      return true;
-    }
-    let before = $cut.nodeBefore;
-    if (deleteBarrier(state, $cut, dispatch, -1))
-      return true;
-    if ($cursor.parent.content.size == 0 && (textblockAt(before, "end") || NodeSelection.isSelectable(before))) {
-      for (let depth = $cursor.depth; ; depth--) {
-        let delStep = replaceStep(state.doc, $cursor.before(depth), $cursor.after(depth), Slice.empty);
-        if (delStep && delStep.slice.size < delStep.to - delStep.from) {
-          if (dispatch) {
-            let tr2 = state.tr.step(delStep);
-            tr2.setSelection(textblockAt(before, "end") ? Selection.findFrom(tr2.doc.resolve(tr2.mapping.map($cut.pos, -1)), -1) : NodeSelection.create(tr2.doc, $cut.pos - before.nodeSize));
-            dispatch(tr2.scrollIntoView());
-          }
-          return true;
-        }
-        if (depth == 1 || $cursor.node(depth - 1).childCount > 1)
-          break;
-      }
-    }
-    if (before.isAtom && $cut.depth == $cursor.depth - 1) {
-      if (dispatch)
-        dispatch(state.tr.delete($cut.pos - before.nodeSize, $cut.pos).scrollIntoView());
-      return true;
-    }
-    return false;
-  };
-  var joinTextblockBackward = (state, dispatch, view) => {
-    let $cursor = atBlockStart(state, view);
-    if (!$cursor)
-      return false;
-    let $cut = findCutBefore($cursor);
-    return $cut ? joinTextblocksAround(state, $cut, dispatch) : false;
-  };
-  var joinTextblockForward = (state, dispatch, view) => {
-    let $cursor = atBlockEnd(state, view);
-    if (!$cursor)
-      return false;
-    let $cut = findCutAfter($cursor);
-    return $cut ? joinTextblocksAround(state, $cut, dispatch) : false;
-  };
-  function joinTextblocksAround(state, $cut, dispatch) {
-    let before = $cut.nodeBefore, beforeText = before, beforePos = $cut.pos - 1;
-    for (; !beforeText.isTextblock; beforePos--) {
-      if (beforeText.type.spec.isolating)
-        return false;
-      let child = beforeText.lastChild;
-      if (!child)
-        return false;
-      beforeText = child;
-    }
-    let after = $cut.nodeAfter, afterText = after, afterPos = $cut.pos + 1;
-    for (; !afterText.isTextblock; afterPos++) {
-      if (afterText.type.spec.isolating)
-        return false;
-      let child = afterText.firstChild;
-      if (!child)
-        return false;
-      afterText = child;
-    }
-    let step = replaceStep(state.doc, beforePos, afterPos, Slice.empty);
-    if (!step || step.from != beforePos || step instanceof ReplaceStep && step.slice.size >= afterPos - beforePos)
-      return false;
-    if (dispatch) {
-      let tr2 = state.tr.step(step);
-      tr2.setSelection(TextSelection.create(tr2.doc, beforePos));
-      dispatch(tr2.scrollIntoView());
-    }
-    return true;
-  }
-  function textblockAt(node, side, only = false) {
-    for (let scan = node; scan; scan = side == "start" ? scan.firstChild : scan.lastChild) {
-      if (scan.isTextblock)
-        return true;
-      if (only && scan.childCount != 1)
-        return false;
-    }
-    return false;
-  }
-  var selectNodeBackward = (state, dispatch, view) => {
-    let { $head, empty: empty2 } = state.selection, $cut = $head;
-    if (!empty2)
-      return false;
-    if ($head.parent.isTextblock) {
-      if (view ? !view.endOfTextblock("backward", state) : $head.parentOffset > 0)
-        return false;
-      $cut = findCutBefore($head);
-    }
-    let node = $cut && $cut.nodeBefore;
-    if (!node || !NodeSelection.isSelectable(node))
-      return false;
-    if (dispatch)
-      dispatch(state.tr.setSelection(NodeSelection.create(state.doc, $cut.pos - node.nodeSize)).scrollIntoView());
-    return true;
-  };
-  function findCutBefore($pos) {
-    if (!$pos.parent.type.spec.isolating)
-      for (let i = $pos.depth - 1; i >= 0; i--) {
-        if ($pos.index(i) > 0)
-          return $pos.doc.resolve($pos.before(i + 1));
-        if ($pos.node(i).type.spec.isolating)
-          break;
-      }
-    return null;
-  }
-  function atBlockEnd(state, view) {
-    let { $cursor } = state.selection;
-    if (!$cursor || (view ? !view.endOfTextblock("forward", state) : $cursor.parentOffset < $cursor.parent.content.size))
-      return null;
-    return $cursor;
-  }
-  var joinForward = (state, dispatch, view) => {
-    let $cursor = atBlockEnd(state, view);
-    if (!$cursor)
-      return false;
-    let $cut = findCutAfter($cursor);
-    if (!$cut)
-      return false;
-    let after = $cut.nodeAfter;
-    if (deleteBarrier(state, $cut, dispatch, 1))
-      return true;
-    if ($cursor.parent.content.size == 0 && (textblockAt(after, "start") || NodeSelection.isSelectable(after))) {
-      let delStep = replaceStep(state.doc, $cursor.before(), $cursor.after(), Slice.empty);
-      if (delStep && delStep.slice.size < delStep.to - delStep.from) {
-        if (dispatch) {
-          let tr2 = state.tr.step(delStep);
-          tr2.setSelection(textblockAt(after, "start") ? Selection.findFrom(tr2.doc.resolve(tr2.mapping.map($cut.pos)), 1) : NodeSelection.create(tr2.doc, tr2.mapping.map($cut.pos)));
-          dispatch(tr2.scrollIntoView());
-        }
-        return true;
-      }
-    }
-    if (after.isAtom && $cut.depth == $cursor.depth - 1) {
-      if (dispatch)
-        dispatch(state.tr.delete($cut.pos, $cut.pos + after.nodeSize).scrollIntoView());
-      return true;
-    }
-    return false;
-  };
-  var selectNodeForward = (state, dispatch, view) => {
-    let { $head, empty: empty2 } = state.selection, $cut = $head;
-    if (!empty2)
-      return false;
-    if ($head.parent.isTextblock) {
-      if (view ? !view.endOfTextblock("forward", state) : $head.parentOffset < $head.parent.content.size)
-        return false;
-      $cut = findCutAfter($head);
-    }
-    let node = $cut && $cut.nodeAfter;
-    if (!node || !NodeSelection.isSelectable(node))
-      return false;
-    if (dispatch)
-      dispatch(state.tr.setSelection(NodeSelection.create(state.doc, $cut.pos)).scrollIntoView());
-    return true;
-  };
-  function findCutAfter($pos) {
-    if (!$pos.parent.type.spec.isolating)
-      for (let i = $pos.depth - 1; i >= 0; i--) {
-        let parent = $pos.node(i);
-        if ($pos.index(i) + 1 < parent.childCount)
-          return $pos.doc.resolve($pos.after(i + 1));
-        if (parent.type.spec.isolating)
-          break;
-      }
-    return null;
-  }
-  var joinUp = (state, dispatch) => {
-    let sel = state.selection, nodeSel = sel instanceof NodeSelection, point;
-    if (nodeSel) {
-      if (sel.node.isTextblock || !canJoin(state.doc, sel.from))
-        return false;
-      point = sel.from;
-    } else {
-      point = joinPoint(state.doc, sel.from, -1);
-      if (point == null)
-        return false;
-    }
-    if (dispatch) {
-      let tr2 = state.tr.join(point);
-      if (nodeSel)
-        tr2.setSelection(NodeSelection.create(tr2.doc, point - state.doc.resolve(point).nodeBefore.nodeSize));
-      dispatch(tr2.scrollIntoView());
-    }
-    return true;
-  };
-  var joinDown = (state, dispatch) => {
-    let sel = state.selection, point;
-    if (sel instanceof NodeSelection) {
-      if (sel.node.isTextblock || !canJoin(state.doc, sel.to))
-        return false;
-      point = sel.to;
-    } else {
-      point = joinPoint(state.doc, sel.to, 1);
-      if (point == null)
-        return false;
-    }
-    if (dispatch)
-      dispatch(state.tr.join(point).scrollIntoView());
-    return true;
-  };
-  var lift2 = (state, dispatch) => {
-    let { $from, $to } = state.selection;
-    let range = $from.blockRange($to), target = range && liftTarget(range);
-    if (target == null)
-      return false;
-    if (dispatch)
-      dispatch(state.tr.lift(range, target).scrollIntoView());
-    return true;
-  };
-  var newlineInCode = (state, dispatch) => {
-    let { $head, $anchor } = state.selection;
-    if (!$head.parent.type.spec.code || !$head.sameParent($anchor))
-      return false;
-    if (dispatch)
-      dispatch(state.tr.insertText("\n").scrollIntoView());
-    return true;
-  };
-  function defaultBlockAt(match) {
-    for (let i = 0; i < match.edgeCount; i++) {
-      let { type } = match.edge(i);
-      if (type.isTextblock && !type.hasRequiredAttrs())
-        return type;
-    }
-    return null;
-  }
-  var exitCode = (state, dispatch) => {
-    let { $head, $anchor } = state.selection;
-    if (!$head.parent.type.spec.code || !$head.sameParent($anchor))
-      return false;
-    let above = $head.node(-1), after = $head.indexAfter(-1), type = defaultBlockAt(above.contentMatchAt(after));
-    if (!type || !above.canReplaceWith(after, after, type))
-      return false;
-    if (dispatch) {
-      let pos = $head.after(), tr2 = state.tr.replaceWith(pos, pos, type.createAndFill());
-      tr2.setSelection(Selection.near(tr2.doc.resolve(pos), 1));
-      dispatch(tr2.scrollIntoView());
-    }
-    return true;
-  };
-  var createParagraphNear = (state, dispatch) => {
-    let sel = state.selection, { $from, $to } = sel;
-    if (sel instanceof AllSelection || $from.parent.inlineContent || $to.parent.inlineContent)
-      return false;
-    let type = defaultBlockAt($to.parent.contentMatchAt($to.indexAfter()));
-    if (!type || !type.isTextblock)
-      return false;
-    if (dispatch) {
-      let side = (!$from.parentOffset && $to.index() < $to.parent.childCount ? $from : $to).pos;
-      let tr2 = state.tr.insert(side, type.createAndFill());
-      tr2.setSelection(TextSelection.create(tr2.doc, side + 1));
-      dispatch(tr2.scrollIntoView());
-    }
-    return true;
-  };
-  var liftEmptyBlock = (state, dispatch) => {
-    let { $cursor } = state.selection;
-    if (!$cursor || $cursor.parent.content.size)
-      return false;
-    if ($cursor.depth > 1 && $cursor.after() != $cursor.end(-1)) {
-      let before = $cursor.before();
-      if (canSplit(state.doc, before)) {
-        if (dispatch)
-          dispatch(state.tr.split(before).scrollIntoView());
-        return true;
-      }
-    }
-    let range = $cursor.blockRange(), target = range && liftTarget(range);
-    if (target == null)
-      return false;
-    if (dispatch)
-      dispatch(state.tr.lift(range, target).scrollIntoView());
-    return true;
-  };
-  function splitBlockAs(splitNode) {
-    return (state, dispatch) => {
-      if (state.selection instanceof NodeSelection && state.selection.node.isBlock) {
-        let { $from: $from2 } = state.selection;
-        if (!$from2.parentOffset || !canSplit(state.doc, $from2.pos))
-          return false;
-        if (dispatch)
-          dispatch(state.tr.split($from2.pos).scrollIntoView());
-        return true;
-      }
-      if (!state.selection.$from.depth)
-        return false;
-      let tr2 = state.tr;
-      if (!state.selection.empty && (state.selection instanceof TextSelection || state.selection instanceof AllSelection))
-        tr2.deleteSelection();
-      let { $from } = tr2.selection, mapFrom = tr2.steps.length;
-      let types = [];
-      let splitDepth, deflt, atEnd = false, atStart = false;
-      for (let d = $from.depth; ; d--) {
-        let node = $from.node(d);
-        if (node.isBlock) {
-          atEnd = $from.end(d) == $from.pos + ($from.depth - d);
-          atStart = $from.start(d) == $from.pos - ($from.depth - d);
-          deflt = defaultBlockAt($from.node(d - 1).contentMatchAt($from.indexAfter(d - 1)));
-          let splitType = splitNode && splitNode($from.parent, atEnd, $from);
-          types.unshift(splitType || (atEnd && deflt ? { type: deflt } : null));
-          splitDepth = d;
-          break;
-        } else {
-          if (d == 1)
-            return false;
-          types.unshift(null);
-        }
-      }
-      let splitPos = $from.pos;
-      let can = canSplit(tr2.doc, splitPos, types.length, types);
-      if (!can) {
-        types[0] = deflt ? { type: deflt } : null;
-        can = canSplit(tr2.doc, splitPos, types.length, types);
-      }
-      if (!can)
-        return false;
-      tr2.split(splitPos, types.length, types);
-      if (!atEnd && atStart && $from.node(splitDepth).type != deflt) {
-        let mapping = tr2.mapping.slice(mapFrom);
-        let first2 = mapping.map($from.before(splitDepth)), $first = tr2.doc.resolve(first2);
-        if (deflt && $from.node(splitDepth - 1).canReplaceWith($first.index(), $first.index() + 1, deflt))
-          tr2.setNodeMarkup(mapping.map($from.before(splitDepth)), deflt);
-      }
-      if (dispatch)
-        dispatch(tr2.scrollIntoView());
-      return true;
-    };
-  }
-  var splitBlock = splitBlockAs();
-  var selectParentNode = (state, dispatch) => {
-    let { $from, to } = state.selection, pos;
-    let same = $from.sharedDepth(to);
-    if (same == 0)
-      return false;
-    pos = $from.before(same);
-    if (dispatch)
-      dispatch(state.tr.setSelection(NodeSelection.create(state.doc, pos)));
-    return true;
-  };
-  var selectAll = (state, dispatch) => {
-    if (dispatch)
-      dispatch(state.tr.setSelection(new AllSelection(state.doc)));
-    return true;
-  };
-  function joinMaybeClear(state, $pos, dispatch) {
-    let before = $pos.nodeBefore, after = $pos.nodeAfter, index = $pos.index();
-    if (!before || !after || !before.type.compatibleContent(after.type))
-      return false;
-    if (!before.content.size && $pos.parent.canReplace(index - 1, index)) {
-      if (dispatch)
-        dispatch(state.tr.delete($pos.pos - before.nodeSize, $pos.pos).scrollIntoView());
-      return true;
-    }
-    if (!$pos.parent.canReplace(index, index + 1) || !(after.isTextblock || canJoin(state.doc, $pos.pos)))
-      return false;
-    if (dispatch)
-      dispatch(state.tr.join($pos.pos).scrollIntoView());
-    return true;
-  }
-  function deleteBarrier(state, $cut, dispatch, dir) {
-    let before = $cut.nodeBefore, after = $cut.nodeAfter, conn, match;
-    let isolated = before.type.spec.isolating || after.type.spec.isolating;
-    if (!isolated && joinMaybeClear(state, $cut, dispatch))
-      return true;
-    let canDelAfter = !isolated && $cut.parent.canReplace($cut.index(), $cut.index() + 1);
-    if (canDelAfter && (conn = (match = before.contentMatchAt(before.childCount)).findWrapping(after.type)) && match.matchType(conn[0] || after.type).validEnd) {
-      if (dispatch) {
-        let end = $cut.pos + after.nodeSize, wrap2 = Fragment.empty;
-        for (let i = conn.length - 1; i >= 0; i--)
-          wrap2 = Fragment.from(conn[i].create(null, wrap2));
-        wrap2 = Fragment.from(before.copy(wrap2));
-        let tr2 = state.tr.step(new ReplaceAroundStep($cut.pos - 1, end, $cut.pos, end, new Slice(wrap2, 1, 0), conn.length, true));
-        let $joinAt = tr2.doc.resolve(end + 2 * conn.length);
-        if ($joinAt.nodeAfter && $joinAt.nodeAfter.type == before.type && canJoin(tr2.doc, $joinAt.pos))
-          tr2.join($joinAt.pos);
-        dispatch(tr2.scrollIntoView());
-      }
-      return true;
-    }
-    let selAfter = after.type.spec.isolating || dir > 0 && isolated ? null : Selection.findFrom($cut, 1);
-    let range = selAfter && selAfter.$from.blockRange(selAfter.$to), target = range && liftTarget(range);
-    if (target != null && target >= $cut.depth) {
-      if (dispatch)
-        dispatch(state.tr.lift(range, target).scrollIntoView());
-      return true;
-    }
-    if (canDelAfter && textblockAt(after, "start", true) && textblockAt(before, "end")) {
-      let at = before, wrap2 = [];
-      for (; ; ) {
-        wrap2.push(at);
-        if (at.isTextblock)
-          break;
-        at = at.lastChild;
-      }
-      let afterText = after, afterDepth = 1;
-      for (; !afterText.isTextblock; afterText = afterText.firstChild)
-        afterDepth++;
-      if (at.canReplace(at.childCount, at.childCount, afterText.content)) {
-        if (dispatch) {
-          let end = Fragment.empty;
-          for (let i = wrap2.length - 1; i >= 0; i--)
-            end = Fragment.from(wrap2[i].copy(end));
-          let tr2 = state.tr.step(new ReplaceAroundStep($cut.pos - wrap2.length, $cut.pos + after.nodeSize, $cut.pos + afterDepth, $cut.pos + after.nodeSize - afterDepth, new Slice(end, wrap2.length, 0), 0, true));
-          dispatch(tr2.scrollIntoView());
-        }
-        return true;
-      }
-    }
-    return false;
-  }
-  function selectTextblockSide(side) {
-    return function(state, dispatch) {
-      let sel = state.selection, $pos = side < 0 ? sel.$from : sel.$to;
-      let depth = $pos.depth;
-      while ($pos.node(depth).isInline) {
-        if (!depth)
-          return false;
-        depth--;
-      }
-      if (!$pos.node(depth).isTextblock)
-        return false;
-      if (dispatch)
-        dispatch(state.tr.setSelection(TextSelection.create(state.doc, side < 0 ? $pos.start(depth) : $pos.end(depth))));
-      return true;
-    };
-  }
-  var selectTextblockStart = selectTextblockSide(-1);
-  var selectTextblockEnd = selectTextblockSide(1);
-  function wrapIn(nodeType, attrs = null) {
-    return function(state, dispatch) {
-      let { $from, $to } = state.selection;
-      let range = $from.blockRange($to), wrapping = range && findWrapping(range, nodeType, attrs);
-      if (!wrapping)
-        return false;
-      if (dispatch)
-        dispatch(state.tr.wrap(range, wrapping).scrollIntoView());
-      return true;
-    };
-  }
-  function setBlockType2(nodeType, attrs = null) {
-    return function(state, dispatch) {
-      let applicable = false;
-      for (let i = 0; i < state.selection.ranges.length && !applicable; i++) {
-        let { $from: { pos: from2 }, $to: { pos: to } } = state.selection.ranges[i];
-        state.doc.nodesBetween(from2, to, (node, pos) => {
-          if (applicable)
-            return false;
-          if (!node.isTextblock || node.hasMarkup(nodeType, attrs))
-            return;
-          if (node.type == nodeType) {
-            applicable = true;
-          } else {
-            let $pos = state.doc.resolve(pos), index = $pos.index();
-            applicable = $pos.parent.canReplaceWith(index, index + 1, nodeType);
-          }
-        });
-      }
-      if (!applicable)
-        return false;
-      if (dispatch) {
-        let tr2 = state.tr;
-        for (let i = 0; i < state.selection.ranges.length; i++) {
-          let { $from: { pos: from2 }, $to: { pos: to } } = state.selection.ranges[i];
-          tr2.setBlockType(from2, to, nodeType, attrs);
-        }
-        dispatch(tr2.scrollIntoView());
-      }
-      return true;
-    };
-  }
-  function chainCommands(...commands2) {
-    return function(state, dispatch, view) {
-      for (let i = 0; i < commands2.length; i++)
-        if (commands2[i](state, dispatch, view))
-          return true;
-      return false;
-    };
-  }
-  var backspace = chainCommands(deleteSelection, joinBackward, selectNodeBackward);
-  var del = chainCommands(deleteSelection, joinForward, selectNodeForward);
-  var pcBaseKeymap = {
-    "Enter": chainCommands(newlineInCode, createParagraphNear, liftEmptyBlock, splitBlock),
-    "Mod-Enter": exitCode,
-    "Backspace": backspace,
-    "Mod-Backspace": backspace,
-    "Shift-Backspace": backspace,
-    "Delete": del,
-    "Mod-Delete": del,
-    "Mod-a": selectAll
-  };
-  var macBaseKeymap = {
-    "Ctrl-h": pcBaseKeymap["Backspace"],
-    "Alt-Backspace": pcBaseKeymap["Mod-Backspace"],
-    "Ctrl-d": pcBaseKeymap["Delete"],
-    "Ctrl-Alt-Backspace": pcBaseKeymap["Mod-Delete"],
-    "Alt-Delete": pcBaseKeymap["Mod-Delete"],
-    "Alt-d": pcBaseKeymap["Mod-Delete"],
-    "Ctrl-a": selectTextblockStart,
-    "Ctrl-e": selectTextblockEnd
-  };
-  for (let key in pcBaseKeymap)
-    macBaseKeymap[key] = pcBaseKeymap[key];
-  var mac4 = typeof navigator != "undefined" ? /Mac|iP(hone|[oa]d)/.test(navigator.platform) : typeof os != "undefined" && os.platform ? os.platform() == "darwin" : false;
-
-  // node_modules/prosemirror-schema-list/dist/index.js
-  function wrapInList(listType, attrs = null) {
-    return function(state, dispatch) {
-      let { $from, $to } = state.selection;
-      let range = $from.blockRange($to);
-      if (!range)
-        return false;
-      let tr2 = dispatch ? state.tr : null;
-      if (!wrapRangeInList(tr2, range, listType, attrs))
-        return false;
-      if (dispatch)
-        dispatch(tr2.scrollIntoView());
-      return true;
-    };
-  }
-  function wrapRangeInList(tr2, range, listType, attrs = null) {
-    let doJoin = false, outerRange = range, doc3 = range.$from.doc;
-    if (range.depth >= 2 && range.$from.node(range.depth - 1).type.compatibleContent(listType) && range.startIndex == 0) {
-      if (range.$from.index(range.depth - 1) == 0)
-        return false;
-      let $insert = doc3.resolve(range.start - 2);
-      outerRange = new NodeRange($insert, $insert, range.depth);
-      if (range.endIndex < range.parent.childCount)
-        range = new NodeRange(range.$from, doc3.resolve(range.$to.end(range.depth)), range.depth);
-      doJoin = true;
-    }
-    let wrap2 = findWrapping(outerRange, listType, attrs, range);
-    if (!wrap2)
-      return false;
-    if (tr2)
-      doWrapInList(tr2, range, wrap2, doJoin, listType);
-    return true;
-  }
-  function doWrapInList(tr2, range, wrappers, joinBefore, listType) {
-    let content = Fragment.empty;
-    for (let i = wrappers.length - 1; i >= 0; i--)
-      content = Fragment.from(wrappers[i].type.create(wrappers[i].attrs, content));
-    tr2.step(new ReplaceAroundStep(range.start - (joinBefore ? 2 : 0), range.end, range.start, range.end, new Slice(content, 0, 0), wrappers.length, true));
-    let found2 = 0;
-    for (let i = 0; i < wrappers.length; i++)
-      if (wrappers[i].type == listType)
-        found2 = i + 1;
-    let splitDepth = wrappers.length - found2;
-    let splitPos = range.start + wrappers.length - (joinBefore ? 2 : 0), parent = range.parent;
-    for (let i = range.startIndex, e = range.endIndex, first2 = true; i < e; i++, first2 = false) {
-      if (!first2 && canSplit(tr2.doc, splitPos, splitDepth)) {
-        tr2.split(splitPos, splitDepth);
-        splitPos += 2 * splitDepth;
-      }
-      splitPos += parent.child(i).nodeSize;
-    }
-    return tr2;
-  }
-  function liftListItem(itemType) {
-    return function(state, dispatch) {
-      let { $from, $to } = state.selection;
-      let range = $from.blockRange($to, (node) => node.childCount > 0 && node.firstChild.type == itemType);
-      if (!range)
-        return false;
-      if (!dispatch)
-        return true;
-      if ($from.node(range.depth - 1).type == itemType)
-        return liftToOuterList(state, dispatch, itemType, range);
-      else
-        return liftOutOfList(state, dispatch, range);
-    };
-  }
-  function liftToOuterList(state, dispatch, itemType, range) {
-    let tr2 = state.tr, end = range.end, endOfList = range.$to.end(range.depth);
-    if (end < endOfList) {
-      tr2.step(new ReplaceAroundStep(end - 1, endOfList, end, endOfList, new Slice(Fragment.from(itemType.create(null, range.parent.copy())), 1, 0), 1, true));
-      range = new NodeRange(tr2.doc.resolve(range.$from.pos), tr2.doc.resolve(endOfList), range.depth);
-    }
-    const target = liftTarget(range);
-    if (target == null)
-      return false;
-    tr2.lift(range, target);
-    let $after = tr2.doc.resolve(tr2.mapping.map(end, -1) - 1);
-    if (canJoin(tr2.doc, $after.pos) && $after.nodeBefore.type == $after.nodeAfter.type)
-      tr2.join($after.pos);
-    dispatch(tr2.scrollIntoView());
-    return true;
-  }
-  function liftOutOfList(state, dispatch, range) {
-    let tr2 = state.tr, list = range.parent;
-    for (let pos = range.end, i = range.endIndex - 1, e = range.startIndex; i > e; i--) {
-      pos -= list.child(i).nodeSize;
-      tr2.delete(pos - 1, pos + 1);
-    }
-    let $start = tr2.doc.resolve(range.start), item = $start.nodeAfter;
-    if (tr2.mapping.map(range.end) != range.start + $start.nodeAfter.nodeSize)
-      return false;
-    let atStart = range.startIndex == 0, atEnd = range.endIndex == list.childCount;
-    let parent = $start.node(-1), indexBefore = $start.index(-1);
-    if (!parent.canReplace(indexBefore + (atStart ? 0 : 1), indexBefore + 1, item.content.append(atEnd ? Fragment.empty : Fragment.from(list))))
-      return false;
-    let start = $start.pos, end = start + item.nodeSize;
-    tr2.step(new ReplaceAroundStep(start - (atStart ? 1 : 0), end + (atEnd ? 1 : 0), start + 1, end - 1, new Slice((atStart ? Fragment.empty : Fragment.from(list.copy(Fragment.empty))).append(atEnd ? Fragment.empty : Fragment.from(list.copy(Fragment.empty))), atStart ? 0 : 1, atEnd ? 0 : 1), atStart ? 0 : 1));
-    dispatch(tr2.scrollIntoView());
-    return true;
-  }
-  function sinkListItem(itemType) {
-    return function(state, dispatch) {
-      let { $from, $to } = state.selection;
-      let range = $from.blockRange($to, (node) => node.childCount > 0 && node.firstChild.type == itemType);
-      if (!range)
-        return false;
-      let startIndex = range.startIndex;
-      if (startIndex == 0)
-        return false;
-      let parent = range.parent, nodeBefore = parent.child(startIndex - 1);
-      if (nodeBefore.type != itemType)
-        return false;
-      if (dispatch) {
-        let nestedBefore = nodeBefore.lastChild && nodeBefore.lastChild.type == parent.type;
-        let inner = Fragment.from(nestedBefore ? itemType.create() : null);
-        let slice2 = new Slice(Fragment.from(itemType.create(null, Fragment.from(parent.type.create(null, inner)))), nestedBefore ? 3 : 1, 0);
-        let before = range.start, after = range.end;
-        dispatch(state.tr.step(new ReplaceAroundStep(before - (nestedBefore ? 3 : 1), after, before, after, slice2, 1, true)).scrollIntoView());
-      }
-      return true;
-    };
-  }
-
-  // node_modules/@tiptap/core/dist/index.js
-  function createChainableState(config) {
-    const { state, transaction } = config;
-    let { selection } = transaction;
-    let { doc: doc3 } = transaction;
-    let { storedMarks } = transaction;
-    return {
-      ...state,
-      apply: state.apply.bind(state),
-      applyTransaction: state.applyTransaction.bind(state),
-      plugins: state.plugins,
-      schema: state.schema,
-      reconfigure: state.reconfigure.bind(state),
-      toJSON: state.toJSON.bind(state),
-      get storedMarks() {
-        return storedMarks;
-      },
-      get selection() {
-        return selection;
-      },
-      get doc() {
-        return doc3;
-      },
-      get tr() {
-        selection = transaction.selection;
-        doc3 = transaction.doc;
-        storedMarks = transaction.storedMarks;
-        return transaction;
-      }
-    };
-  }
-  var CommandManager = class {
-    constructor(props) {
-      this.editor = props.editor;
-      this.rawCommands = this.editor.extensionManager.commands;
-      this.customState = props.state;
-    }
-    get hasCustomState() {
-      return !!this.customState;
-    }
-    get state() {
-      return this.customState || this.editor.state;
-    }
-    get commands() {
-      const { rawCommands, editor, state } = this;
-      const { view } = editor;
-      const { tr: tr2 } = state;
-      const props = this.buildProps(tr2);
-      return Object.fromEntries(Object.entries(rawCommands).map(([name, command2]) => {
-        const method = (...args) => {
-          const callback = command2(...args)(props);
-          if (!tr2.getMeta("preventDispatch") && !this.hasCustomState) {
-            view.dispatch(tr2);
-          }
-          return callback;
-        };
-        return [name, method];
-      }));
-    }
-    get chain() {
-      return () => this.createChain();
-    }
-    get can() {
-      return () => this.createCan();
-    }
-    createChain(startTr, shouldDispatch = true) {
-      const { rawCommands, editor, state } = this;
-      const { view } = editor;
-      const callbacks = [];
-      const hasStartTransaction = !!startTr;
-      const tr2 = startTr || state.tr;
-      const run3 = () => {
-        if (!hasStartTransaction && shouldDispatch && !tr2.getMeta("preventDispatch") && !this.hasCustomState) {
-          view.dispatch(tr2);
-        }
-        return callbacks.every((callback) => callback === true);
-      };
-      const chain = {
-        ...Object.fromEntries(Object.entries(rawCommands).map(([name, command2]) => {
-          const chainedCommand = (...args) => {
-            const props = this.buildProps(tr2, shouldDispatch);
-            const callback = command2(...args)(props);
-            callbacks.push(callback);
-            return chain;
-          };
-          return [name, chainedCommand];
-        })),
-        run: run3
-      };
-      return chain;
-    }
-    createCan(startTr) {
-      const { rawCommands, state } = this;
-      const dispatch = false;
-      const tr2 = startTr || state.tr;
-      const props = this.buildProps(tr2, dispatch);
-      const formattedCommands = Object.fromEntries(Object.entries(rawCommands).map(([name, command2]) => {
-        return [name, (...args) => command2(...args)({ ...props, dispatch: void 0 })];
-      }));
-      return {
-        ...formattedCommands,
-        chain: () => this.createChain(tr2, dispatch)
-      };
-    }
-    buildProps(tr2, shouldDispatch = true) {
-      const { rawCommands, editor, state } = this;
-      const { view } = editor;
-      const props = {
-        tr: tr2,
-        editor,
-        view,
-        state: createChainableState({
-          state,
-          transaction: tr2
-        }),
-        dispatch: shouldDispatch ? () => void 0 : void 0,
-        chain: () => this.createChain(tr2, shouldDispatch),
-        can: () => this.createCan(tr2),
-        get commands() {
-          return Object.fromEntries(Object.entries(rawCommands).map(([name, command2]) => {
-            return [name, (...args) => command2(...args)(props)];
-          }));
-        }
-      };
-      return props;
-    }
-  };
-  var EventEmitter = class {
-    constructor() {
-      this.callbacks = {};
-    }
-    on(event, fn) {
-      if (!this.callbacks[event]) {
-        this.callbacks[event] = [];
-      }
-      this.callbacks[event].push(fn);
-      return this;
-    }
-    emit(event, ...args) {
-      const callbacks = this.callbacks[event];
-      if (callbacks) {
-        callbacks.forEach((callback) => callback.apply(this, args));
-      }
-      return this;
-    }
-    off(event, fn) {
-      const callbacks = this.callbacks[event];
-      if (callbacks) {
-        if (fn) {
-          this.callbacks[event] = callbacks.filter((callback) => callback !== fn);
-        } else {
-          delete this.callbacks[event];
-        }
-      }
-      return this;
-    }
-    once(event, fn) {
-      const onceFn = (...args) => {
-        this.off(event, onceFn);
-        fn.apply(this, args);
-      };
-      return this.on(event, onceFn);
-    }
-    removeAllListeners() {
-      this.callbacks = {};
-    }
-  };
-  function getExtensionField(extension, field, context) {
-    if (extension.config[field] === void 0 && extension.parent) {
-      return getExtensionField(extension.parent, field, context);
-    }
-    if (typeof extension.config[field] === "function") {
-      const value = extension.config[field].bind({
-        ...context,
-        parent: extension.parent ? getExtensionField(extension.parent, field, context) : null
-      });
-      return value;
-    }
-    return extension.config[field];
-  }
-  function splitExtensions(extensions) {
-    const baseExtensions = extensions.filter((extension) => extension.type === "extension");
-    const nodeExtensions = extensions.filter((extension) => extension.type === "node");
-    const markExtensions = extensions.filter((extension) => extension.type === "mark");
-    return {
-      baseExtensions,
-      nodeExtensions,
-      markExtensions
-    };
-  }
-  function getAttributesFromExtensions(extensions) {
-    const extensionAttributes = [];
-    const { nodeExtensions, markExtensions } = splitExtensions(extensions);
-    const nodeAndMarkExtensions = [...nodeExtensions, ...markExtensions];
-    const defaultAttribute = {
-      default: null,
-      rendered: true,
-      renderHTML: null,
-      parseHTML: null,
-      keepOnSplit: true,
-      isRequired: false
-    };
-    extensions.forEach((extension) => {
-      const context = {
-        name: extension.name,
-        options: extension.options,
-        storage: extension.storage,
-        extensions: nodeAndMarkExtensions
-      };
-      const addGlobalAttributes = getExtensionField(extension, "addGlobalAttributes", context);
-      if (!addGlobalAttributes) {
-        return;
-      }
-      const globalAttributes = addGlobalAttributes();
-      globalAttributes.forEach((globalAttribute) => {
-        globalAttribute.types.forEach((type) => {
-          Object.entries(globalAttribute.attributes).forEach(([name, attribute]) => {
-            extensionAttributes.push({
-              type,
-              name,
-              attribute: {
-                ...defaultAttribute,
-                ...attribute
-              }
-            });
-          });
-        });
-      });
-    });
-    nodeAndMarkExtensions.forEach((extension) => {
-      const context = {
-        name: extension.name,
-        options: extension.options,
-        storage: extension.storage
-      };
-      const addAttributes = getExtensionField(extension, "addAttributes", context);
-      if (!addAttributes) {
-        return;
-      }
-      const attributes = addAttributes();
-      Object.entries(attributes).forEach(([name, attribute]) => {
-        const mergedAttr = {
-          ...defaultAttribute,
-          ...attribute
-        };
-        if (typeof (mergedAttr === null || mergedAttr === void 0 ? void 0 : mergedAttr.default) === "function") {
-          mergedAttr.default = mergedAttr.default();
-        }
-        if ((mergedAttr === null || mergedAttr === void 0 ? void 0 : mergedAttr.isRequired) && (mergedAttr === null || mergedAttr === void 0 ? void 0 : mergedAttr.default) === void 0) {
-          delete mergedAttr.default;
-        }
-        extensionAttributes.push({
-          type: extension.name,
-          name,
-          attribute: mergedAttr
-        });
-      });
-    });
-    return extensionAttributes;
-  }
-  function getNodeType(nameOrType, schema) {
-    if (typeof nameOrType === "string") {
-      if (!schema.nodes[nameOrType]) {
-        throw Error(`There is no node type named '${nameOrType}'. Maybe you forgot to add the extension?`);
-      }
-      return schema.nodes[nameOrType];
-    }
-    return nameOrType;
-  }
-  function mergeAttributes(...objects) {
-    return objects.filter((item) => !!item).reduce((items, item) => {
-      const mergedAttributes = { ...items };
-      Object.entries(item).forEach(([key, value]) => {
-        if (key === "__proto__") {
-          Object.defineProperty(mergedAttributes, key, {
-            configurable: true,
-            enumerable: true,
-            value,
-            writable: true
-          });
-          return;
-        }
-        const exists = mergedAttributes[key];
-        if (!exists) {
-          mergedAttributes[key] = value;
-          return;
-        }
-        if (key === "class") {
-          const valueClasses = value ? String(value).split(" ") : [];
-          const existingClasses = mergedAttributes[key] ? mergedAttributes[key].split(" ") : [];
-          const insertClasses = valueClasses.filter((valueClass) => !existingClasses.includes(valueClass));
-          mergedAttributes[key] = [...existingClasses, ...insertClasses].join(" ");
-        } else if (key === "style") {
-          const newStyles = value ? value.split(";").map((style2) => style2.trim()).filter(Boolean) : [];
-          const existingStyles = mergedAttributes[key] ? mergedAttributes[key].split(";").map((style2) => style2.trim()).filter(Boolean) : [];
-          const styleMap = /* @__PURE__ */ new Map();
-          existingStyles.forEach((style2) => {
-            const [property, val] = style2.split(":").map((part) => part.trim());
-            styleMap.set(property, val);
-          });
-          newStyles.forEach((style2) => {
-            const [property, val] = style2.split(":").map((part) => part.trim());
-            styleMap.set(property, val);
-          });
-          mergedAttributes[key] = Array.from(styleMap.entries()).map(([property, val]) => `${property}: ${val}`).join("; ");
-        } else {
-          mergedAttributes[key] = value;
-        }
-      });
-      return mergedAttributes;
-    }, {});
-  }
-  function getRenderedAttributes(nodeOrMark, extensionAttributes) {
-    return extensionAttributes.filter((attribute) => attribute.type === nodeOrMark.type.name).filter((item) => item.attribute.rendered).map((item) => {
-      if (!item.attribute.renderHTML) {
-        return {
-          [item.name]: nodeOrMark.attrs[item.name]
-        };
-      }
-      return item.attribute.renderHTML(nodeOrMark.attrs) || {};
-    }).reduce((attributes, attribute) => mergeAttributes(attributes, attribute), {});
-  }
-  function isFunction(value) {
-    return typeof value === "function";
-  }
-  function callOrReturn(value, context = void 0, ...props) {
-    if (isFunction(value)) {
-      if (context) {
-        return value.bind(context)(...props);
-      }
-      return value(...props);
-    }
-    return value;
-  }
-  function isEmptyObject(value = {}) {
-    return Object.keys(value).length === 0 && value.constructor === Object;
-  }
-  function fromString(value) {
-    if (typeof value !== "string") {
-      return value;
-    }
-    if (value.match(/^[+-]?(?:\d*\.)?\d+$/)) {
-      return Number(value);
-    }
-    if (value === "true") {
-      return true;
-    }
-    if (value === "false") {
-      return false;
-    }
-    return value;
-  }
-  function injectExtensionAttributesToParseRule(parseRule, extensionAttributes) {
-    if ("style" in parseRule) {
-      return parseRule;
-    }
-    return {
-      ...parseRule,
-      getAttrs: (node) => {
-        const oldAttributes = parseRule.getAttrs ? parseRule.getAttrs(node) : parseRule.attrs;
-        if (oldAttributes === false) {
-          return false;
-        }
-        const newAttributes = extensionAttributes.reduce((items, item) => {
-          const value = item.attribute.parseHTML ? item.attribute.parseHTML(node) : fromString(node.getAttribute(item.name));
-          if (value === null || value === void 0) {
-            return items;
-          }
-          return {
-            ...items,
-            [item.name]: value
-          };
-        }, {});
-        return { ...oldAttributes, ...newAttributes };
-      }
-    };
-  }
-  function cleanUpSchemaItem(data) {
-    return Object.fromEntries(
-      // @ts-ignore
-      Object.entries(data).filter(([key, value]) => {
-        if (key === "attrs" && isEmptyObject(value)) {
-          return false;
-        }
-        return value !== null && value !== void 0;
-      })
-    );
-  }
-  function getSchemaByResolvedExtensions(extensions, editor) {
-    var _a;
-    const allAttributes = getAttributesFromExtensions(extensions);
-    const { nodeExtensions, markExtensions } = splitExtensions(extensions);
-    const topNode = (_a = nodeExtensions.find((extension) => getExtensionField(extension, "topNode"))) === null || _a === void 0 ? void 0 : _a.name;
-    const nodes = Object.fromEntries(nodeExtensions.map((extension) => {
-      const extensionAttributes = allAttributes.filter((attribute) => attribute.type === extension.name);
-      const context = {
-        name: extension.name,
-        options: extension.options,
-        storage: extension.storage,
-        editor
-      };
-      const extraNodeFields = extensions.reduce((fields, e) => {
-        const extendNodeSchema = getExtensionField(e, "extendNodeSchema", context);
-        return {
-          ...fields,
-          ...extendNodeSchema ? extendNodeSchema(extension) : {}
-        };
-      }, {});
-      const schema = cleanUpSchemaItem({
-        ...extraNodeFields,
-        content: callOrReturn(getExtensionField(extension, "content", context)),
-        marks: callOrReturn(getExtensionField(extension, "marks", context)),
-        group: callOrReturn(getExtensionField(extension, "group", context)),
-        inline: callOrReturn(getExtensionField(extension, "inline", context)),
-        atom: callOrReturn(getExtensionField(extension, "atom", context)),
-        selectable: callOrReturn(getExtensionField(extension, "selectable", context)),
-        draggable: callOrReturn(getExtensionField(extension, "draggable", context)),
-        code: callOrReturn(getExtensionField(extension, "code", context)),
-        whitespace: callOrReturn(getExtensionField(extension, "whitespace", context)),
-        linebreakReplacement: callOrReturn(getExtensionField(extension, "linebreakReplacement", context)),
-        defining: callOrReturn(getExtensionField(extension, "defining", context)),
-        isolating: callOrReturn(getExtensionField(extension, "isolating", context)),
-        attrs: Object.fromEntries(extensionAttributes.map((extensionAttribute) => {
-          var _a2;
-          return [extensionAttribute.name, { default: (_a2 = extensionAttribute === null || extensionAttribute === void 0 ? void 0 : extensionAttribute.attribute) === null || _a2 === void 0 ? void 0 : _a2.default }];
-        }))
-      });
-      const parseHTML = callOrReturn(getExtensionField(extension, "parseHTML", context));
-      if (parseHTML) {
-        schema.parseDOM = parseHTML.map((parseRule) => injectExtensionAttributesToParseRule(parseRule, extensionAttributes));
-      }
-      const renderHTML = getExtensionField(extension, "renderHTML", context);
-      if (renderHTML) {
-        schema.toDOM = (node) => renderHTML({
-          node,
-          HTMLAttributes: getRenderedAttributes(node, extensionAttributes)
-        });
-      }
-      const renderText = getExtensionField(extension, "renderText", context);
-      if (renderText) {
-        schema.toText = renderText;
-      }
-      return [extension.name, schema];
-    }));
-    const marks = Object.fromEntries(markExtensions.map((extension) => {
-      const extensionAttributes = allAttributes.filter((attribute) => attribute.type === extension.name);
-      const context = {
-        name: extension.name,
-        options: extension.options,
-        storage: extension.storage,
-        editor
-      };
-      const extraMarkFields = extensions.reduce((fields, e) => {
-        const extendMarkSchema = getExtensionField(e, "extendMarkSchema", context);
-        return {
-          ...fields,
-          ...extendMarkSchema ? extendMarkSchema(extension) : {}
-        };
-      }, {});
-      const schema = cleanUpSchemaItem({
-        ...extraMarkFields,
-        inclusive: callOrReturn(getExtensionField(extension, "inclusive", context)),
-        excludes: callOrReturn(getExtensionField(extension, "excludes", context)),
-        group: callOrReturn(getExtensionField(extension, "group", context)),
-        spanning: callOrReturn(getExtensionField(extension, "spanning", context)),
-        code: callOrReturn(getExtensionField(extension, "code", context)),
-        attrs: Object.fromEntries(extensionAttributes.map((extensionAttribute) => {
-          var _a2;
-          return [extensionAttribute.name, { default: (_a2 = extensionAttribute === null || extensionAttribute === void 0 ? void 0 : extensionAttribute.attribute) === null || _a2 === void 0 ? void 0 : _a2.default }];
-        }))
-      });
-      const parseHTML = callOrReturn(getExtensionField(extension, "parseHTML", context));
-      if (parseHTML) {
-        schema.parseDOM = parseHTML.map((parseRule) => injectExtensionAttributesToParseRule(parseRule, extensionAttributes));
-      }
-      const renderHTML = getExtensionField(extension, "renderHTML", context);
-      if (renderHTML) {
-        schema.toDOM = (mark) => renderHTML({
-          mark,
-          HTMLAttributes: getRenderedAttributes(mark, extensionAttributes)
-        });
-      }
-      return [extension.name, schema];
-    }));
-    return new Schema({
-      topNode,
-      nodes,
-      marks
-    });
-  }
-  function getSchemaTypeByName(name, schema) {
-    return schema.nodes[name] || schema.marks[name] || null;
-  }
-  function isExtensionRulesEnabled(extension, enabled) {
-    if (Array.isArray(enabled)) {
-      return enabled.some((enabledExtension) => {
-        const name = typeof enabledExtension === "string" ? enabledExtension : enabledExtension.name;
-        return name === extension.name;
-      });
-    }
-    return enabled;
-  }
-  function getHTMLFromFragment(fragment, schema) {
-    const documentFragment = DOMSerializer.fromSchema(schema).serializeFragment(fragment);
-    const temporaryDocument = document.implementation.createHTMLDocument();
-    const container = temporaryDocument.createElement("div");
-    container.appendChild(documentFragment);
-    return container.innerHTML;
-  }
-  var getTextContentFromNodes = ($from, maxMatch = 500) => {
-    let textBefore = "";
-    const sliceEndPos = $from.parentOffset;
-    $from.parent.nodesBetween(Math.max(0, sliceEndPos - maxMatch), sliceEndPos, (node, pos, parent, index) => {
-      var _a, _b;
-      const chunk = ((_b = (_a = node.type.spec).toText) === null || _b === void 0 ? void 0 : _b.call(_a, {
-        node,
-        pos,
-        parent,
-        index
-      })) || node.textContent || "%leaf%";
-      textBefore += node.isAtom && !node.isText ? chunk : chunk.slice(0, Math.max(0, sliceEndPos - pos));
-    });
-    return textBefore;
-  };
-  function isRegExp(value) {
-    return Object.prototype.toString.call(value) === "[object RegExp]";
-  }
-  var InputRule = class {
-    constructor(config) {
-      this.find = config.find;
-      this.handler = config.handler;
-    }
-  };
-  var inputRuleMatcherHandler = (text, find2) => {
-    if (isRegExp(find2)) {
-      return find2.exec(text);
-    }
-    const inputRuleMatch = find2(text);
-    if (!inputRuleMatch) {
-      return null;
-    }
-    const result = [inputRuleMatch.text];
-    result.index = inputRuleMatch.index;
-    result.input = text;
-    result.data = inputRuleMatch.data;
-    if (inputRuleMatch.replaceWith) {
-      if (!inputRuleMatch.text.includes(inputRuleMatch.replaceWith)) {
-        console.warn('[tiptap warn]: "inputRuleMatch.replaceWith" must be part of "inputRuleMatch.text".');
-      }
-      result.push(inputRuleMatch.replaceWith);
-    }
-    return result;
-  };
-  function run$1(config) {
-    var _a;
-    const { editor, from: from2, to, text, rules, plugin } = config;
-    const { view } = editor;
-    if (view.composing) {
-      return false;
-    }
-    const $from = view.state.doc.resolve(from2);
-    if (
-      // check for code node
-      $from.parent.type.spec.code || !!((_a = $from.nodeBefore || $from.nodeAfter) === null || _a === void 0 ? void 0 : _a.marks.find((mark) => mark.type.spec.code))
-    ) {
-      return false;
-    }
-    let matched = false;
-    const textBefore = getTextContentFromNodes($from) + text;
-    rules.forEach((rule) => {
-      if (matched) {
-        return;
-      }
-      const match = inputRuleMatcherHandler(textBefore, rule.find);
-      if (!match) {
-        return;
-      }
-      const tr2 = view.state.tr;
-      const state = createChainableState({
-        state: view.state,
-        transaction: tr2
-      });
-      const range = {
-        from: from2 - (match[0].length - text.length),
-        to
-      };
-      const { commands: commands2, chain, can } = new CommandManager({
-        editor,
-        state
-      });
-      const handler = rule.handler({
-        state,
-        range,
-        match,
-        commands: commands2,
-        chain,
-        can
-      });
-      if (handler === null || !tr2.steps.length) {
-        return;
-      }
-      tr2.setMeta(plugin, {
-        transform: tr2,
-        from: from2,
-        to,
-        text
-      });
-      view.dispatch(tr2);
-      matched = true;
-    });
-    return matched;
-  }
-  function inputRulesPlugin(props) {
-    const { editor, rules } = props;
-    const plugin = new Plugin({
-      state: {
-        init() {
-          return null;
-        },
-        apply(tr2, prev, state) {
-          const stored = tr2.getMeta(plugin);
-          if (stored) {
-            return stored;
-          }
-          const simulatedInputMeta = tr2.getMeta("applyInputRules");
-          const isSimulatedInput = !!simulatedInputMeta;
-          if (isSimulatedInput) {
-            setTimeout(() => {
-              let { text } = simulatedInputMeta;
-              if (typeof text === "string") {
-                text = text;
-              } else {
-                text = getHTMLFromFragment(Fragment.from(text), state.schema);
-              }
-              const { from: from2 } = simulatedInputMeta;
-              const to = from2 + text.length;
-              run$1({
-                editor,
-                from: from2,
-                to,
-                text,
-                rules,
-                plugin
-              });
-            });
-          }
-          return tr2.selectionSet || tr2.docChanged ? null : prev;
-        }
-      },
-      props: {
-        handleTextInput(view, from2, to, text) {
-          return run$1({
-            editor,
-            from: from2,
-            to,
-            text,
-            rules,
-            plugin
-          });
-        },
-        handleDOMEvents: {
-          compositionend: (view) => {
-            setTimeout(() => {
-              const { $cursor } = view.state.selection;
-              if ($cursor) {
-                run$1({
-                  editor,
-                  from: $cursor.pos,
-                  to: $cursor.pos,
-                  text: "",
-                  rules,
-                  plugin
-                });
-              }
-            });
-            return false;
-          }
-        },
-        // add support for input rules to trigger on enter
-        // this is useful for example for code blocks
-        handleKeyDown(view, event) {
-          if (event.key !== "Enter") {
-            return false;
-          }
-          const { $cursor } = view.state.selection;
-          if ($cursor) {
-            return run$1({
-              editor,
-              from: $cursor.pos,
-              to: $cursor.pos,
-              text: "\n",
-              rules,
-              plugin
-            });
-          }
-          return false;
-        }
-      },
-      // @ts-ignore
-      isInputRules: true
-    });
-    return plugin;
-  }
-  function getType(value) {
-    return Object.prototype.toString.call(value).slice(8, -1);
-  }
-  function isPlainObject(value) {
-    if (getType(value) !== "Object") {
-      return false;
-    }
-    return value.constructor === Object && Object.getPrototypeOf(value) === Object.prototype;
-  }
-  function mergeDeep(target, source) {
-    const output = { ...target };
-    if (isPlainObject(target) && isPlainObject(source)) {
-      Object.keys(source).forEach((key) => {
-        if (isPlainObject(source[key]) && isPlainObject(target[key])) {
-          output[key] = mergeDeep(target[key], source[key]);
-        } else {
-          output[key] = source[key];
-        }
-      });
-    }
-    return output;
-  }
-  var Mark2 = class _Mark {
-    constructor(config = {}) {
-      this.type = "mark";
-      this.name = "mark";
-      this.parent = null;
-      this.child = null;
-      this.config = {
-        name: this.name,
-        defaultOptions: {}
-      };
-      this.config = {
-        ...this.config,
-        ...config
-      };
-      this.name = this.config.name;
-      if (config.defaultOptions && Object.keys(config.defaultOptions).length > 0) {
-        console.warn(`[tiptap warn]: BREAKING CHANGE: "defaultOptions" is deprecated. Please use "addOptions" instead. Found in extension: "${this.name}".`);
-      }
-      this.options = this.config.defaultOptions;
-      if (this.config.addOptions) {
-        this.options = callOrReturn(getExtensionField(this, "addOptions", {
-          name: this.name
-        }));
-      }
-      this.storage = callOrReturn(getExtensionField(this, "addStorage", {
-        name: this.name,
-        options: this.options
-      })) || {};
-    }
-    static create(config = {}) {
-      return new _Mark(config);
-    }
-    configure(options = {}) {
-      const extension = this.extend({
-        ...this.config,
-        addOptions: () => {
-          return mergeDeep(this.options, options);
-        }
-      });
-      extension.name = this.name;
-      extension.parent = this.parent;
-      return extension;
-    }
-    extend(extendedConfig = {}) {
-      const extension = new _Mark(extendedConfig);
-      extension.parent = this;
-      this.child = extension;
-      extension.name = extendedConfig.name ? extendedConfig.name : extension.parent.name;
-      if (extendedConfig.defaultOptions && Object.keys(extendedConfig.defaultOptions).length > 0) {
-        console.warn(`[tiptap warn]: BREAKING CHANGE: "defaultOptions" is deprecated. Please use "addOptions" instead. Found in extension: "${extension.name}".`);
-      }
-      extension.options = callOrReturn(getExtensionField(extension, "addOptions", {
-        name: extension.name
-      }));
-      extension.storage = callOrReturn(getExtensionField(extension, "addStorage", {
-        name: extension.name,
-        options: extension.options
-      }));
-      return extension;
-    }
-    static handleExit({ editor, mark }) {
-      const { tr: tr2 } = editor.state;
-      const currentPos = editor.state.selection.$from;
-      const isAtEnd = currentPos.pos === currentPos.end();
-      if (isAtEnd) {
-        const currentMarks = currentPos.marks();
-        const isInMark = !!currentMarks.find((m) => (m === null || m === void 0 ? void 0 : m.type.name) === mark.name);
-        if (!isInMark) {
-          return false;
-        }
-        const removeMark2 = currentMarks.find((m) => (m === null || m === void 0 ? void 0 : m.type.name) === mark.name);
-        if (removeMark2) {
-          tr2.removeStoredMark(removeMark2);
-        }
-        tr2.insertText(" ", currentPos.pos);
-        editor.view.dispatch(tr2);
-        return true;
-      }
-      return false;
-    }
-  };
-  function isNumber(value) {
-    return typeof value === "number";
-  }
-  var PasteRule = class {
-    constructor(config) {
-      this.find = config.find;
-      this.handler = config.handler;
-    }
-  };
-  var pasteRuleMatcherHandler = (text, find2, event) => {
-    if (isRegExp(find2)) {
-      return [...text.matchAll(find2)];
-    }
-    const matches2 = find2(text, event);
-    if (!matches2) {
-      return [];
-    }
-    return matches2.map((pasteRuleMatch) => {
-      const result = [pasteRuleMatch.text];
-      result.index = pasteRuleMatch.index;
-      result.input = text;
-      result.data = pasteRuleMatch.data;
-      if (pasteRuleMatch.replaceWith) {
-        if (!pasteRuleMatch.text.includes(pasteRuleMatch.replaceWith)) {
-          console.warn('[tiptap warn]: "pasteRuleMatch.replaceWith" must be part of "pasteRuleMatch.text".');
-        }
-        result.push(pasteRuleMatch.replaceWith);
-      }
-      return result;
-    });
-  };
-  function run(config) {
-    const { editor, state, from: from2, to, rule, pasteEvent, dropEvent } = config;
-    const { commands: commands2, chain, can } = new CommandManager({
-      editor,
-      state
-    });
-    const handlers2 = [];
-    state.doc.nodesBetween(from2, to, (node, pos) => {
-      if (!node.isTextblock || node.type.spec.code) {
-        return;
-      }
-      const resolvedFrom = Math.max(from2, pos);
-      const resolvedTo = Math.min(to, pos + node.content.size);
-      const textToMatch = node.textBetween(resolvedFrom - pos, resolvedTo - pos, void 0, "\uFFFC");
-      const matches2 = pasteRuleMatcherHandler(textToMatch, rule.find, pasteEvent);
-      matches2.forEach((match) => {
-        if (match.index === void 0) {
-          return;
-        }
-        const start = resolvedFrom + match.index + 1;
-        const end = start + match[0].length;
-        const range = {
-          from: state.tr.mapping.map(start),
-          to: state.tr.mapping.map(end)
-        };
-        const handler = rule.handler({
-          state,
-          range,
-          match,
-          commands: commands2,
-          chain,
-          can,
-          pasteEvent,
-          dropEvent
-        });
-        handlers2.push(handler);
-      });
-    });
-    const success = handlers2.every((handler) => handler !== null);
-    return success;
-  }
-  var tiptapDragFromOtherEditor = null;
-  var createClipboardPasteEvent = (text) => {
-    var _a;
-    const event = new ClipboardEvent("paste", {
-      clipboardData: new DataTransfer()
-    });
-    (_a = event.clipboardData) === null || _a === void 0 ? void 0 : _a.setData("text/html", text);
-    return event;
-  };
-  function pasteRulesPlugin(props) {
-    const { editor, rules } = props;
-    let dragSourceElement = null;
-    let isPastedFromProseMirror = false;
-    let isDroppedFromProseMirror = false;
-    let pasteEvent = typeof ClipboardEvent !== "undefined" ? new ClipboardEvent("paste") : null;
-    let dropEvent;
-    try {
-      dropEvent = typeof DragEvent !== "undefined" ? new DragEvent("drop") : null;
-    } catch {
-      dropEvent = null;
-    }
-    const processEvent = ({ state, from: from2, to, rule, pasteEvt }) => {
-      const tr2 = state.tr;
-      const chainableState = createChainableState({
-        state,
-        transaction: tr2
-      });
-      const handler = run({
-        editor,
-        state: chainableState,
-        from: Math.max(from2 - 1, 0),
-        to: to.b - 1,
-        rule,
-        pasteEvent: pasteEvt,
-        dropEvent
-      });
-      if (!handler || !tr2.steps.length) {
-        return;
-      }
-      try {
-        dropEvent = typeof DragEvent !== "undefined" ? new DragEvent("drop") : null;
-      } catch {
-        dropEvent = null;
-      }
-      pasteEvent = typeof ClipboardEvent !== "undefined" ? new ClipboardEvent("paste") : null;
-      return tr2;
-    };
-    const plugins = rules.map((rule) => {
-      return new Plugin({
-        // we register a global drag handler to track the current drag source element
-        view(view) {
-          const handleDragstart = (event) => {
-            var _a;
-            dragSourceElement = ((_a = view.dom.parentElement) === null || _a === void 0 ? void 0 : _a.contains(event.target)) ? view.dom.parentElement : null;
-            if (dragSourceElement) {
-              tiptapDragFromOtherEditor = editor;
-            }
-          };
-          const handleDragend = () => {
-            if (tiptapDragFromOtherEditor) {
-              tiptapDragFromOtherEditor = null;
-            }
-          };
-          window.addEventListener("dragstart", handleDragstart);
-          window.addEventListener("dragend", handleDragend);
-          return {
-            destroy() {
-              window.removeEventListener("dragstart", handleDragstart);
-              window.removeEventListener("dragend", handleDragend);
-            }
-          };
-        },
-        props: {
-          handleDOMEvents: {
-            drop: (view, event) => {
-              isDroppedFromProseMirror = dragSourceElement === view.dom.parentElement;
-              dropEvent = event;
-              if (!isDroppedFromProseMirror) {
-                const dragFromOtherEditor = tiptapDragFromOtherEditor;
-                if (dragFromOtherEditor === null || dragFromOtherEditor === void 0 ? void 0 : dragFromOtherEditor.isEditable) {
-                  setTimeout(() => {
-                    const selection = dragFromOtherEditor.state.selection;
-                    if (selection) {
-                      dragFromOtherEditor.commands.deleteRange({ from: selection.from, to: selection.to });
-                    }
-                  }, 10);
-                }
-              }
-              return false;
-            },
-            paste: (_view, event) => {
-              var _a;
-              const html = (_a = event.clipboardData) === null || _a === void 0 ? void 0 : _a.getData("text/html");
-              pasteEvent = event;
-              isPastedFromProseMirror = !!(html === null || html === void 0 ? void 0 : html.includes("data-pm-slice"));
-              return false;
-            }
-          }
-        },
-        appendTransaction: (transactions, oldState, state) => {
-          const transaction = transactions[0];
-          const isPaste = transaction.getMeta("uiEvent") === "paste" && !isPastedFromProseMirror;
-          const isDrop = transaction.getMeta("uiEvent") === "drop" && !isDroppedFromProseMirror;
-          const simulatedPasteMeta = transaction.getMeta("applyPasteRules");
-          const isSimulatedPaste = !!simulatedPasteMeta;
-          if (!isPaste && !isDrop && !isSimulatedPaste) {
-            return;
-          }
-          if (isSimulatedPaste) {
-            let { text } = simulatedPasteMeta;
-            if (typeof text === "string") {
-              text = text;
-            } else {
-              text = getHTMLFromFragment(Fragment.from(text), state.schema);
-            }
-            const { from: from3 } = simulatedPasteMeta;
-            const to2 = from3 + text.length;
-            const pasteEvt = createClipboardPasteEvent(text);
-            return processEvent({
-              rule,
-              state,
-              from: from3,
-              to: { b: to2 },
-              pasteEvt
-            });
-          }
-          const from2 = oldState.doc.content.findDiffStart(state.doc.content);
-          const to = oldState.doc.content.findDiffEnd(state.doc.content);
-          if (!isNumber(from2) || !to || from2 === to.b) {
-            return;
-          }
-          return processEvent({
-            rule,
-            state,
-            from: from2,
-            to,
-            pasteEvt: pasteEvent
-          });
-        }
-      });
-    });
-    return plugins;
-  }
-  function findDuplicates(items) {
-    const filtered = items.filter((el, index) => items.indexOf(el) !== index);
-    return Array.from(new Set(filtered));
-  }
-  var ExtensionManager = class _ExtensionManager {
-    constructor(extensions, editor) {
-      this.splittableMarks = [];
-      this.editor = editor;
-      this.extensions = _ExtensionManager.resolve(extensions);
-      this.schema = getSchemaByResolvedExtensions(this.extensions, editor);
-      this.setupExtensions();
-    }
-    /**
-     * Returns a flattened and sorted extension list while
-     * also checking for duplicated extensions and warns the user.
-     * @param extensions An array of Tiptap extensions
-     * @returns An flattened and sorted array of Tiptap extensions
-     */
-    static resolve(extensions) {
-      const resolvedExtensions = _ExtensionManager.sort(_ExtensionManager.flatten(extensions));
-      const duplicatedNames = findDuplicates(resolvedExtensions.map((extension) => extension.name));
-      if (duplicatedNames.length) {
-        console.warn(`[tiptap warn]: Duplicate extension names found: [${duplicatedNames.map((item) => `'${item}'`).join(", ")}]. This can lead to issues.`);
-      }
-      return resolvedExtensions;
-    }
-    /**
-     * Create a flattened array of extensions by traversing the `addExtensions` field.
-     * @param extensions An array of Tiptap extensions
-     * @returns A flattened array of Tiptap extensions
-     */
-    static flatten(extensions) {
-      return extensions.map((extension) => {
-        const context = {
-          name: extension.name,
-          options: extension.options,
-          storage: extension.storage
-        };
-        const addExtensions = getExtensionField(extension, "addExtensions", context);
-        if (addExtensions) {
-          return [extension, ...this.flatten(addExtensions())];
-        }
-        return extension;
-      }).flat(10);
-    }
-    /**
-     * Sort extensions by priority.
-     * @param extensions An array of Tiptap extensions
-     * @returns A sorted array of Tiptap extensions by priority
-     */
-    static sort(extensions) {
-      const defaultPriority = 100;
-      return extensions.sort((a, b) => {
-        const priorityA = getExtensionField(a, "priority") || defaultPriority;
-        const priorityB = getExtensionField(b, "priority") || defaultPriority;
-        if (priorityA > priorityB) {
-          return -1;
-        }
-        if (priorityA < priorityB) {
-          return 1;
-        }
-        return 0;
-      });
-    }
-    /**
-     * Get all commands from the extensions.
-     * @returns An object with all commands where the key is the command name and the value is the command function
-     */
-    get commands() {
-      return this.extensions.reduce((commands2, extension) => {
-        const context = {
-          name: extension.name,
-          options: extension.options,
-          storage: extension.storage,
-          editor: this.editor,
-          type: getSchemaTypeByName(extension.name, this.schema)
-        };
-        const addCommands = getExtensionField(extension, "addCommands", context);
-        if (!addCommands) {
-          return commands2;
-        }
-        return {
-          ...commands2,
-          ...addCommands()
-        };
-      }, {});
-    }
-    /**
-     * Get all registered Prosemirror plugins from the extensions.
-     * @returns An array of Prosemirror plugins
-     */
-    get plugins() {
-      const { editor } = this;
-      const extensions = _ExtensionManager.sort([...this.extensions].reverse());
-      const inputRules = [];
-      const pasteRules = [];
-      const allPlugins = extensions.map((extension) => {
-        const context = {
-          name: extension.name,
-          options: extension.options,
-          storage: extension.storage,
-          editor,
-          type: getSchemaTypeByName(extension.name, this.schema)
-        };
-        const plugins = [];
-        const addKeyboardShortcuts = getExtensionField(extension, "addKeyboardShortcuts", context);
-        let defaultBindings = {};
-        if (extension.type === "mark" && getExtensionField(extension, "exitable", context)) {
-          defaultBindings.ArrowRight = () => Mark2.handleExit({ editor, mark: extension });
-        }
-        if (addKeyboardShortcuts) {
-          const bindings = Object.fromEntries(Object.entries(addKeyboardShortcuts()).map(([shortcut, method]) => {
-            return [shortcut, () => method({ editor })];
-          }));
-          defaultBindings = { ...defaultBindings, ...bindings };
-        }
-        const keyMapPlugin = keymap(defaultBindings);
-        plugins.push(keyMapPlugin);
-        const addInputRules = getExtensionField(extension, "addInputRules", context);
-        if (isExtensionRulesEnabled(extension, editor.options.enableInputRules) && addInputRules) {
-          inputRules.push(...addInputRules());
-        }
-        const addPasteRules = getExtensionField(extension, "addPasteRules", context);
-        if (isExtensionRulesEnabled(extension, editor.options.enablePasteRules) && addPasteRules) {
-          pasteRules.push(...addPasteRules());
-        }
-        const addProseMirrorPlugins = getExtensionField(extension, "addProseMirrorPlugins", context);
-        if (addProseMirrorPlugins) {
-          const proseMirrorPlugins = addProseMirrorPlugins();
-          plugins.push(...proseMirrorPlugins);
-        }
-        return plugins;
-      }).flat();
-      return [
-        inputRulesPlugin({
-          editor,
-          rules: inputRules
-        }),
-        ...pasteRulesPlugin({
-          editor,
-          rules: pasteRules
-        }),
-        ...allPlugins
-      ];
-    }
-    /**
-     * Get all attributes from the extensions.
-     * @returns An array of attributes
-     */
-    get attributes() {
-      return getAttributesFromExtensions(this.extensions);
-    }
-    /**
-     * Get all node views from the extensions.
-     * @returns An object with all node views where the key is the node name and the value is the node view function
-     */
-    get nodeViews() {
-      const { editor } = this;
-      const { nodeExtensions } = splitExtensions(this.extensions);
-      return Object.fromEntries(nodeExtensions.filter((extension) => !!getExtensionField(extension, "addNodeView")).map((extension) => {
-        const extensionAttributes = this.attributes.filter((attribute) => attribute.type === extension.name);
-        const context = {
-          name: extension.name,
-          options: extension.options,
-          storage: extension.storage,
-          editor,
-          type: getNodeType(extension.name, this.schema)
-        };
-        const addNodeView = getExtensionField(extension, "addNodeView", context);
-        if (!addNodeView) {
-          return [];
-        }
-        const nodeview = (node, view, getPos, decorations, innerDecorations) => {
-          const HTMLAttributes = getRenderedAttributes(node, extensionAttributes);
-          return addNodeView()({
-            // pass-through
-            node,
-            view,
-            getPos,
-            decorations,
-            innerDecorations,
-            // tiptap-specific
-            editor,
-            extension,
-            HTMLAttributes
-          });
-        };
-        return [extension.name, nodeview];
-      }));
-    }
-    /**
-     * Go through all extensions, create extension storages & setup marks
-     * & bind editor event listener.
-     */
-    setupExtensions() {
-      this.extensions.forEach((extension) => {
-        var _a;
-        this.editor.extensionStorage[extension.name] = extension.storage;
-        const context = {
-          name: extension.name,
-          options: extension.options,
-          storage: extension.storage,
-          editor: this.editor,
-          type: getSchemaTypeByName(extension.name, this.schema)
-        };
-        if (extension.type === "mark") {
-          const keepOnSplit = (_a = callOrReturn(getExtensionField(extension, "keepOnSplit", context))) !== null && _a !== void 0 ? _a : true;
-          if (keepOnSplit) {
-            this.splittableMarks.push(extension.name);
-          }
-        }
-        const onBeforeCreate = getExtensionField(extension, "onBeforeCreate", context);
-        const onCreate = getExtensionField(extension, "onCreate", context);
-        const onUpdate = getExtensionField(extension, "onUpdate", context);
-        const onSelectionUpdate = getExtensionField(extension, "onSelectionUpdate", context);
-        const onTransaction = getExtensionField(extension, "onTransaction", context);
-        const onFocus = getExtensionField(extension, "onFocus", context);
-        const onBlur = getExtensionField(extension, "onBlur", context);
-        const onDestroy = getExtensionField(extension, "onDestroy", context);
-        if (onBeforeCreate) {
-          this.editor.on("beforeCreate", onBeforeCreate);
-        }
-        if (onCreate) {
-          this.editor.on("create", onCreate);
-        }
-        if (onUpdate) {
-          this.editor.on("update", onUpdate);
-        }
-        if (onSelectionUpdate) {
-          this.editor.on("selectionUpdate", onSelectionUpdate);
-        }
-        if (onTransaction) {
-          this.editor.on("transaction", onTransaction);
-        }
-        if (onFocus) {
-          this.editor.on("focus", onFocus);
-        }
-        if (onBlur) {
-          this.editor.on("blur", onBlur);
-        }
-        if (onDestroy) {
-          this.editor.on("destroy", onDestroy);
-        }
-      });
-    }
-  };
-  var Extension = class _Extension {
-    constructor(config = {}) {
-      this.type = "extension";
-      this.name = "extension";
-      this.parent = null;
-      this.child = null;
-      this.config = {
-        name: this.name,
-        defaultOptions: {}
-      };
-      this.config = {
-        ...this.config,
-        ...config
-      };
-      this.name = this.config.name;
-      if (config.defaultOptions && Object.keys(config.defaultOptions).length > 0) {
-        console.warn(`[tiptap warn]: BREAKING CHANGE: "defaultOptions" is deprecated. Please use "addOptions" instead. Found in extension: "${this.name}".`);
-      }
-      this.options = this.config.defaultOptions;
-      if (this.config.addOptions) {
-        this.options = callOrReturn(getExtensionField(this, "addOptions", {
-          name: this.name
-        }));
-      }
-      this.storage = callOrReturn(getExtensionField(this, "addStorage", {
-        name: this.name,
-        options: this.options
-      })) || {};
-    }
-    static create(config = {}) {
-      return new _Extension(config);
-    }
-    configure(options = {}) {
-      const extension = this.extend({
-        ...this.config,
-        addOptions: () => {
-          return mergeDeep(this.options, options);
-        }
-      });
-      extension.name = this.name;
-      extension.parent = this.parent;
-      return extension;
-    }
-    extend(extendedConfig = {}) {
-      const extension = new _Extension({ ...this.config, ...extendedConfig });
-      extension.parent = this;
-      this.child = extension;
-      extension.name = extendedConfig.name ? extendedConfig.name : extension.parent.name;
-      if (extendedConfig.defaultOptions && Object.keys(extendedConfig.defaultOptions).length > 0) {
-        console.warn(`[tiptap warn]: BREAKING CHANGE: "defaultOptions" is deprecated. Please use "addOptions" instead. Found in extension: "${extension.name}".`);
-      }
-      extension.options = callOrReturn(getExtensionField(extension, "addOptions", {
-        name: extension.name
-      }));
-      extension.storage = callOrReturn(getExtensionField(extension, "addStorage", {
-        name: extension.name,
-        options: extension.options
-      }));
-      return extension;
-    }
-  };
-  function getTextBetween(startNode, range, options) {
-    const { from: from2, to } = range;
-    const { blockSeparator = "\n\n", textSerializers = {} } = options || {};
-    let text = "";
-    startNode.nodesBetween(from2, to, (node, pos, parent, index) => {
-      var _a;
-      if (node.isBlock && pos > from2) {
-        text += blockSeparator;
-      }
-      const textSerializer = textSerializers === null || textSerializers === void 0 ? void 0 : textSerializers[node.type.name];
-      if (textSerializer) {
-        if (parent) {
-          text += textSerializer({
-            node,
-            pos,
-            parent,
-            index,
-            range
-          });
-        }
-        return false;
-      }
-      if (node.isText) {
-        text += (_a = node === null || node === void 0 ? void 0 : node.text) === null || _a === void 0 ? void 0 : _a.slice(Math.max(from2, pos) - pos, to - pos);
-      }
-    });
-    return text;
-  }
-  function getTextSerializersFromSchema(schema) {
-    return Object.fromEntries(Object.entries(schema.nodes).filter(([, node]) => node.spec.toText).map(([name, node]) => [name, node.spec.toText]));
-  }
-  var ClipboardTextSerializer = Extension.create({
-    name: "clipboardTextSerializer",
-    addOptions() {
-      return {
-        blockSeparator: void 0
-      };
-    },
-    addProseMirrorPlugins() {
-      return [
-        new Plugin({
-          key: new PluginKey("clipboardTextSerializer"),
-          props: {
-            clipboardTextSerializer: () => {
-              const { editor } = this;
-              const { state, schema } = editor;
-              const { doc: doc3, selection } = state;
-              const { ranges } = selection;
-              const from2 = Math.min(...ranges.map((range2) => range2.$from.pos));
-              const to = Math.max(...ranges.map((range2) => range2.$to.pos));
-              const textSerializers = getTextSerializersFromSchema(schema);
-              const range = { from: from2, to };
-              return getTextBetween(doc3, range, {
-                ...this.options.blockSeparator !== void 0 ? { blockSeparator: this.options.blockSeparator } : {},
-                textSerializers
-              });
-            }
-          }
-        })
-      ];
-    }
-  });
-  var blur = () => ({ editor, view }) => {
-    requestAnimationFrame(() => {
-      var _a;
-      if (!editor.isDestroyed) {
-        view.dom.blur();
-        (_a = window === null || window === void 0 ? void 0 : window.getSelection()) === null || _a === void 0 ? void 0 : _a.removeAllRanges();
-      }
-    });
-    return true;
-  };
-  var clearContent = (emitUpdate = false) => ({ commands: commands2 }) => {
-    return commands2.setContent("", emitUpdate);
-  };
-  var clearNodes = () => ({ state, tr: tr2, dispatch }) => {
-    const { selection } = tr2;
-    const { ranges } = selection;
-    if (!dispatch) {
-      return true;
-    }
-    ranges.forEach(({ $from, $to }) => {
-      state.doc.nodesBetween($from.pos, $to.pos, (node, pos) => {
-        if (node.type.isText) {
-          return;
-        }
-        const { doc: doc3, mapping } = tr2;
-        const $mappedFrom = doc3.resolve(mapping.map(pos));
-        const $mappedTo = doc3.resolve(mapping.map(pos + node.nodeSize));
-        const nodeRange = $mappedFrom.blockRange($mappedTo);
-        if (!nodeRange) {
-          return;
-        }
-        const targetLiftDepth = liftTarget(nodeRange);
-        if (node.type.isTextblock) {
-          const { defaultType } = $mappedFrom.parent.contentMatchAt($mappedFrom.index());
-          tr2.setNodeMarkup(nodeRange.start, defaultType);
-        }
-        if (targetLiftDepth || targetLiftDepth === 0) {
-          tr2.lift(nodeRange, targetLiftDepth);
-        }
-      });
-    });
-    return true;
-  };
-  var command = (fn) => (props) => {
-    return fn(props);
-  };
-  var createParagraphNear2 = () => ({ state, dispatch }) => {
-    return createParagraphNear(state, dispatch);
-  };
-  var cut = (originRange, targetPos) => ({ editor, tr: tr2 }) => {
-    const { state } = editor;
-    const contentSlice = state.doc.slice(originRange.from, originRange.to);
-    tr2.deleteRange(originRange.from, originRange.to);
-    const newPos = tr2.mapping.map(targetPos);
-    tr2.insert(newPos, contentSlice.content);
-    tr2.setSelection(new TextSelection(tr2.doc.resolve(Math.max(newPos - 1, 0))));
-    return true;
-  };
-  var deleteCurrentNode = () => ({ tr: tr2, dispatch }) => {
-    const { selection } = tr2;
-    const currentNode = selection.$anchor.node();
-    if (currentNode.content.size > 0) {
-      return false;
-    }
-    const $pos = tr2.selection.$anchor;
-    for (let depth = $pos.depth; depth > 0; depth -= 1) {
-      const node = $pos.node(depth);
-      if (node.type === currentNode.type) {
-        if (dispatch) {
-          const from2 = $pos.before(depth);
-          const to = $pos.after(depth);
-          tr2.delete(from2, to).scrollIntoView();
-        }
-        return true;
-      }
-    }
-    return false;
-  };
-  var deleteNode = (typeOrName) => ({ tr: tr2, state, dispatch }) => {
-    const type = getNodeType(typeOrName, state.schema);
-    const $pos = tr2.selection.$anchor;
-    for (let depth = $pos.depth; depth > 0; depth -= 1) {
-      const node = $pos.node(depth);
-      if (node.type === type) {
-        if (dispatch) {
-          const from2 = $pos.before(depth);
-          const to = $pos.after(depth);
-          tr2.delete(from2, to).scrollIntoView();
-        }
-        return true;
-      }
-    }
-    return false;
-  };
-  var deleteRange2 = (range) => ({ tr: tr2, dispatch }) => {
-    const { from: from2, to } = range;
-    if (dispatch) {
-      tr2.delete(from2, to);
-    }
-    return true;
-  };
-  var deleteSelection2 = () => ({ state, dispatch }) => {
-    return deleteSelection(state, dispatch);
-  };
-  var enter = () => ({ commands: commands2 }) => {
-    return commands2.keyboardShortcut("Enter");
-  };
-  var exitCode2 = () => ({ state, dispatch }) => {
-    return exitCode(state, dispatch);
-  };
-  function objectIncludes(object1, object2, options = { strict: true }) {
-    const keys2 = Object.keys(object2);
-    if (!keys2.length) {
-      return true;
-    }
-    return keys2.every((key) => {
-      if (options.strict) {
-        return object2[key] === object1[key];
-      }
-      if (isRegExp(object2[key])) {
-        return object2[key].test(object1[key]);
-      }
-      return object2[key] === object1[key];
-    });
-  }
-  function findMarkInSet(marks, type, attributes = {}) {
-    return marks.find((item) => {
-      return item.type === type && objectIncludes(
-        // Only check equality for the attributes that are provided
-        Object.fromEntries(Object.keys(attributes).map((k) => [k, item.attrs[k]])),
-        attributes
-      );
-    });
-  }
-  function isMarkInSet(marks, type, attributes = {}) {
-    return !!findMarkInSet(marks, type, attributes);
-  }
-  function getMarkRange($pos, type, attributes) {
-    var _a;
-    if (!$pos || !type) {
-      return;
-    }
-    let start = $pos.parent.childAfter($pos.parentOffset);
-    if (!start.node || !start.node.marks.some((mark2) => mark2.type === type)) {
-      start = $pos.parent.childBefore($pos.parentOffset);
-    }
-    if (!start.node || !start.node.marks.some((mark2) => mark2.type === type)) {
-      return;
-    }
-    attributes = attributes || ((_a = start.node.marks[0]) === null || _a === void 0 ? void 0 : _a.attrs);
-    const mark = findMarkInSet([...start.node.marks], type, attributes);
-    if (!mark) {
-      return;
-    }
-    let startIndex = start.index;
-    let startPos = $pos.start() + start.offset;
-    let endIndex = startIndex + 1;
-    let endPos = startPos + start.node.nodeSize;
-    while (startIndex > 0 && isMarkInSet([...$pos.parent.child(startIndex - 1).marks], type, attributes)) {
-      startIndex -= 1;
-      startPos -= $pos.parent.child(startIndex).nodeSize;
-    }
-    while (endIndex < $pos.parent.childCount && isMarkInSet([...$pos.parent.child(endIndex).marks], type, attributes)) {
-      endPos += $pos.parent.child(endIndex).nodeSize;
-      endIndex += 1;
-    }
-    return {
-      from: startPos,
-      to: endPos
-    };
-  }
-  function getMarkType(nameOrType, schema) {
-    if (typeof nameOrType === "string") {
-      if (!schema.marks[nameOrType]) {
-        throw Error(`There is no mark type named '${nameOrType}'. Maybe you forgot to add the extension?`);
-      }
-      return schema.marks[nameOrType];
-    }
-    return nameOrType;
-  }
-  var extendMarkRange = (typeOrName, attributes = {}) => ({ tr: tr2, state, dispatch }) => {
-    const type = getMarkType(typeOrName, state.schema);
-    const { doc: doc3, selection } = tr2;
-    const { $from, from: from2, to } = selection;
-    if (dispatch) {
-      const range = getMarkRange($from, type, attributes);
-      if (range && range.from <= from2 && range.to >= to) {
-        const newSelection = TextSelection.create(doc3, range.from, range.to);
-        tr2.setSelection(newSelection);
-      }
-    }
-    return true;
-  };
-  var first = (commands2) => (props) => {
-    const items = typeof commands2 === "function" ? commands2(props) : commands2;
-    for (let i = 0; i < items.length; i += 1) {
-      if (items[i](props)) {
-        return true;
-      }
-    }
-    return false;
-  };
-  function isTextSelection(value) {
-    return value instanceof TextSelection;
-  }
-  function minMax(value = 0, min = 0, max = 0) {
-    return Math.min(Math.max(value, min), max);
-  }
-  function resolveFocusPosition(doc3, position = null) {
-    if (!position) {
-      return null;
-    }
-    const selectionAtStart = Selection.atStart(doc3);
-    const selectionAtEnd = Selection.atEnd(doc3);
-    if (position === "start" || position === true) {
-      return selectionAtStart;
-    }
-    if (position === "end") {
-      return selectionAtEnd;
-    }
-    const minPos = selectionAtStart.from;
-    const maxPos = selectionAtEnd.to;
-    if (position === "all") {
-      return TextSelection.create(doc3, minMax(0, minPos, maxPos), minMax(doc3.content.size, minPos, maxPos));
-    }
-    return TextSelection.create(doc3, minMax(position, minPos, maxPos), minMax(position, minPos, maxPos));
-  }
-  function isAndroid() {
-    return navigator.platform === "Android" || /android/i.test(navigator.userAgent);
-  }
-  function isiOS() {
-    return [
-      "iPad Simulator",
-      "iPhone Simulator",
-      "iPod Simulator",
-      "iPad",
-      "iPhone",
-      "iPod"
-    ].includes(navigator.platform) || navigator.userAgent.includes("Mac") && "ontouchend" in document;
-  }
-  function isSafari() {
-    return typeof navigator !== "undefined" ? /^((?!chrome|android).)*safari/i.test(navigator.userAgent) : false;
-  }
-  var focus = (position = null, options = {}) => ({ editor, view, tr: tr2, dispatch }) => {
-    options = {
-      scrollIntoView: true,
-      ...options
-    };
-    const delayedFocus = () => {
-      if (isiOS() || isAndroid()) {
-        view.dom.focus();
-      }
-      requestAnimationFrame(() => {
-        if (!editor.isDestroyed) {
-          view.focus();
-          if (isSafari() && !isiOS() && !isAndroid()) {
-            view.dom.focus({ preventScroll: true });
-          }
-        }
-      });
-    };
-    if (view.hasFocus() && position === null || position === false) {
-      return true;
-    }
-    if (dispatch && position === null && !isTextSelection(editor.state.selection)) {
-      delayedFocus();
-      return true;
-    }
-    const selection = resolveFocusPosition(tr2.doc, position) || editor.state.selection;
-    const isSameSelection = editor.state.selection.eq(selection);
-    if (dispatch) {
-      if (!isSameSelection) {
-        tr2.setSelection(selection);
-      }
-      if (isSameSelection && tr2.storedMarks) {
-        tr2.setStoredMarks(tr2.storedMarks);
-      }
-      delayedFocus();
-    }
-    return true;
-  };
-  var forEach = (items, fn) => (props) => {
-    return items.every((item, index) => fn(item, { ...props, index }));
-  };
-  var insertContent = (value, options) => ({ tr: tr2, commands: commands2 }) => {
-    return commands2.insertContentAt({ from: tr2.selection.from, to: tr2.selection.to }, value, options);
-  };
-  var removeWhitespaces = (node) => {
-    const children = node.childNodes;
-    for (let i = children.length - 1; i >= 0; i -= 1) {
-      const child = children[i];
-      if (child.nodeType === 3 && child.nodeValue && /^(\n\s\s|\n)$/.test(child.nodeValue)) {
-        node.removeChild(child);
-      } else if (child.nodeType === 1) {
-        removeWhitespaces(child);
-      }
-    }
-    return node;
-  };
-  function elementFromString(value) {
-    const wrappedValue = `<body>${value}</body>`;
-    const html = new window.DOMParser().parseFromString(wrappedValue, "text/html").body;
-    return removeWhitespaces(html);
-  }
-  function createNodeFromContent(content, schema, options) {
-    if (content instanceof Node || content instanceof Fragment) {
-      return content;
-    }
-    options = {
-      slice: true,
-      parseOptions: {},
-      ...options
-    };
-    const isJSONContent = typeof content === "object" && content !== null;
-    const isTextContent = typeof content === "string";
-    if (isJSONContent) {
-      try {
-        const isArrayContent = Array.isArray(content) && content.length > 0;
-        if (isArrayContent) {
-          return Fragment.fromArray(content.map((item) => schema.nodeFromJSON(item)));
-        }
-        const node = schema.nodeFromJSON(content);
-        if (options.errorOnInvalidContent) {
-          node.check();
-        }
-        return node;
-      } catch (error) {
-        if (options.errorOnInvalidContent) {
-          throw new Error("[tiptap error]: Invalid JSON content", { cause: error });
-        }
-        console.warn("[tiptap warn]: Invalid content.", "Passed value:", content, "Error:", error);
-        return createNodeFromContent("", schema, options);
-      }
-    }
-    if (isTextContent) {
-      if (options.errorOnInvalidContent) {
-        let hasInvalidContent = false;
-        let invalidContent = "";
-        const contentCheckSchema = new Schema({
-          topNode: schema.spec.topNode,
-          marks: schema.spec.marks,
-          // Prosemirror's schemas are executed such that: the last to execute, matches last
-          // This means that we can add a catch-all node at the end of the schema to catch any content that we don't know how to handle
-          nodes: schema.spec.nodes.append({
-            __tiptap__private__unknown__catch__all__node: {
-              content: "inline*",
-              group: "block",
-              parseDOM: [
-                {
-                  tag: "*",
-                  getAttrs: (e) => {
-                    hasInvalidContent = true;
-                    invalidContent = typeof e === "string" ? e : e.outerHTML;
-                    return null;
-                  }
-                }
-              ]
-            }
-          })
-        });
-        if (options.slice) {
-          DOMParser.fromSchema(contentCheckSchema).parseSlice(elementFromString(content), options.parseOptions);
-        } else {
-          DOMParser.fromSchema(contentCheckSchema).parse(elementFromString(content), options.parseOptions);
-        }
-        if (options.errorOnInvalidContent && hasInvalidContent) {
-          throw new Error("[tiptap error]: Invalid HTML content", { cause: new Error(`Invalid element found: ${invalidContent}`) });
-        }
-      }
-      const parser = DOMParser.fromSchema(schema);
-      if (options.slice) {
-        return parser.parseSlice(elementFromString(content), options.parseOptions).content;
-      }
-      return parser.parse(elementFromString(content), options.parseOptions);
-    }
-    return createNodeFromContent("", schema, options);
-  }
-  function selectionToInsertionEnd2(tr2, startLen, bias) {
-    const last = tr2.steps.length - 1;
-    if (last < startLen) {
-      return;
-    }
-    const step = tr2.steps[last];
-    if (!(step instanceof ReplaceStep || step instanceof ReplaceAroundStep)) {
-      return;
-    }
-    const map2 = tr2.mapping.maps[last];
-    let end = 0;
-    map2.forEach((_from, _to, _newFrom, newTo) => {
-      if (end === 0) {
-        end = newTo;
-      }
-    });
-    tr2.setSelection(Selection.near(tr2.doc.resolve(end), bias));
-  }
-  var isFragment = (nodeOrFragment) => {
-    return !("type" in nodeOrFragment);
-  };
-  var insertContentAt = (position, value, options) => ({ tr: tr2, dispatch, editor }) => {
-    var _a;
-    if (dispatch) {
-      options = {
-        parseOptions: editor.options.parseOptions,
-        updateSelection: true,
-        applyInputRules: false,
-        applyPasteRules: false,
-        ...options
-      };
-      let content;
-      const emitContentError = (error) => {
-        editor.emit("contentError", {
-          editor,
-          error,
-          disableCollaboration: () => {
-            if (editor.storage.collaboration) {
-              editor.storage.collaboration.isDisabled = true;
-            }
-          }
-        });
-      };
-      const parseOptions = {
-        preserveWhitespace: "full",
-        ...options.parseOptions
-      };
-      if (!options.errorOnInvalidContent && !editor.options.enableContentCheck && editor.options.emitContentError) {
-        try {
-          createNodeFromContent(value, editor.schema, {
-            parseOptions,
-            errorOnInvalidContent: true
-          });
-        } catch (e) {
-          emitContentError(e);
-        }
-      }
-      try {
-        content = createNodeFromContent(value, editor.schema, {
-          parseOptions,
-          errorOnInvalidContent: (_a = options.errorOnInvalidContent) !== null && _a !== void 0 ? _a : editor.options.enableContentCheck
-        });
-      } catch (e) {
-        emitContentError(e);
-        return false;
-      }
-      let { from: from2, to } = typeof position === "number" ? { from: position, to: position } : { from: position.from, to: position.to };
-      let isOnlyTextContent = true;
-      let isOnlyBlockContent = true;
-      const nodes = isFragment(content) ? content : [content];
-      nodes.forEach((node) => {
-        node.check();
-        isOnlyTextContent = isOnlyTextContent ? node.isText && node.marks.length === 0 : false;
-        isOnlyBlockContent = isOnlyBlockContent ? node.isBlock : false;
-      });
-      if (from2 === to && isOnlyBlockContent) {
-        const { parent } = tr2.doc.resolve(from2);
-        const isEmptyTextBlock = parent.isTextblock && !parent.type.spec.code && !parent.childCount;
-        if (isEmptyTextBlock) {
-          from2 -= 1;
-          to += 1;
-        }
-      }
-      let newContent;
-      if (isOnlyTextContent) {
-        if (Array.isArray(value)) {
-          newContent = value.map((v) => v.text || "").join("");
-        } else if (value instanceof Fragment) {
-          let text = "";
-          value.forEach((node) => {
-            if (node.text) {
-              text += node.text;
-            }
-          });
-          newContent = text;
-        } else if (typeof value === "object" && !!value && !!value.text) {
-          newContent = value.text;
-        } else {
-          newContent = value;
-        }
-        tr2.insertText(newContent, from2, to);
-      } else {
-        newContent = content;
-        tr2.replaceWith(from2, to, newContent);
-      }
-      if (options.updateSelection) {
-        selectionToInsertionEnd2(tr2, tr2.steps.length - 1, -1);
-      }
-      if (options.applyInputRules) {
-        tr2.setMeta("applyInputRules", { from: from2, text: newContent });
-      }
-      if (options.applyPasteRules) {
-        tr2.setMeta("applyPasteRules", { from: from2, text: newContent });
-      }
-    }
-    return true;
-  };
-  var joinUp2 = () => ({ state, dispatch }) => {
-    return joinUp(state, dispatch);
-  };
-  var joinDown2 = () => ({ state, dispatch }) => {
-    return joinDown(state, dispatch);
-  };
-  var joinBackward2 = () => ({ state, dispatch }) => {
-    return joinBackward(state, dispatch);
-  };
-  var joinForward2 = () => ({ state, dispatch }) => {
-    return joinForward(state, dispatch);
-  };
-  var joinItemBackward = () => ({ state, dispatch, tr: tr2 }) => {
-    try {
-      const point = joinPoint(state.doc, state.selection.$from.pos, -1);
-      if (point === null || point === void 0) {
-        return false;
-      }
-      tr2.join(point, 2);
-      if (dispatch) {
-        dispatch(tr2);
-      }
-      return true;
-    } catch {
-      return false;
-    }
-  };
-  var joinItemForward = () => ({ state, dispatch, tr: tr2 }) => {
-    try {
-      const point = joinPoint(state.doc, state.selection.$from.pos, 1);
-      if (point === null || point === void 0) {
-        return false;
-      }
-      tr2.join(point, 2);
-      if (dispatch) {
-        dispatch(tr2);
-      }
-      return true;
-    } catch {
-      return false;
-    }
-  };
-  var joinTextblockBackward2 = () => ({ state, dispatch }) => {
-    return joinTextblockBackward(state, dispatch);
-  };
-  var joinTextblockForward2 = () => ({ state, dispatch }) => {
-    return joinTextblockForward(state, dispatch);
-  };
-  function isMacOS() {
-    return typeof navigator !== "undefined" ? /Mac/.test(navigator.platform) : false;
-  }
-  function normalizeKeyName2(name) {
-    const parts = name.split(/-(?!$)/);
-    let result = parts[parts.length - 1];
-    if (result === "Space") {
-      result = " ";
-    }
-    let alt;
-    let ctrl;
-    let shift2;
-    let meta;
-    for (let i = 0; i < parts.length - 1; i += 1) {
-      const mod = parts[i];
-      if (/^(cmd|meta|m)$/i.test(mod)) {
-        meta = true;
-      } else if (/^a(lt)?$/i.test(mod)) {
-        alt = true;
-      } else if (/^(c|ctrl|control)$/i.test(mod)) {
-        ctrl = true;
-      } else if (/^s(hift)?$/i.test(mod)) {
-        shift2 = true;
-      } else if (/^mod$/i.test(mod)) {
-        if (isiOS() || isMacOS()) {
-          meta = true;
-        } else {
-          ctrl = true;
-        }
-      } else {
-        throw new Error(`Unrecognized modifier name: ${mod}`);
-      }
-    }
-    if (alt) {
-      result = `Alt-${result}`;
-    }
-    if (ctrl) {
-      result = `Ctrl-${result}`;
-    }
-    if (meta) {
-      result = `Meta-${result}`;
-    }
-    if (shift2) {
-      result = `Shift-${result}`;
-    }
-    return result;
-  }
-  var keyboardShortcut = (name) => ({ editor, view, tr: tr2, dispatch }) => {
-    const keys2 = normalizeKeyName2(name).split(/-(?!$)/);
-    const key = keys2.find((item) => !["Alt", "Ctrl", "Meta", "Shift"].includes(item));
-    const event = new KeyboardEvent("keydown", {
-      key: key === "Space" ? " " : key,
-      altKey: keys2.includes("Alt"),
-      ctrlKey: keys2.includes("Ctrl"),
-      metaKey: keys2.includes("Meta"),
-      shiftKey: keys2.includes("Shift"),
-      bubbles: true,
-      cancelable: true
-    });
-    const capturedTransaction = editor.captureTransaction(() => {
-      view.someProp("handleKeyDown", (f) => f(view, event));
-    });
-    capturedTransaction === null || capturedTransaction === void 0 ? void 0 : capturedTransaction.steps.forEach((step) => {
-      const newStep = step.map(tr2.mapping);
-      if (newStep && dispatch) {
-        tr2.maybeStep(newStep);
-      }
-    });
-    return true;
-  };
-  function isNodeActive(state, typeOrName, attributes = {}) {
-    const { from: from2, to, empty: empty2 } = state.selection;
-    const type = typeOrName ? getNodeType(typeOrName, state.schema) : null;
-    const nodeRanges = [];
-    state.doc.nodesBetween(from2, to, (node, pos) => {
-      if (node.isText) {
-        return;
-      }
-      const relativeFrom = Math.max(from2, pos);
-      const relativeTo = Math.min(to, pos + node.nodeSize);
-      nodeRanges.push({
-        node,
-        from: relativeFrom,
-        to: relativeTo
-      });
-    });
-    const selectionRange = to - from2;
-    const matchedNodeRanges = nodeRanges.filter((nodeRange) => {
-      if (!type) {
-        return true;
-      }
-      return type.name === nodeRange.node.type.name;
-    }).filter((nodeRange) => objectIncludes(nodeRange.node.attrs, attributes, { strict: false }));
-    if (empty2) {
-      return !!matchedNodeRanges.length;
-    }
-    const range = matchedNodeRanges.reduce((sum, nodeRange) => sum + nodeRange.to - nodeRange.from, 0);
-    return range >= selectionRange;
-  }
-  var lift3 = (typeOrName, attributes = {}) => ({ state, dispatch }) => {
-    const type = getNodeType(typeOrName, state.schema);
-    const isActive2 = isNodeActive(state, type, attributes);
-    if (!isActive2) {
-      return false;
-    }
-    return lift2(state, dispatch);
-  };
-  var liftEmptyBlock2 = () => ({ state, dispatch }) => {
-    return liftEmptyBlock(state, dispatch);
-  };
-  var liftListItem2 = (typeOrName) => ({ state, dispatch }) => {
-    const type = getNodeType(typeOrName, state.schema);
-    return liftListItem(type)(state, dispatch);
-  };
-  var newlineInCode2 = () => ({ state, dispatch }) => {
-    return newlineInCode(state, dispatch);
-  };
-  function getSchemaTypeNameByName(name, schema) {
-    if (schema.nodes[name]) {
-      return "node";
-    }
-    if (schema.marks[name]) {
-      return "mark";
-    }
-    return null;
-  }
-  function deleteProps(obj, propOrProps) {
-    const props = typeof propOrProps === "string" ? [propOrProps] : propOrProps;
-    return Object.keys(obj).reduce((newObj, prop) => {
-      if (!props.includes(prop)) {
-        newObj[prop] = obj[prop];
-      }
-      return newObj;
-    }, {});
-  }
-  var resetAttributes = (typeOrName, attributes) => ({ tr: tr2, state, dispatch }) => {
-    let nodeType = null;
-    let markType = null;
-    const schemaType = getSchemaTypeNameByName(typeof typeOrName === "string" ? typeOrName : typeOrName.name, state.schema);
-    if (!schemaType) {
-      return false;
-    }
-    if (schemaType === "node") {
-      nodeType = getNodeType(typeOrName, state.schema);
-    }
-    if (schemaType === "mark") {
-      markType = getMarkType(typeOrName, state.schema);
-    }
-    if (dispatch) {
-      tr2.selection.ranges.forEach((range) => {
-        state.doc.nodesBetween(range.$from.pos, range.$to.pos, (node, pos) => {
-          if (nodeType && nodeType === node.type) {
-            tr2.setNodeMarkup(pos, void 0, deleteProps(node.attrs, attributes));
-          }
-          if (markType && node.marks.length) {
-            node.marks.forEach((mark) => {
-              if (markType === mark.type) {
-                tr2.addMark(pos, pos + node.nodeSize, markType.create(deleteProps(mark.attrs, attributes)));
-              }
-            });
-          }
-        });
-      });
-    }
-    return true;
-  };
-  var scrollIntoView = () => ({ tr: tr2, dispatch }) => {
-    if (dispatch) {
-      tr2.scrollIntoView();
-    }
-    return true;
-  };
-  var selectAll2 = () => ({ tr: tr2, dispatch }) => {
-    if (dispatch) {
-      const selection = new AllSelection(tr2.doc);
-      tr2.setSelection(selection);
-    }
-    return true;
-  };
-  var selectNodeBackward2 = () => ({ state, dispatch }) => {
-    return selectNodeBackward(state, dispatch);
-  };
-  var selectNodeForward2 = () => ({ state, dispatch }) => {
-    return selectNodeForward(state, dispatch);
-  };
-  var selectParentNode2 = () => ({ state, dispatch }) => {
-    return selectParentNode(state, dispatch);
-  };
-  var selectTextblockEnd2 = () => ({ state, dispatch }) => {
-    return selectTextblockEnd(state, dispatch);
-  };
-  var selectTextblockStart2 = () => ({ state, dispatch }) => {
-    return selectTextblockStart(state, dispatch);
-  };
-  function createDocument(content, schema, parseOptions = {}, options = {}) {
-    return createNodeFromContent(content, schema, {
-      slice: false,
-      parseOptions,
-      errorOnInvalidContent: options.errorOnInvalidContent
-    });
-  }
-  var setContent = (content, emitUpdate = false, parseOptions = {}, options = {}) => ({ editor, tr: tr2, dispatch, commands: commands2 }) => {
-    var _a, _b;
-    const { doc: doc3 } = tr2;
-    if (parseOptions.preserveWhitespace !== "full") {
-      const document2 = createDocument(content, editor.schema, parseOptions, {
-        errorOnInvalidContent: (_a = options.errorOnInvalidContent) !== null && _a !== void 0 ? _a : editor.options.enableContentCheck
-      });
-      if (dispatch) {
-        tr2.replaceWith(0, doc3.content.size, document2).setMeta("preventUpdate", !emitUpdate);
-      }
-      return true;
-    }
-    if (dispatch) {
-      tr2.setMeta("preventUpdate", !emitUpdate);
-    }
-    return commands2.insertContentAt({ from: 0, to: doc3.content.size }, content, {
-      parseOptions,
-      errorOnInvalidContent: (_b = options.errorOnInvalidContent) !== null && _b !== void 0 ? _b : editor.options.enableContentCheck
-    });
-  };
-  function getMarkAttributes(state, typeOrName) {
-    const type = getMarkType(typeOrName, state.schema);
-    const { from: from2, to, empty: empty2 } = state.selection;
-    const marks = [];
-    if (empty2) {
-      if (state.storedMarks) {
-        marks.push(...state.storedMarks);
-      }
-      marks.push(...state.selection.$head.marks());
-    } else {
-      state.doc.nodesBetween(from2, to, (node) => {
-        marks.push(...node.marks);
-      });
-    }
-    const mark = marks.find((markItem) => markItem.type.name === type.name);
-    if (!mark) {
-      return {};
-    }
-    return { ...mark.attrs };
-  }
-  function combineTransactionSteps(oldDoc, transactions) {
-    const transform = new Transform(oldDoc);
-    transactions.forEach((transaction) => {
-      transaction.steps.forEach((step) => {
-        transform.step(step);
-      });
-    });
-    return transform;
-  }
-  function defaultBlockAt2(match) {
-    for (let i = 0; i < match.edgeCount; i += 1) {
-      const { type } = match.edge(i);
-      if (type.isTextblock && !type.hasRequiredAttrs()) {
-        return type;
-      }
-    }
-    return null;
-  }
-  function findChildrenInRange(node, range, predicate) {
-    const nodesWithPos = [];
-    node.nodesBetween(range.from, range.to, (child, pos) => {
-      if (predicate(child)) {
-        nodesWithPos.push({
-          node: child,
-          pos
-        });
-      }
-    });
-    return nodesWithPos;
-  }
-  function findParentNodeClosestToPos($pos, predicate) {
-    for (let i = $pos.depth; i > 0; i -= 1) {
-      const node = $pos.node(i);
-      if (predicate(node)) {
-        return {
-          pos: i > 0 ? $pos.before(i) : 0,
-          start: $pos.start(i),
-          depth: i,
-          node
-        };
-      }
-    }
-  }
-  function findParentNode(predicate) {
-    return (selection) => findParentNodeClosestToPos(selection.$from, predicate);
-  }
-  function getText2(node, options) {
-    const range = {
-      from: 0,
-      to: node.content.size
-    };
-    return getTextBetween(node, range, options);
-  }
-  function getNodeAttributes(state, typeOrName) {
-    const type = getNodeType(typeOrName, state.schema);
-    const { from: from2, to } = state.selection;
-    const nodes = [];
-    state.doc.nodesBetween(from2, to, (node2) => {
-      nodes.push(node2);
-    });
-    const node = nodes.reverse().find((nodeItem) => nodeItem.type.name === type.name);
-    if (!node) {
-      return {};
-    }
-    return { ...node.attrs };
-  }
-  function getAttributes(state, typeOrName) {
-    const schemaType = getSchemaTypeNameByName(typeof typeOrName === "string" ? typeOrName : typeOrName.name, state.schema);
-    if (schemaType === "node") {
-      return getNodeAttributes(state, typeOrName);
-    }
-    if (schemaType === "mark") {
-      return getMarkAttributes(state, typeOrName);
-    }
-    return {};
-  }
-  function removeDuplicates(array, by = JSON.stringify) {
-    const seen = {};
-    return array.filter((item) => {
-      const key = by(item);
-      return Object.prototype.hasOwnProperty.call(seen, key) ? false : seen[key] = true;
-    });
-  }
-  function simplifyChangedRanges(changes) {
-    const uniqueChanges = removeDuplicates(changes);
-    return uniqueChanges.length === 1 ? uniqueChanges : uniqueChanges.filter((change, index) => {
-      const rest = uniqueChanges.filter((_, i) => i !== index);
-      return !rest.some((otherChange) => {
-        return change.oldRange.from >= otherChange.oldRange.from && change.oldRange.to <= otherChange.oldRange.to && change.newRange.from >= otherChange.newRange.from && change.newRange.to <= otherChange.newRange.to;
-      });
-    });
-  }
-  function getChangedRanges(transform) {
-    const { mapping, steps } = transform;
-    const changes = [];
-    mapping.maps.forEach((stepMap, index) => {
-      const ranges = [];
-      if (!stepMap.ranges.length) {
-        const { from: from2, to } = steps[index];
-        if (from2 === void 0 || to === void 0) {
-          return;
-        }
-        ranges.push({ from: from2, to });
-      } else {
-        stepMap.forEach((from2, to) => {
-          ranges.push({ from: from2, to });
-        });
-      }
-      ranges.forEach(({ from: from2, to }) => {
-        const newStart = mapping.slice(index).map(from2, -1);
-        const newEnd = mapping.slice(index).map(to);
-        const oldStart = mapping.invert().map(newStart, -1);
-        const oldEnd = mapping.invert().map(newEnd);
-        changes.push({
-          oldRange: {
-            from: oldStart,
-            to: oldEnd
-          },
-          newRange: {
-            from: newStart,
-            to: newEnd
-          }
-        });
-      });
-    });
-    return simplifyChangedRanges(changes);
-  }
-  function getMarksBetween(from2, to, doc3) {
-    const marks = [];
-    if (from2 === to) {
-      doc3.resolve(from2).marks().forEach((mark) => {
-        const $pos = doc3.resolve(from2);
-        const range = getMarkRange($pos, mark.type);
-        if (!range) {
-          return;
-        }
-        marks.push({
-          mark,
-          ...range
-        });
-      });
-    } else {
-      doc3.nodesBetween(from2, to, (node, pos) => {
-        if (!node || (node === null || node === void 0 ? void 0 : node.nodeSize) === void 0) {
-          return;
-        }
-        marks.push(...node.marks.map((mark) => ({
-          from: pos,
-          to: pos + node.nodeSize,
-          mark
-        })));
-      });
-    }
-    return marks;
-  }
-  function getSplittedAttributes(extensionAttributes, typeName, attributes) {
-    return Object.fromEntries(Object.entries(attributes).filter(([name]) => {
-      const extensionAttribute = extensionAttributes.find((item) => {
-        return item.type === typeName && item.name === name;
-      });
-      if (!extensionAttribute) {
-        return false;
-      }
-      return extensionAttribute.attribute.keepOnSplit;
-    }));
-  }
-  function isMarkActive(state, typeOrName, attributes = {}) {
-    const { empty: empty2, ranges } = state.selection;
-    const type = typeOrName ? getMarkType(typeOrName, state.schema) : null;
-    if (empty2) {
-      return !!(state.storedMarks || state.selection.$from.marks()).filter((mark) => {
-        if (!type) {
-          return true;
-        }
-        return type.name === mark.type.name;
-      }).find((mark) => objectIncludes(mark.attrs, attributes, { strict: false }));
-    }
-    let selectionRange = 0;
-    const markRanges = [];
-    ranges.forEach(({ $from, $to }) => {
-      const from2 = $from.pos;
-      const to = $to.pos;
-      state.doc.nodesBetween(from2, to, (node, pos) => {
-        if (!node.isText && !node.marks.length) {
-          return;
-        }
-        const relativeFrom = Math.max(from2, pos);
-        const relativeTo = Math.min(to, pos + node.nodeSize);
-        const range2 = relativeTo - relativeFrom;
-        selectionRange += range2;
-        markRanges.push(...node.marks.map((mark) => ({
-          mark,
-          from: relativeFrom,
-          to: relativeTo
-        })));
-      });
-    });
-    if (selectionRange === 0) {
-      return false;
-    }
-    const matchedRange = markRanges.filter((markRange) => {
-      if (!type) {
-        return true;
-      }
-      return type.name === markRange.mark.type.name;
-    }).filter((markRange) => objectIncludes(markRange.mark.attrs, attributes, { strict: false })).reduce((sum, markRange) => sum + markRange.to - markRange.from, 0);
-    const excludedRange = markRanges.filter((markRange) => {
-      if (!type) {
-        return true;
-      }
-      return markRange.mark.type !== type && markRange.mark.type.excludes(type);
-    }).reduce((sum, markRange) => sum + markRange.to - markRange.from, 0);
-    const range = matchedRange > 0 ? matchedRange + excludedRange : matchedRange;
-    return range >= selectionRange;
-  }
-  function isActive(state, name, attributes = {}) {
-    if (!name) {
-      return isNodeActive(state, null, attributes) || isMarkActive(state, null, attributes);
-    }
-    const schemaType = getSchemaTypeNameByName(name, state.schema);
-    if (schemaType === "node") {
-      return isNodeActive(state, name, attributes);
-    }
-    if (schemaType === "mark") {
-      return isMarkActive(state, name, attributes);
-    }
-    return false;
-  }
-  function isList(name, extensions) {
-    const { nodeExtensions } = splitExtensions(extensions);
-    const extension = nodeExtensions.find((item) => item.name === name);
-    if (!extension) {
-      return false;
-    }
-    const context = {
-      name: extension.name,
-      options: extension.options,
-      storage: extension.storage
-    };
-    const group = callOrReturn(getExtensionField(extension, "group", context));
-    if (typeof group !== "string") {
-      return false;
-    }
-    return group.split(" ").includes("list");
-  }
-  function isNodeEmpty(node, { checkChildren = true, ignoreWhitespace = false } = {}) {
-    var _a;
-    if (ignoreWhitespace) {
-      if (node.type.name === "hardBreak") {
-        return true;
-      }
-      if (node.isText) {
-        return /^\s*$/m.test((_a = node.text) !== null && _a !== void 0 ? _a : "");
-      }
-    }
-    if (node.isText) {
-      return !node.text;
-    }
-    if (node.isAtom || node.isLeaf) {
-      return false;
-    }
-    if (node.content.childCount === 0) {
-      return true;
-    }
-    if (checkChildren) {
-      let isContentEmpty = true;
-      node.content.forEach((childNode) => {
-        if (isContentEmpty === false) {
-          return;
-        }
-        if (!isNodeEmpty(childNode, { ignoreWhitespace, checkChildren })) {
-          isContentEmpty = false;
-        }
-      });
-      return isContentEmpty;
-    }
-    return false;
-  }
-  function isNodeSelection(value) {
-    return value instanceof NodeSelection;
-  }
-  function canSetMark(state, tr2, newMarkType) {
-    var _a;
-    const { selection } = tr2;
-    let cursor = null;
-    if (isTextSelection(selection)) {
-      cursor = selection.$cursor;
-    }
-    if (cursor) {
-      const currentMarks = (_a = state.storedMarks) !== null && _a !== void 0 ? _a : cursor.marks();
-      return !!newMarkType.isInSet(currentMarks) || !currentMarks.some((mark) => mark.type.excludes(newMarkType));
-    }
-    const { ranges } = selection;
-    return ranges.some(({ $from, $to }) => {
-      let someNodeSupportsMark = $from.depth === 0 ? state.doc.inlineContent && state.doc.type.allowsMarkType(newMarkType) : false;
-      state.doc.nodesBetween($from.pos, $to.pos, (node, _pos, parent) => {
-        if (someNodeSupportsMark) {
-          return false;
-        }
-        if (node.isInline) {
-          const parentAllowsMarkType = !parent || parent.type.allowsMarkType(newMarkType);
-          const currentMarksAllowMarkType = !!newMarkType.isInSet(node.marks) || !node.marks.some((otherMark) => otherMark.type.excludes(newMarkType));
-          someNodeSupportsMark = parentAllowsMarkType && currentMarksAllowMarkType;
-        }
-        return !someNodeSupportsMark;
-      });
-      return someNodeSupportsMark;
-    });
-  }
-  var setMark = (typeOrName, attributes = {}) => ({ tr: tr2, state, dispatch }) => {
-    const { selection } = tr2;
-    const { empty: empty2, ranges } = selection;
-    const type = getMarkType(typeOrName, state.schema);
-    if (dispatch) {
-      if (empty2) {
-        const oldAttributes = getMarkAttributes(state, type);
-        tr2.addStoredMark(type.create({
-          ...oldAttributes,
-          ...attributes
-        }));
-      } else {
-        ranges.forEach((range) => {
-          const from2 = range.$from.pos;
-          const to = range.$to.pos;
-          state.doc.nodesBetween(from2, to, (node, pos) => {
-            const trimmedFrom = Math.max(pos, from2);
-            const trimmedTo = Math.min(pos + node.nodeSize, to);
-            const someHasMark = node.marks.find((mark) => mark.type === type);
-            if (someHasMark) {
-              node.marks.forEach((mark) => {
-                if (type === mark.type) {
-                  tr2.addMark(trimmedFrom, trimmedTo, type.create({
-                    ...mark.attrs,
-                    ...attributes
-                  }));
-                }
-              });
-            } else {
-              tr2.addMark(trimmedFrom, trimmedTo, type.create(attributes));
-            }
-          });
-        });
-      }
-    }
-    return canSetMark(state, tr2, type);
-  };
-  var setMeta = (key, value) => ({ tr: tr2 }) => {
-    tr2.setMeta(key, value);
-    return true;
-  };
-  var setNode = (typeOrName, attributes = {}) => ({ state, dispatch, chain }) => {
-    const type = getNodeType(typeOrName, state.schema);
-    let attributesToCopy;
-    if (state.selection.$anchor.sameParent(state.selection.$head)) {
-      attributesToCopy = state.selection.$anchor.parent.attrs;
-    }
-    if (!type.isTextblock) {
-      console.warn('[tiptap warn]: Currently "setNode()" only supports text block nodes.');
-      return false;
-    }
-    return chain().command(({ commands: commands2 }) => {
-      const canSetBlock = setBlockType2(type, { ...attributesToCopy, ...attributes })(state);
-      if (canSetBlock) {
-        return true;
-      }
-      return commands2.clearNodes();
-    }).command(({ state: updatedState }) => {
-      return setBlockType2(type, { ...attributesToCopy, ...attributes })(updatedState, dispatch);
-    }).run();
-  };
-  var setNodeSelection = (position) => ({ tr: tr2, dispatch }) => {
-    if (dispatch) {
-      const { doc: doc3 } = tr2;
-      const from2 = minMax(position, 0, doc3.content.size);
-      const selection = NodeSelection.create(doc3, from2);
-      tr2.setSelection(selection);
-    }
-    return true;
-  };
-  var setTextSelection = (position) => ({ tr: tr2, dispatch }) => {
-    if (dispatch) {
-      const { doc: doc3 } = tr2;
-      const { from: from2, to } = typeof position === "number" ? { from: position, to: position } : position;
-      const minPos = TextSelection.atStart(doc3).from;
-      const maxPos = TextSelection.atEnd(doc3).to;
-      const resolvedFrom = minMax(from2, minPos, maxPos);
-      const resolvedEnd = minMax(to, minPos, maxPos);
-      const selection = TextSelection.create(doc3, resolvedFrom, resolvedEnd);
-      tr2.setSelection(selection);
-    }
-    return true;
-  };
-  var sinkListItem2 = (typeOrName) => ({ state, dispatch }) => {
-    const type = getNodeType(typeOrName, state.schema);
-    return sinkListItem(type)(state, dispatch);
-  };
-  function ensureMarks(state, splittableMarks) {
-    const marks = state.storedMarks || state.selection.$to.parentOffset && state.selection.$from.marks();
-    if (marks) {
-      const filteredMarks = marks.filter((mark) => splittableMarks === null || splittableMarks === void 0 ? void 0 : splittableMarks.includes(mark.type.name));
-      state.tr.ensureMarks(filteredMarks);
-    }
-  }
-  var splitBlock2 = ({ keepMarks = true } = {}) => ({ tr: tr2, state, dispatch, editor }) => {
-    const { selection, doc: doc3 } = tr2;
-    const { $from, $to } = selection;
-    const extensionAttributes = editor.extensionManager.attributes;
-    const newAttributes = getSplittedAttributes(extensionAttributes, $from.node().type.name, $from.node().attrs);
-    if (selection instanceof NodeSelection && selection.node.isBlock) {
-      if (!$from.parentOffset || !canSplit(doc3, $from.pos)) {
-        return false;
-      }
-      if (dispatch) {
-        if (keepMarks) {
-          ensureMarks(state, editor.extensionManager.splittableMarks);
-        }
-        tr2.split($from.pos).scrollIntoView();
-      }
-      return true;
-    }
-    if (!$from.parent.isBlock) {
-      return false;
-    }
-    const atEnd = $to.parentOffset === $to.parent.content.size;
-    const deflt = $from.depth === 0 ? void 0 : defaultBlockAt2($from.node(-1).contentMatchAt($from.indexAfter(-1)));
-    let types = atEnd && deflt ? [
-      {
-        type: deflt,
-        attrs: newAttributes
-      }
-    ] : void 0;
-    let can = canSplit(tr2.doc, tr2.mapping.map($from.pos), 1, types);
-    if (!types && !can && canSplit(tr2.doc, tr2.mapping.map($from.pos), 1, deflt ? [{ type: deflt }] : void 0)) {
-      can = true;
-      types = deflt ? [
-        {
-          type: deflt,
-          attrs: newAttributes
-        }
-      ] : void 0;
-    }
-    if (dispatch) {
-      if (can) {
-        if (selection instanceof TextSelection) {
-          tr2.deleteSelection();
-        }
-        tr2.split(tr2.mapping.map($from.pos), 1, types);
-        if (deflt && !atEnd && !$from.parentOffset && $from.parent.type !== deflt) {
-          const first2 = tr2.mapping.map($from.before());
-          const $first = tr2.doc.resolve(first2);
-          if ($from.node(-1).canReplaceWith($first.index(), $first.index() + 1, deflt)) {
-            tr2.setNodeMarkup(tr2.mapping.map($from.before()), deflt);
-          }
-        }
-      }
-      if (keepMarks) {
-        ensureMarks(state, editor.extensionManager.splittableMarks);
-      }
-      tr2.scrollIntoView();
-    }
-    return can;
-  };
-  var splitListItem = (typeOrName, overrideAttrs = {}) => ({ tr: tr2, state, dispatch, editor }) => {
-    var _a;
-    const type = getNodeType(typeOrName, state.schema);
-    const { $from, $to } = state.selection;
-    const node = state.selection.node;
-    if (node && node.isBlock || $from.depth < 2 || !$from.sameParent($to)) {
-      return false;
-    }
-    const grandParent = $from.node(-1);
-    if (grandParent.type !== type) {
-      return false;
-    }
-    const extensionAttributes = editor.extensionManager.attributes;
-    if ($from.parent.content.size === 0 && $from.node(-1).childCount === $from.indexAfter(-1)) {
-      if ($from.depth === 2 || $from.node(-3).type !== type || $from.index(-2) !== $from.node(-2).childCount - 1) {
-        return false;
-      }
-      if (dispatch) {
-        let wrap2 = Fragment.empty;
-        const depthBefore = $from.index(-1) ? 1 : $from.index(-2) ? 2 : 3;
-        for (let d = $from.depth - depthBefore; d >= $from.depth - 3; d -= 1) {
-          wrap2 = Fragment.from($from.node(d).copy(wrap2));
-        }
-        const depthAfter = $from.indexAfter(-1) < $from.node(-2).childCount ? 1 : $from.indexAfter(-2) < $from.node(-3).childCount ? 2 : 3;
-        const newNextTypeAttributes2 = {
-          ...getSplittedAttributes(extensionAttributes, $from.node().type.name, $from.node().attrs),
-          ...overrideAttrs
-        };
-        const nextType2 = ((_a = type.contentMatch.defaultType) === null || _a === void 0 ? void 0 : _a.createAndFill(newNextTypeAttributes2)) || void 0;
-        wrap2 = wrap2.append(Fragment.from(type.createAndFill(null, nextType2) || void 0));
-        const start = $from.before($from.depth - (depthBefore - 1));
-        tr2.replace(start, $from.after(-depthAfter), new Slice(wrap2, 4 - depthBefore, 0));
-        let sel = -1;
-        tr2.doc.nodesBetween(start, tr2.doc.content.size, (n, pos) => {
-          if (sel > -1) {
-            return false;
-          }
-          if (n.isTextblock && n.content.size === 0) {
-            sel = pos + 1;
-          }
-        });
-        if (sel > -1) {
-          tr2.setSelection(TextSelection.near(tr2.doc.resolve(sel)));
-        }
-        tr2.scrollIntoView();
-      }
-      return true;
-    }
-    const nextType = $to.pos === $from.end() ? grandParent.contentMatchAt(0).defaultType : null;
-    const newTypeAttributes = {
-      ...getSplittedAttributes(extensionAttributes, grandParent.type.name, grandParent.attrs),
-      ...overrideAttrs
-    };
-    const newNextTypeAttributes = {
-      ...getSplittedAttributes(extensionAttributes, $from.node().type.name, $from.node().attrs),
-      ...overrideAttrs
-    };
-    tr2.delete($from.pos, $to.pos);
-    const types = nextType ? [
-      { type, attrs: newTypeAttributes },
-      { type: nextType, attrs: newNextTypeAttributes }
-    ] : [{ type, attrs: newTypeAttributes }];
-    if (!canSplit(tr2.doc, $from.pos, 2)) {
-      return false;
-    }
-    if (dispatch) {
-      const { selection, storedMarks } = state;
-      const { splittableMarks } = editor.extensionManager;
-      const marks = storedMarks || selection.$to.parentOffset && selection.$from.marks();
-      tr2.split($from.pos, 2, types).scrollIntoView();
-      if (!marks || !dispatch) {
-        return true;
-      }
-      const filteredMarks = marks.filter((mark) => splittableMarks.includes(mark.type.name));
-      tr2.ensureMarks(filteredMarks);
-    }
-    return true;
-  };
-  var joinListBackwards = (tr2, listType) => {
-    const list = findParentNode((node) => node.type === listType)(tr2.selection);
-    if (!list) {
-      return true;
-    }
-    const before = tr2.doc.resolve(Math.max(0, list.pos - 1)).before(list.depth);
-    if (before === void 0) {
-      return true;
-    }
-    const nodeBefore = tr2.doc.nodeAt(before);
-    const canJoinBackwards = list.node.type === (nodeBefore === null || nodeBefore === void 0 ? void 0 : nodeBefore.type) && canJoin(tr2.doc, list.pos);
-    if (!canJoinBackwards) {
-      return true;
-    }
-    tr2.join(list.pos);
-    return true;
-  };
-  var joinListForwards = (tr2, listType) => {
-    const list = findParentNode((node) => node.type === listType)(tr2.selection);
-    if (!list) {
-      return true;
-    }
-    const after = tr2.doc.resolve(list.start).after(list.depth);
-    if (after === void 0) {
-      return true;
-    }
-    const nodeAfter = tr2.doc.nodeAt(after);
-    const canJoinForwards = list.node.type === (nodeAfter === null || nodeAfter === void 0 ? void 0 : nodeAfter.type) && canJoin(tr2.doc, after);
-    if (!canJoinForwards) {
-      return true;
-    }
-    tr2.join(after);
-    return true;
-  };
-  var toggleList = (listTypeOrName, itemTypeOrName, keepMarks, attributes = {}) => ({ editor, tr: tr2, state, dispatch, chain, commands: commands2, can }) => {
-    const { extensions, splittableMarks } = editor.extensionManager;
-    const listType = getNodeType(listTypeOrName, state.schema);
-    const itemType = getNodeType(itemTypeOrName, state.schema);
-    const { selection, storedMarks } = state;
-    const { $from, $to } = selection;
-    const range = $from.blockRange($to);
-    const marks = storedMarks || selection.$to.parentOffset && selection.$from.marks();
-    if (!range) {
-      return false;
-    }
-    const parentList = findParentNode((node) => isList(node.type.name, extensions))(selection);
-    if (range.depth >= 1 && parentList && range.depth - parentList.depth <= 1) {
-      if (parentList.node.type === listType) {
-        return commands2.liftListItem(itemType);
-      }
-      if (isList(parentList.node.type.name, extensions) && listType.validContent(parentList.node.content) && dispatch) {
-        return chain().command(() => {
-          tr2.setNodeMarkup(parentList.pos, listType);
-          return true;
-        }).command(() => joinListBackwards(tr2, listType)).command(() => joinListForwards(tr2, listType)).run();
-      }
-    }
-    if (!keepMarks || !marks || !dispatch) {
-      return chain().command(() => {
-        const canWrapInList = can().wrapInList(listType, attributes);
-        if (canWrapInList) {
-          return true;
-        }
-        return commands2.clearNodes();
-      }).wrapInList(listType, attributes).command(() => joinListBackwards(tr2, listType)).command(() => joinListForwards(tr2, listType)).run();
-    }
-    return chain().command(() => {
-      const canWrapInList = can().wrapInList(listType, attributes);
-      const filteredMarks = marks.filter((mark) => splittableMarks.includes(mark.type.name));
-      tr2.ensureMarks(filteredMarks);
-      if (canWrapInList) {
-        return true;
-      }
-      return commands2.clearNodes();
-    }).wrapInList(listType, attributes).command(() => joinListBackwards(tr2, listType)).command(() => joinListForwards(tr2, listType)).run();
-  };
-  var toggleMark = (typeOrName, attributes = {}, options = {}) => ({ state, commands: commands2 }) => {
-    const { extendEmptyMarkRange = false } = options;
-    const type = getMarkType(typeOrName, state.schema);
-    const isActive2 = isMarkActive(state, type, attributes);
-    if (isActive2) {
-      return commands2.unsetMark(type, { extendEmptyMarkRange });
-    }
-    return commands2.setMark(type, attributes);
-  };
-  var toggleNode = (typeOrName, toggleTypeOrName, attributes = {}) => ({ state, commands: commands2 }) => {
-    const type = getNodeType(typeOrName, state.schema);
-    const toggleType = getNodeType(toggleTypeOrName, state.schema);
-    const isActive2 = isNodeActive(state, type, attributes);
-    let attributesToCopy;
-    if (state.selection.$anchor.sameParent(state.selection.$head)) {
-      attributesToCopy = state.selection.$anchor.parent.attrs;
-    }
-    if (isActive2) {
-      return commands2.setNode(toggleType, attributesToCopy);
-    }
-    return commands2.setNode(type, { ...attributesToCopy, ...attributes });
-  };
-  var toggleWrap = (typeOrName, attributes = {}) => ({ state, commands: commands2 }) => {
-    const type = getNodeType(typeOrName, state.schema);
-    const isActive2 = isNodeActive(state, type, attributes);
-    if (isActive2) {
-      return commands2.lift(type);
-    }
-    return commands2.wrapIn(type, attributes);
-  };
-  var undoInputRule = () => ({ state, dispatch }) => {
-    const plugins = state.plugins;
-    for (let i = 0; i < plugins.length; i += 1) {
-      const plugin = plugins[i];
-      let undoable;
-      if (plugin.spec.isInputRules && (undoable = plugin.getState(state))) {
-        if (dispatch) {
-          const tr2 = state.tr;
-          const toUndo = undoable.transform;
-          for (let j = toUndo.steps.length - 1; j >= 0; j -= 1) {
-            tr2.step(toUndo.steps[j].invert(toUndo.docs[j]));
-          }
-          if (undoable.text) {
-            const marks = tr2.doc.resolve(undoable.from).marks();
-            tr2.replaceWith(undoable.from, undoable.to, state.schema.text(undoable.text, marks));
-          } else {
-            tr2.delete(undoable.from, undoable.to);
-          }
-        }
-        return true;
-      }
-    }
-    return false;
-  };
-  var unsetAllMarks = () => ({ tr: tr2, dispatch }) => {
-    const { selection } = tr2;
-    const { empty: empty2, ranges } = selection;
-    if (empty2) {
-      return true;
-    }
-    if (dispatch) {
-      ranges.forEach((range) => {
-        tr2.removeMark(range.$from.pos, range.$to.pos);
-      });
-    }
-    return true;
-  };
-  var unsetMark = (typeOrName, options = {}) => ({ tr: tr2, state, dispatch }) => {
-    var _a;
-    const { extendEmptyMarkRange = false } = options;
-    const { selection } = tr2;
-    const type = getMarkType(typeOrName, state.schema);
-    const { $from, empty: empty2, ranges } = selection;
-    if (!dispatch) {
-      return true;
-    }
-    if (empty2 && extendEmptyMarkRange) {
-      let { from: from2, to } = selection;
-      const attrs = (_a = $from.marks().find((mark) => mark.type === type)) === null || _a === void 0 ? void 0 : _a.attrs;
-      const range = getMarkRange($from, type, attrs);
-      if (range) {
-        from2 = range.from;
-        to = range.to;
-      }
-      tr2.removeMark(from2, to, type);
-    } else {
-      ranges.forEach((range) => {
-        tr2.removeMark(range.$from.pos, range.$to.pos, type);
-      });
-    }
-    tr2.removeStoredMark(type);
-    return true;
-  };
-  var updateAttributes = (typeOrName, attributes = {}) => ({ tr: tr2, state, dispatch }) => {
-    let nodeType = null;
-    let markType = null;
-    const schemaType = getSchemaTypeNameByName(typeof typeOrName === "string" ? typeOrName : typeOrName.name, state.schema);
-    if (!schemaType) {
-      return false;
-    }
-    if (schemaType === "node") {
-      nodeType = getNodeType(typeOrName, state.schema);
-    }
-    if (schemaType === "mark") {
-      markType = getMarkType(typeOrName, state.schema);
-    }
-    if (dispatch) {
-      tr2.selection.ranges.forEach((range) => {
-        const from2 = range.$from.pos;
-        const to = range.$to.pos;
-        let lastPos;
-        let lastNode;
-        let trimmedFrom;
-        let trimmedTo;
-        if (tr2.selection.empty) {
-          state.doc.nodesBetween(from2, to, (node, pos) => {
-            if (nodeType && nodeType === node.type) {
-              trimmedFrom = Math.max(pos, from2);
-              trimmedTo = Math.min(pos + node.nodeSize, to);
-              lastPos = pos;
-              lastNode = node;
-            }
-          });
-        } else {
-          state.doc.nodesBetween(from2, to, (node, pos) => {
-            if (pos < from2 && nodeType && nodeType === node.type) {
-              trimmedFrom = Math.max(pos, from2);
-              trimmedTo = Math.min(pos + node.nodeSize, to);
-              lastPos = pos;
-              lastNode = node;
-            }
-            if (pos >= from2 && pos <= to) {
-              if (nodeType && nodeType === node.type) {
-                tr2.setNodeMarkup(pos, void 0, {
-                  ...node.attrs,
-                  ...attributes
-                });
-              }
-              if (markType && node.marks.length) {
-                node.marks.forEach((mark) => {
-                  if (markType === mark.type) {
-                    const trimmedFrom2 = Math.max(pos, from2);
-                    const trimmedTo2 = Math.min(pos + node.nodeSize, to);
-                    tr2.addMark(trimmedFrom2, trimmedTo2, markType.create({
-                      ...mark.attrs,
-                      ...attributes
-                    }));
-                  }
-                });
-              }
-            }
-          });
-        }
-        if (lastNode) {
-          if (lastPos !== void 0) {
-            tr2.setNodeMarkup(lastPos, void 0, {
-              ...lastNode.attrs,
-              ...attributes
-            });
-          }
-          if (markType && lastNode.marks.length) {
-            lastNode.marks.forEach((mark) => {
-              if (markType === mark.type) {
-                tr2.addMark(trimmedFrom, trimmedTo, markType.create({
-                  ...mark.attrs,
-                  ...attributes
-                }));
-              }
-            });
-          }
-        }
-      });
-    }
-    return true;
-  };
-  var wrapIn2 = (typeOrName, attributes = {}) => ({ state, dispatch }) => {
-    const type = getNodeType(typeOrName, state.schema);
-    return wrapIn(type, attributes)(state, dispatch);
-  };
-  var wrapInList2 = (typeOrName, attributes = {}) => ({ state, dispatch }) => {
-    const type = getNodeType(typeOrName, state.schema);
-    return wrapInList(type, attributes)(state, dispatch);
-  };
-  var commands = /* @__PURE__ */ Object.freeze({
-    __proto__: null,
-    blur,
-    clearContent,
-    clearNodes,
-    command,
-    createParagraphNear: createParagraphNear2,
-    cut,
-    deleteCurrentNode,
-    deleteNode,
-    deleteRange: deleteRange2,
-    deleteSelection: deleteSelection2,
-    enter,
-    exitCode: exitCode2,
-    extendMarkRange,
-    first,
-    focus,
-    forEach,
-    insertContent,
-    insertContentAt,
-    joinBackward: joinBackward2,
-    joinDown: joinDown2,
-    joinForward: joinForward2,
-    joinItemBackward,
-    joinItemForward,
-    joinTextblockBackward: joinTextblockBackward2,
-    joinTextblockForward: joinTextblockForward2,
-    joinUp: joinUp2,
-    keyboardShortcut,
-    lift: lift3,
-    liftEmptyBlock: liftEmptyBlock2,
-    liftListItem: liftListItem2,
-    newlineInCode: newlineInCode2,
-    resetAttributes,
-    scrollIntoView,
-    selectAll: selectAll2,
-    selectNodeBackward: selectNodeBackward2,
-    selectNodeForward: selectNodeForward2,
-    selectParentNode: selectParentNode2,
-    selectTextblockEnd: selectTextblockEnd2,
-    selectTextblockStart: selectTextblockStart2,
-    setContent,
-    setMark,
-    setMeta,
-    setNode,
-    setNodeSelection,
-    setTextSelection,
-    sinkListItem: sinkListItem2,
-    splitBlock: splitBlock2,
-    splitListItem,
-    toggleList,
-    toggleMark,
-    toggleNode,
-    toggleWrap,
-    undoInputRule,
-    unsetAllMarks,
-    unsetMark,
-    updateAttributes,
-    wrapIn: wrapIn2,
-    wrapInList: wrapInList2
-  });
-  var Commands = Extension.create({
-    name: "commands",
-    addCommands() {
-      return {
-        ...commands
-      };
-    }
-  });
-  var Drop = Extension.create({
-    name: "drop",
-    addProseMirrorPlugins() {
-      return [
-        new Plugin({
-          key: new PluginKey("tiptapDrop"),
-          props: {
-            handleDrop: (_, e, slice2, moved) => {
-              this.editor.emit("drop", {
-                editor: this.editor,
-                event: e,
-                slice: slice2,
-                moved
-              });
-            }
-          }
-        })
-      ];
-    }
-  });
-  var Editable = Extension.create({
-    name: "editable",
-    addProseMirrorPlugins() {
-      return [
-        new Plugin({
-          key: new PluginKey("editable"),
-          props: {
-            editable: () => this.editor.options.editable
-          }
-        })
-      ];
-    }
-  });
-  var focusEventsPluginKey = new PluginKey("focusEvents");
-  var FocusEvents = Extension.create({
-    name: "focusEvents",
-    addProseMirrorPlugins() {
-      const { editor } = this;
-      return [
-        new Plugin({
-          key: focusEventsPluginKey,
-          props: {
-            handleDOMEvents: {
-              focus: (view, event) => {
-                editor.isFocused = true;
-                const transaction = editor.state.tr.setMeta("focus", { event }).setMeta("addToHistory", false);
-                view.dispatch(transaction);
-                return false;
-              },
-              blur: (view, event) => {
-                editor.isFocused = false;
-                const transaction = editor.state.tr.setMeta("blur", { event }).setMeta("addToHistory", false);
-                view.dispatch(transaction);
-                return false;
-              }
-            }
-          }
-        })
-      ];
-    }
-  });
-  var Keymap = Extension.create({
-    name: "keymap",
-    addKeyboardShortcuts() {
-      const handleBackspace = () => this.editor.commands.first(({ commands: commands2 }) => [
-        () => commands2.undoInputRule(),
-        // maybe convert first text block node to default node
-        () => commands2.command(({ tr: tr2 }) => {
-          const { selection, doc: doc3 } = tr2;
-          const { empty: empty2, $anchor } = selection;
-          const { pos, parent } = $anchor;
-          const $parentPos = $anchor.parent.isTextblock && pos > 0 ? tr2.doc.resolve(pos - 1) : $anchor;
-          const parentIsIsolating = $parentPos.parent.type.spec.isolating;
-          const parentPos = $anchor.pos - $anchor.parentOffset;
-          const isAtStart = parentIsIsolating && $parentPos.parent.childCount === 1 ? parentPos === $anchor.pos : Selection.atStart(doc3).from === pos;
-          if (!empty2 || !parent.type.isTextblock || parent.textContent.length || !isAtStart || isAtStart && $anchor.parent.type.name === "paragraph") {
-            return false;
-          }
-          return commands2.clearNodes();
-        }),
-        () => commands2.deleteSelection(),
-        () => commands2.joinBackward(),
-        () => commands2.selectNodeBackward()
-      ]);
-      const handleDelete = () => this.editor.commands.first(({ commands: commands2 }) => [
-        () => commands2.deleteSelection(),
-        () => commands2.deleteCurrentNode(),
-        () => commands2.joinForward(),
-        () => commands2.selectNodeForward()
-      ]);
-      const handleEnter = () => this.editor.commands.first(({ commands: commands2 }) => [
-        () => commands2.newlineInCode(),
-        () => commands2.createParagraphNear(),
-        () => commands2.liftEmptyBlock(),
-        () => commands2.splitBlock()
-      ]);
-      const baseKeymap = {
-        Enter: handleEnter,
-        "Mod-Enter": () => this.editor.commands.exitCode(),
-        Backspace: handleBackspace,
-        "Mod-Backspace": handleBackspace,
-        "Shift-Backspace": handleBackspace,
-        Delete: handleDelete,
-        "Mod-Delete": handleDelete,
-        "Mod-a": () => this.editor.commands.selectAll()
-      };
-      const pcKeymap = {
-        ...baseKeymap
-      };
-      const macKeymap = {
-        ...baseKeymap,
-        "Ctrl-h": handleBackspace,
-        "Alt-Backspace": handleBackspace,
-        "Ctrl-d": handleDelete,
-        "Ctrl-Alt-Backspace": handleDelete,
-        "Alt-Delete": handleDelete,
-        "Alt-d": handleDelete,
-        "Ctrl-a": () => this.editor.commands.selectTextblockStart(),
-        "Ctrl-e": () => this.editor.commands.selectTextblockEnd()
-      };
-      if (isiOS() || isMacOS()) {
-        return macKeymap;
-      }
-      return pcKeymap;
-    },
-    addProseMirrorPlugins() {
-      return [
-        // With this plugin we check if the whole document was selected and deleted.
-        // In this case we will additionally call `clearNodes()` to convert e.g. a heading
-        // to a paragraph if necessary.
-        // This is an alternative to ProseMirror's `AllSelection`, which doesn’t work well
-        // with many other commands.
-        new Plugin({
-          key: new PluginKey("clearDocument"),
-          appendTransaction: (transactions, oldState, newState) => {
-            if (transactions.some((tr3) => tr3.getMeta("composition"))) {
-              return;
-            }
-            const docChanges = transactions.some((transaction) => transaction.docChanged) && !oldState.doc.eq(newState.doc);
-            const ignoreTr = transactions.some((transaction) => transaction.getMeta("preventClearDocument"));
-            if (!docChanges || ignoreTr) {
-              return;
-            }
-            const { empty: empty2, from: from2, to } = oldState.selection;
-            const allFrom = Selection.atStart(oldState.doc).from;
-            const allEnd = Selection.atEnd(oldState.doc).to;
-            const allWasSelected = from2 === allFrom && to === allEnd;
-            if (empty2 || !allWasSelected) {
-              return;
-            }
-            const isEmpty = isNodeEmpty(newState.doc);
-            if (!isEmpty) {
-              return;
-            }
-            const tr2 = newState.tr;
-            const state = createChainableState({
-              state: newState,
-              transaction: tr2
-            });
-            const { commands: commands2 } = new CommandManager({
-              editor: this.editor,
-              state
-            });
-            commands2.clearNodes();
-            if (!tr2.steps.length) {
-              return;
-            }
-            return tr2;
-          }
-        })
-      ];
-    }
-  });
-  var Paste = Extension.create({
-    name: "paste",
-    addProseMirrorPlugins() {
-      return [
-        new Plugin({
-          key: new PluginKey("tiptapPaste"),
-          props: {
-            handlePaste: (_view, e, slice2) => {
-              this.editor.emit("paste", {
-                editor: this.editor,
-                event: e,
-                slice: slice2
-              });
-            }
-          }
-        })
-      ];
-    }
-  });
-  var Tabindex = Extension.create({
-    name: "tabindex",
-    addProseMirrorPlugins() {
-      return [
-        new Plugin({
-          key: new PluginKey("tabindex"),
-          props: {
-            attributes: () => this.editor.isEditable ? { tabindex: "0" } : {}
-          }
-        })
-      ];
-    }
-  });
-  var NodePos = class _NodePos {
-    get name() {
-      return this.node.type.name;
-    }
-    constructor(pos, editor, isBlock = false, node = null) {
-      this.currentNode = null;
-      this.actualDepth = null;
-      this.isBlock = isBlock;
-      this.resolvedPos = pos;
-      this.editor = editor;
-      this.currentNode = node;
-    }
-    get node() {
-      return this.currentNode || this.resolvedPos.node();
-    }
-    get element() {
-      return this.editor.view.domAtPos(this.pos).node;
-    }
-    get depth() {
-      var _a;
-      return (_a = this.actualDepth) !== null && _a !== void 0 ? _a : this.resolvedPos.depth;
-    }
-    get pos() {
-      return this.resolvedPos.pos;
-    }
-    get content() {
-      return this.node.content;
-    }
-    set content(content) {
-      let from2 = this.from;
-      let to = this.to;
-      if (this.isBlock) {
-        if (this.content.size === 0) {
-          console.error(`You can\u2019t set content on a block node. Tried to set content on ${this.name} at ${this.pos}`);
-          return;
-        }
-        from2 = this.from + 1;
-        to = this.to - 1;
-      }
-      this.editor.commands.insertContentAt({ from: from2, to }, content);
-    }
-    get attributes() {
-      return this.node.attrs;
-    }
-    get textContent() {
-      return this.node.textContent;
-    }
-    get size() {
-      return this.node.nodeSize;
-    }
-    get from() {
-      if (this.isBlock) {
-        return this.pos;
-      }
-      return this.resolvedPos.start(this.resolvedPos.depth);
-    }
-    get range() {
-      return {
-        from: this.from,
-        to: this.to
-      };
-    }
-    get to() {
-      if (this.isBlock) {
-        return this.pos + this.size;
-      }
-      return this.resolvedPos.end(this.resolvedPos.depth) + (this.node.isText ? 0 : 1);
-    }
-    get parent() {
-      if (this.depth === 0) {
-        return null;
-      }
-      const parentPos = this.resolvedPos.start(this.resolvedPos.depth - 1);
-      const $pos = this.resolvedPos.doc.resolve(parentPos);
-      return new _NodePos($pos, this.editor);
-    }
-    get before() {
-      let $pos = this.resolvedPos.doc.resolve(this.from - (this.isBlock ? 1 : 2));
-      if ($pos.depth !== this.depth) {
-        $pos = this.resolvedPos.doc.resolve(this.from - 3);
-      }
-      return new _NodePos($pos, this.editor);
-    }
-    get after() {
-      let $pos = this.resolvedPos.doc.resolve(this.to + (this.isBlock ? 2 : 1));
-      if ($pos.depth !== this.depth) {
-        $pos = this.resolvedPos.doc.resolve(this.to + 3);
-      }
-      return new _NodePos($pos, this.editor);
-    }
-    get children() {
-      const children = [];
-      this.node.content.forEach((node, offset) => {
-        const isBlock = node.isBlock && !node.isTextblock;
-        const isNonTextAtom = node.isAtom && !node.isText;
-        const targetPos = this.pos + offset + (isNonTextAtom ? 0 : 1);
-        if (targetPos < 0 || targetPos > this.resolvedPos.doc.nodeSize - 2) {
-          return;
-        }
-        const $pos = this.resolvedPos.doc.resolve(targetPos);
-        if (!isBlock && $pos.depth <= this.depth) {
-          return;
-        }
-        const childNodePos = new _NodePos($pos, this.editor, isBlock, isBlock ? node : null);
-        if (isBlock) {
-          childNodePos.actualDepth = this.depth + 1;
-        }
-        children.push(new _NodePos($pos, this.editor, isBlock, isBlock ? node : null));
-      });
-      return children;
-    }
-    get firstChild() {
-      return this.children[0] || null;
-    }
-    get lastChild() {
-      const children = this.children;
-      return children[children.length - 1] || null;
-    }
-    closest(selector, attributes = {}) {
-      let node = null;
-      let currentNode = this.parent;
-      while (currentNode && !node) {
-        if (currentNode.node.type.name === selector) {
-          if (Object.keys(attributes).length > 0) {
-            const nodeAttributes = currentNode.node.attrs;
-            const attrKeys = Object.keys(attributes);
-            for (let index = 0; index < attrKeys.length; index += 1) {
-              const key = attrKeys[index];
-              if (nodeAttributes[key] !== attributes[key]) {
-                break;
-              }
-            }
-          } else {
-            node = currentNode;
-          }
-        }
-        currentNode = currentNode.parent;
-      }
-      return node;
-    }
-    querySelector(selector, attributes = {}) {
-      return this.querySelectorAll(selector, attributes, true)[0] || null;
-    }
-    querySelectorAll(selector, attributes = {}, firstItemOnly = false) {
-      let nodes = [];
-      if (!this.children || this.children.length === 0) {
-        return nodes;
-      }
-      const attrKeys = Object.keys(attributes);
-      this.children.forEach((childPos) => {
-        if (firstItemOnly && nodes.length > 0) {
-          return;
-        }
-        if (childPos.node.type.name === selector) {
-          const doesAllAttributesMatch = attrKeys.every((key) => attributes[key] === childPos.node.attrs[key]);
-          if (doesAllAttributesMatch) {
-            nodes.push(childPos);
-          }
-        }
-        if (firstItemOnly && nodes.length > 0) {
-          return;
-        }
-        nodes = nodes.concat(childPos.querySelectorAll(selector, attributes, firstItemOnly));
-      });
-      return nodes;
-    }
-    setAttribute(attributes) {
-      const { tr: tr2 } = this.editor.state;
-      tr2.setNodeMarkup(this.from, void 0, {
-        ...this.node.attrs,
-        ...attributes
-      });
-      this.editor.view.dispatch(tr2);
-    }
-  };
-  var style = `.ProseMirror {
-  position: relative;
-}
-
-.ProseMirror {
-  word-wrap: break-word;
-  white-space: pre-wrap;
-  white-space: break-spaces;
-  -webkit-font-variant-ligatures: none;
-  font-variant-ligatures: none;
-  font-feature-settings: "liga" 0; /* the above doesn't seem to work in Edge */
-}
-
-.ProseMirror [contenteditable="false"] {
-  white-space: normal;
-}
-
-.ProseMirror [contenteditable="false"] [contenteditable="true"] {
-  white-space: pre-wrap;
-}
-
-.ProseMirror pre {
-  white-space: pre-wrap;
-}
-
-img.ProseMirror-separator {
-  display: inline !important;
-  border: none !important;
-  margin: 0 !important;
-  width: 0 !important;
-  height: 0 !important;
-}
-
-.ProseMirror-gapcursor {
-  display: none;
-  pointer-events: none;
-  position: absolute;
-  margin: 0;
-}
-
-.ProseMirror-gapcursor:after {
-  content: "";
-  display: block;
-  position: absolute;
-  top: -2px;
-  width: 20px;
-  border-top: 1px solid black;
-  animation: ProseMirror-cursor-blink 1.1s steps(2, start) infinite;
-}
-
-@keyframes ProseMirror-cursor-blink {
-  to {
-    visibility: hidden;
-  }
-}
-
-.ProseMirror-hideselection *::selection {
-  background: transparent;
-}
-
-.ProseMirror-hideselection *::-moz-selection {
-  background: transparent;
-}
-
-.ProseMirror-hideselection * {
-  caret-color: transparent;
-}
-
-.ProseMirror-focused .ProseMirror-gapcursor {
-  display: block;
-}
-
-.tippy-box[data-animation=fade][data-state=hidden] {
-  opacity: 0
-}`;
-  function createStyleTag(style2, nonce, suffix) {
-    const tiptapStyleTag = document.querySelector(`style[data-tiptap-style${suffix ? `-${suffix}` : ""}]`);
-    if (tiptapStyleTag !== null) {
-      return tiptapStyleTag;
-    }
-    const styleNode = document.createElement("style");
-    if (nonce) {
-      styleNode.setAttribute("nonce", nonce);
-    }
-    styleNode.setAttribute(`data-tiptap-style${suffix ? `-${suffix}` : ""}`, "");
-    styleNode.innerHTML = style2;
-    document.getElementsByTagName("head")[0].appendChild(styleNode);
-    return styleNode;
-  }
-  var Editor = class extends EventEmitter {
-    constructor(options = {}) {
-      super();
-      this.isFocused = false;
-      this.isInitialized = false;
-      this.extensionStorage = {};
-      this.options = {
-        element: document.createElement("div"),
-        content: "",
-        injectCSS: true,
-        injectNonce: void 0,
-        extensions: [],
-        autofocus: false,
-        editable: true,
-        editorProps: {},
-        parseOptions: {},
-        coreExtensionOptions: {},
-        enableInputRules: true,
-        enablePasteRules: true,
-        enableCoreExtensions: true,
-        enableContentCheck: false,
-        emitContentError: false,
-        onBeforeCreate: () => null,
-        onCreate: () => null,
-        onUpdate: () => null,
-        onSelectionUpdate: () => null,
-        onTransaction: () => null,
-        onFocus: () => null,
-        onBlur: () => null,
-        onDestroy: () => null,
-        onContentError: ({ error }) => {
-          throw error;
-        },
-        onPaste: () => null,
-        onDrop: () => null
-      };
-      this.isCapturingTransaction = false;
-      this.capturedTransaction = null;
-      this.setOptions(options);
-      this.createExtensionManager();
-      this.createCommandManager();
-      this.createSchema();
-      this.on("beforeCreate", this.options.onBeforeCreate);
-      this.emit("beforeCreate", { editor: this });
-      this.on("contentError", this.options.onContentError);
-      this.createView();
-      this.injectCSS();
-      this.on("create", this.options.onCreate);
-      this.on("update", this.options.onUpdate);
-      this.on("selectionUpdate", this.options.onSelectionUpdate);
-      this.on("transaction", this.options.onTransaction);
-      this.on("focus", this.options.onFocus);
-      this.on("blur", this.options.onBlur);
-      this.on("destroy", this.options.onDestroy);
-      this.on("drop", ({ event, slice: slice2, moved }) => this.options.onDrop(event, slice2, moved));
-      this.on("paste", ({ event, slice: slice2 }) => this.options.onPaste(event, slice2));
-      window.setTimeout(() => {
-        if (this.isDestroyed) {
-          return;
-        }
-        this.commands.focus(this.options.autofocus);
-        this.emit("create", { editor: this });
-        this.isInitialized = true;
-      }, 0);
-    }
-    /**
-     * Returns the editor storage.
-     */
-    get storage() {
-      return this.extensionStorage;
-    }
-    /**
-     * An object of all registered commands.
-     */
-    get commands() {
-      return this.commandManager.commands;
-    }
-    /**
-     * Create a command chain to call multiple commands at once.
-     */
-    chain() {
-      return this.commandManager.chain();
-    }
-    /**
-     * Check if a command or a command chain can be executed. Without executing it.
-     */
-    can() {
-      return this.commandManager.can();
-    }
-    /**
-     * Inject CSS styles.
-     */
-    injectCSS() {
-      if (this.options.injectCSS && document) {
-        this.css = createStyleTag(style, this.options.injectNonce);
-      }
-    }
-    /**
-     * Update editor options.
-     *
-     * @param options A list of options
-     */
-    setOptions(options = {}) {
-      this.options = {
-        ...this.options,
-        ...options
-      };
-      if (!this.view || !this.state || this.isDestroyed) {
-        return;
-      }
-      if (this.options.editorProps) {
-        this.view.setProps(this.options.editorProps);
-      }
-      this.view.updateState(this.state);
-    }
-    /**
-     * Update editable state of the editor.
-     */
-    setEditable(editable, emitUpdate = true) {
-      this.setOptions({ editable });
-      if (emitUpdate) {
-        this.emit("update", { editor: this, transaction: this.state.tr });
-      }
-    }
-    /**
-     * Returns whether the editor is editable.
-     */
-    get isEditable() {
-      return this.options.editable && this.view && this.view.editable;
-    }
-    /**
-     * Returns the editor state.
-     */
-    get state() {
-      return this.view.state;
-    }
-    /**
-     * Register a ProseMirror plugin.
-     *
-     * @param plugin A ProseMirror plugin
-     * @param handlePlugins Control how to merge the plugin into the existing plugins.
-     * @returns The new editor state
-     */
-    registerPlugin(plugin, handlePlugins) {
-      const plugins = isFunction(handlePlugins) ? handlePlugins(plugin, [...this.state.plugins]) : [...this.state.plugins, plugin];
-      const state = this.state.reconfigure({ plugins });
-      this.view.updateState(state);
-      return state;
-    }
-    /**
-     * Unregister a ProseMirror plugin.
-     *
-     * @param nameOrPluginKeyToRemove The plugins name
-     * @returns The new editor state or undefined if the editor is destroyed
-     */
-    unregisterPlugin(nameOrPluginKeyToRemove) {
-      if (this.isDestroyed) {
-        return void 0;
-      }
-      const prevPlugins = this.state.plugins;
-      let plugins = prevPlugins;
-      [].concat(nameOrPluginKeyToRemove).forEach((nameOrPluginKey) => {
-        const name = typeof nameOrPluginKey === "string" ? `${nameOrPluginKey}$` : nameOrPluginKey.key;
-        plugins = plugins.filter((plugin) => !plugin.key.startsWith(name));
-      });
-      if (prevPlugins.length === plugins.length) {
-        return void 0;
-      }
-      const state = this.state.reconfigure({
-        plugins
-      });
-      this.view.updateState(state);
-      return state;
-    }
-    /**
-     * Creates an extension manager.
-     */
-    createExtensionManager() {
-      var _a, _b;
-      const coreExtensions = this.options.enableCoreExtensions ? [
-        Editable,
-        ClipboardTextSerializer.configure({
-          blockSeparator: (_b = (_a = this.options.coreExtensionOptions) === null || _a === void 0 ? void 0 : _a.clipboardTextSerializer) === null || _b === void 0 ? void 0 : _b.blockSeparator
-        }),
-        Commands,
-        FocusEvents,
-        Keymap,
-        Tabindex,
-        Drop,
-        Paste
-      ].filter((ext) => {
-        if (typeof this.options.enableCoreExtensions === "object") {
-          return this.options.enableCoreExtensions[ext.name] !== false;
-        }
-        return true;
-      }) : [];
-      const allExtensions = [...coreExtensions, ...this.options.extensions].filter((extension) => {
-        return ["extension", "node", "mark"].includes(extension === null || extension === void 0 ? void 0 : extension.type);
-      });
-      this.extensionManager = new ExtensionManager(allExtensions, this);
-    }
-    /**
-     * Creates an command manager.
-     */
-    createCommandManager() {
-      this.commandManager = new CommandManager({
-        editor: this
-      });
-    }
-    /**
-     * Creates a ProseMirror schema.
-     */
-    createSchema() {
-      this.schema = this.extensionManager.schema;
-    }
-    /**
-     * Creates a ProseMirror view.
-     */
-    createView() {
-      var _a;
-      let doc3;
-      try {
-        doc3 = createDocument(this.options.content, this.schema, this.options.parseOptions, { errorOnInvalidContent: this.options.enableContentCheck });
-      } catch (e) {
-        if (!(e instanceof Error) || !["[tiptap error]: Invalid JSON content", "[tiptap error]: Invalid HTML content"].includes(e.message)) {
-          throw e;
-        }
-        this.emit("contentError", {
-          editor: this,
-          error: e,
-          disableCollaboration: () => {
-            if (this.storage.collaboration) {
-              this.storage.collaboration.isDisabled = true;
-            }
-            this.options.extensions = this.options.extensions.filter((extension) => extension.name !== "collaboration");
-            this.createExtensionManager();
-          }
-        });
-        doc3 = createDocument(this.options.content, this.schema, this.options.parseOptions, { errorOnInvalidContent: false });
-      }
-      const selection = resolveFocusPosition(doc3, this.options.autofocus);
-      this.view = new EditorView(this.options.element, {
-        ...this.options.editorProps,
-        attributes: {
-          // add `role="textbox"` to the editor element
-          role: "textbox",
-          ...(_a = this.options.editorProps) === null || _a === void 0 ? void 0 : _a.attributes
-        },
-        dispatchTransaction: this.dispatchTransaction.bind(this),
-        state: EditorState.create({
-          doc: doc3,
-          selection: selection || void 0
-        })
-      });
-      const newState = this.state.reconfigure({
-        plugins: this.extensionManager.plugins
-      });
-      this.view.updateState(newState);
-      this.createNodeViews();
-      this.prependClass();
-      const dom = this.view.dom;
-      dom.editor = this;
-    }
-    /**
-     * Creates all node views.
-     */
-    createNodeViews() {
-      if (this.view.isDestroyed) {
-        return;
-      }
-      this.view.setProps({
-        nodeViews: this.extensionManager.nodeViews
-      });
-    }
-    /**
-     * Prepend class name to element.
-     */
-    prependClass() {
-      this.view.dom.className = `tiptap ${this.view.dom.className}`;
-    }
-    captureTransaction(fn) {
-      this.isCapturingTransaction = true;
-      fn();
-      this.isCapturingTransaction = false;
-      const tr2 = this.capturedTransaction;
-      this.capturedTransaction = null;
-      return tr2;
-    }
-    /**
-     * The callback over which to send transactions (state updates) produced by the view.
-     *
-     * @param transaction An editor state transaction
-     */
-    dispatchTransaction(transaction) {
-      if (this.view.isDestroyed) {
-        return;
-      }
-      if (this.isCapturingTransaction) {
-        if (!this.capturedTransaction) {
-          this.capturedTransaction = transaction;
-          return;
-        }
-        transaction.steps.forEach((step) => {
-          var _a;
-          return (_a = this.capturedTransaction) === null || _a === void 0 ? void 0 : _a.step(step);
-        });
-        return;
-      }
-      const state = this.state.apply(transaction);
-      const selectionHasChanged = !this.state.selection.eq(state.selection);
-      this.emit("beforeTransaction", {
-        editor: this,
-        transaction,
-        nextState: state
-      });
-      this.view.updateState(state);
-      this.emit("transaction", {
-        editor: this,
-        transaction
-      });
-      if (selectionHasChanged) {
-        this.emit("selectionUpdate", {
-          editor: this,
-          transaction
-        });
-      }
-      const focus2 = transaction.getMeta("focus");
-      const blur2 = transaction.getMeta("blur");
-      if (focus2) {
-        this.emit("focus", {
-          editor: this,
-          event: focus2.event,
-          transaction
-        });
-      }
-      if (blur2) {
-        this.emit("blur", {
-          editor: this,
-          event: blur2.event,
-          transaction
-        });
-      }
-      if (!transaction.docChanged || transaction.getMeta("preventUpdate")) {
-        return;
-      }
-      this.emit("update", {
-        editor: this,
-        transaction
-      });
-    }
-    /**
-     * Get attributes of the currently selected node or mark.
-     */
-    getAttributes(nameOrType) {
-      return getAttributes(this.state, nameOrType);
-    }
-    isActive(nameOrAttributes, attributesOrUndefined) {
-      const name = typeof nameOrAttributes === "string" ? nameOrAttributes : null;
-      const attributes = typeof nameOrAttributes === "string" ? attributesOrUndefined : nameOrAttributes;
-      return isActive(this.state, name, attributes);
-    }
-    /**
-     * Get the document as JSON.
-     */
-    getJSON() {
-      return this.state.doc.toJSON();
-    }
-    /**
-     * Get the document as HTML.
-     */
-    getHTML() {
-      return getHTMLFromFragment(this.state.doc.content, this.schema);
-    }
-    /**
-     * Get the document as text.
-     */
-    getText(options) {
-      const { blockSeparator = "\n\n", textSerializers = {} } = options || {};
-      return getText2(this.state.doc, {
-        blockSeparator,
-        textSerializers: {
-          ...getTextSerializersFromSchema(this.schema),
-          ...textSerializers
-        }
-      });
-    }
-    /**
-     * Check if there is no content.
-     */
-    get isEmpty() {
-      return isNodeEmpty(this.state.doc);
-    }
-    /**
-     * Get the number of characters for the current document.
-     *
-     * @deprecated
-     */
-    getCharacterCount() {
-      console.warn('[tiptap warn]: "editor.getCharacterCount()" is deprecated. Please use "editor.storage.characterCount.characters()" instead.');
-      return this.state.doc.content.size - 2;
-    }
-    /**
-     * Destroy the editor.
-     */
-    destroy() {
-      this.emit("destroy");
-      if (this.view) {
-        const dom = this.view.dom;
-        if (dom && dom.editor) {
-          delete dom.editor;
-        }
-        this.view.destroy();
-      }
-      this.removeAllListeners();
-    }
-    /**
-     * Check if the editor is already destroyed.
-     */
-    get isDestroyed() {
-      var _a;
-      return !((_a = this.view) === null || _a === void 0 ? void 0 : _a.docView);
-    }
-    $node(selector, attributes) {
-      var _a;
-      return ((_a = this.$doc) === null || _a === void 0 ? void 0 : _a.querySelector(selector, attributes)) || null;
-    }
-    $nodes(selector, attributes) {
-      var _a;
-      return ((_a = this.$doc) === null || _a === void 0 ? void 0 : _a.querySelectorAll(selector, attributes)) || null;
-    }
-    $pos(pos) {
-      const $pos = this.state.doc.resolve(pos);
-      return new NodePos($pos, this);
-    }
-    get $doc() {
-      return this.$pos(0);
-    }
-  };
-  function markInputRule(config) {
-    return new InputRule({
-      find: config.find,
-      handler: ({ state, range, match }) => {
-        const attributes = callOrReturn(config.getAttributes, void 0, match);
-        if (attributes === false || attributes === null) {
-          return null;
-        }
-        const { tr: tr2 } = state;
-        const captureGroup = match[match.length - 1];
-        const fullMatch = match[0];
-        if (captureGroup) {
-          const startSpaces = fullMatch.search(/\S/);
-          const textStart = range.from + fullMatch.indexOf(captureGroup);
-          const textEnd = textStart + captureGroup.length;
-          const excludedMarks = getMarksBetween(range.from, range.to, state.doc).filter((item) => {
-            const excluded = item.mark.type.excluded;
-            return excluded.find((type) => type === config.type && type !== item.mark.type);
-          }).filter((item) => item.to > textStart);
-          if (excludedMarks.length) {
-            return null;
-          }
-          if (textEnd < range.to) {
-            tr2.delete(textEnd, range.to);
-          }
-          if (textStart > range.from) {
-            tr2.delete(range.from + startSpaces, textStart);
-          }
-          const markEnd = range.from + startSpaces + captureGroup.length;
-          tr2.addMark(range.from + startSpaces, markEnd, config.type.create(attributes || {}));
-          tr2.removeStoredMark(config.type);
-        }
-      }
-    });
-  }
-  function nodeInputRule(config) {
-    return new InputRule({
-      find: config.find,
-      handler: ({ state, range, match }) => {
-        const attributes = callOrReturn(config.getAttributes, void 0, match) || {};
-        const { tr: tr2 } = state;
-        const start = range.from;
-        let end = range.to;
-        const newNode = config.type.create(attributes);
-        if (match[1]) {
-          const offset = match[0].lastIndexOf(match[1]);
-          let matchStart = start + offset;
-          if (matchStart > end) {
-            matchStart = end;
-          } else {
-            end = matchStart + match[1].length;
-          }
-          const lastChar = match[0][match[0].length - 1];
-          tr2.insertText(lastChar, start + match[0].length - 1);
-          tr2.replaceWith(matchStart, end, newNode);
-        } else if (match[0]) {
-          const insertionStart = config.type.isInline ? start : start - 1;
-          tr2.insert(insertionStart, config.type.create(attributes)).delete(tr2.mapping.map(start), tr2.mapping.map(end));
-        }
-        tr2.scrollIntoView();
-      }
-    });
-  }
-  function textblockTypeInputRule(config) {
-    return new InputRule({
-      find: config.find,
-      handler: ({ state, range, match }) => {
-        const $start = state.doc.resolve(range.from);
-        const attributes = callOrReturn(config.getAttributes, void 0, match) || {};
-        if (!$start.node(-1).canReplaceWith($start.index(-1), $start.indexAfter(-1), config.type)) {
-          return null;
-        }
-        state.tr.delete(range.from, range.to).setBlockType(range.from, range.from, config.type, attributes);
-      }
-    });
-  }
-  function wrappingInputRule(config) {
-    return new InputRule({
-      find: config.find,
-      handler: ({ state, range, match, chain }) => {
-        const attributes = callOrReturn(config.getAttributes, void 0, match) || {};
-        const tr2 = state.tr.delete(range.from, range.to);
-        const $start = tr2.doc.resolve(range.from);
-        const blockRange = $start.blockRange();
-        const wrapping = blockRange && findWrapping(blockRange, config.type, attributes);
-        if (!wrapping) {
-          return null;
-        }
-        tr2.wrap(blockRange, wrapping);
-        if (config.keepMarks && config.editor) {
-          const { selection, storedMarks } = state;
-          const { splittableMarks } = config.editor.extensionManager;
-          const marks = storedMarks || selection.$to.parentOffset && selection.$from.marks();
-          if (marks) {
-            const filteredMarks = marks.filter((mark) => splittableMarks.includes(mark.type.name));
-            tr2.ensureMarks(filteredMarks);
-          }
-        }
-        if (config.keepAttributes) {
-          const nodeType = config.type.name === "bulletList" || config.type.name === "orderedList" ? "listItem" : "taskList";
-          chain().updateAttributes(nodeType, attributes).run();
-        }
-        const before = tr2.doc.resolve(range.from - 1).nodeBefore;
-        if (before && before.type === config.type && canJoin(tr2.doc, range.from - 1) && (!config.joinPredicate || config.joinPredicate(match, before))) {
-          tr2.join(range.from - 1);
-        }
-      }
-    });
-  }
-  var Node2 = class _Node {
-    constructor(config = {}) {
-      this.type = "node";
-      this.name = "node";
-      this.parent = null;
-      this.child = null;
-      this.config = {
-        name: this.name,
-        defaultOptions: {}
-      };
-      this.config = {
-        ...this.config,
-        ...config
-      };
-      this.name = this.config.name;
-      if (config.defaultOptions && Object.keys(config.defaultOptions).length > 0) {
-        console.warn(`[tiptap warn]: BREAKING CHANGE: "defaultOptions" is deprecated. Please use "addOptions" instead. Found in extension: "${this.name}".`);
-      }
-      this.options = this.config.defaultOptions;
-      if (this.config.addOptions) {
-        this.options = callOrReturn(getExtensionField(this, "addOptions", {
-          name: this.name
-        }));
-      }
-      this.storage = callOrReturn(getExtensionField(this, "addStorage", {
-        name: this.name,
-        options: this.options
-      })) || {};
-    }
-    static create(config = {}) {
-      return new _Node(config);
-    }
-    configure(options = {}) {
-      const extension = this.extend({
-        ...this.config,
-        addOptions: () => {
-          return mergeDeep(this.options, options);
-        }
-      });
-      extension.name = this.name;
-      extension.parent = this.parent;
-      return extension;
-    }
-    extend(extendedConfig = {}) {
-      const extension = new _Node(extendedConfig);
-      extension.parent = this;
-      this.child = extension;
-      extension.name = extendedConfig.name ? extendedConfig.name : extension.parent.name;
-      if (extendedConfig.defaultOptions && Object.keys(extendedConfig.defaultOptions).length > 0) {
-        console.warn(`[tiptap warn]: BREAKING CHANGE: "defaultOptions" is deprecated. Please use "addOptions" instead. Found in extension: "${extension.name}".`);
-      }
-      extension.options = callOrReturn(getExtensionField(extension, "addOptions", {
-        name: extension.name
-      }));
-      extension.storage = callOrReturn(getExtensionField(extension, "addStorage", {
-        name: extension.name,
-        options: extension.options
-      }));
-      return extension;
-    }
-  };
-  function markPasteRule(config) {
-    return new PasteRule({
-      find: config.find,
-      handler: ({ state, range, match, pasteEvent }) => {
-        const attributes = callOrReturn(config.getAttributes, void 0, match, pasteEvent);
-        if (attributes === false || attributes === null) {
-          return null;
-        }
-        const { tr: tr2 } = state;
-        const captureGroup = match[match.length - 1];
-        const fullMatch = match[0];
-        let markEnd = range.to;
-        if (captureGroup) {
-          const startSpaces = fullMatch.search(/\S/);
-          const textStart = range.from + fullMatch.indexOf(captureGroup);
-          const textEnd = textStart + captureGroup.length;
-          const excludedMarks = getMarksBetween(range.from, range.to, state.doc).filter((item) => {
-            const excluded = item.mark.type.excluded;
-            return excluded.find((type) => type === config.type && type !== item.mark.type);
-          }).filter((item) => item.to > textStart);
-          if (excludedMarks.length) {
-            return null;
-          }
-          if (textEnd < range.to) {
-            tr2.delete(textEnd, range.to);
-          }
-          if (textStart > range.from) {
-            tr2.delete(range.from + startSpaces, textStart);
-          }
-          markEnd = range.from + startSpaces + captureGroup.length;
-          tr2.addMark(range.from + startSpaces, markEnd, config.type.create(attributes || {}));
-          tr2.removeStoredMark(config.type);
-        }
-      }
-    });
-  }
-  function canInsertNode(state, nodeType) {
-    const { selection } = state;
-    const { $from } = selection;
-    if (selection instanceof NodeSelection) {
-      const index = $from.index();
-      const parent = $from.parent;
-      return parent.canReplaceWith(index, index + 1, nodeType);
-    }
-    let depth = $from.depth;
-    while (depth >= 0) {
-      const index = $from.index(depth);
-      const parent = $from.node(depth);
-      const match = parent.contentMatchAt(index);
-      if (match.matchType(nodeType)) {
-        return true;
-      }
-      depth -= 1;
-    }
-    return false;
-  }
-
-  // node_modules/@tiptap/extension-blockquote/dist/index.js
-  var inputRegex = /^\s*>\s$/;
-  var Blockquote = Node2.create({
-    name: "blockquote",
-    addOptions() {
-      return {
-        HTMLAttributes: {}
-      };
-    },
-    content: "block+",
-    group: "block",
-    defining: true,
-    parseHTML() {
-      return [
-        { tag: "blockquote" }
-      ];
-    },
-    renderHTML({ HTMLAttributes }) {
-      return ["blockquote", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
-    },
-    addCommands() {
-      return {
-        setBlockquote: () => ({ commands: commands2 }) => {
-          return commands2.wrapIn(this.name);
-        },
-        toggleBlockquote: () => ({ commands: commands2 }) => {
-          return commands2.toggleWrap(this.name);
-        },
-        unsetBlockquote: () => ({ commands: commands2 }) => {
-          return commands2.lift(this.name);
-        }
-      };
-    },
-    addKeyboardShortcuts() {
-      return {
-        "Mod-Shift-b": () => this.editor.commands.toggleBlockquote()
-      };
-    },
-    addInputRules() {
-      return [
-        wrappingInputRule({
-          find: inputRegex,
-          type: this.type
-        })
-      ];
-    }
-  });
-
-  // node_modules/@tiptap/extension-bold/dist/index.js
-  var starInputRegex = /(?:^|\s)(\*\*(?!\s+\*\*)((?:[^*]+))\*\*(?!\s+\*\*))$/;
-  var starPasteRegex = /(?:^|\s)(\*\*(?!\s+\*\*)((?:[^*]+))\*\*(?!\s+\*\*))/g;
-  var underscoreInputRegex = /(?:^|\s)(__(?!\s+__)((?:[^_]+))__(?!\s+__))$/;
-  var underscorePasteRegex = /(?:^|\s)(__(?!\s+__)((?:[^_]+))__(?!\s+__))/g;
-  var Bold = Mark2.create({
-    name: "bold",
-    addOptions() {
-      return {
-        HTMLAttributes: {}
-      };
-    },
-    parseHTML() {
-      return [
-        {
-          tag: "strong"
-        },
-        {
-          tag: "b",
-          getAttrs: (node) => node.style.fontWeight !== "normal" && null
-        },
-        {
-          style: "font-weight=400",
-          clearMark: (mark) => mark.type.name === this.name
-        },
-        {
-          style: "font-weight",
-          getAttrs: (value) => /^(bold(er)?|[5-9]\d{2,})$/.test(value) && null
-        }
-      ];
-    },
-    renderHTML({ HTMLAttributes }) {
-      return ["strong", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
-    },
-    addCommands() {
-      return {
-        setBold: () => ({ commands: commands2 }) => {
-          return commands2.setMark(this.name);
-        },
-        toggleBold: () => ({ commands: commands2 }) => {
-          return commands2.toggleMark(this.name);
-        },
-        unsetBold: () => ({ commands: commands2 }) => {
-          return commands2.unsetMark(this.name);
-        }
-      };
-    },
-    addKeyboardShortcuts() {
-      return {
-        "Mod-b": () => this.editor.commands.toggleBold(),
-        "Mod-B": () => this.editor.commands.toggleBold()
-      };
-    },
-    addInputRules() {
-      return [
-        markInputRule({
-          find: starInputRegex,
-          type: this.type
-        }),
-        markInputRule({
-          find: underscoreInputRegex,
-          type: this.type
-        })
-      ];
-    },
-    addPasteRules() {
-      return [
-        markPasteRule({
-          find: starPasteRegex,
-          type: this.type
-        }),
-        markPasteRule({
-          find: underscorePasteRegex,
-          type: this.type
-        })
-      ];
-    }
-  });
-
-  // node_modules/@tiptap/extension-bullet-list/dist/index.js
-  var ListItemName = "listItem";
-  var TextStyleName = "textStyle";
-  var inputRegex2 = /^\s*([-+*])\s$/;
-  var BulletList = Node2.create({
-    name: "bulletList",
-    addOptions() {
-      return {
-        itemTypeName: "listItem",
-        HTMLAttributes: {},
-        keepMarks: false,
-        keepAttributes: false
-      };
-    },
-    group: "block list",
-    content() {
-      return `${this.options.itemTypeName}+`;
-    },
-    parseHTML() {
-      return [
-        { tag: "ul" }
-      ];
-    },
-    renderHTML({ HTMLAttributes }) {
-      return ["ul", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
-    },
-    addCommands() {
-      return {
-        toggleBulletList: () => ({ commands: commands2, chain }) => {
-          if (this.options.keepAttributes) {
-            return chain().toggleList(this.name, this.options.itemTypeName, this.options.keepMarks).updateAttributes(ListItemName, this.editor.getAttributes(TextStyleName)).run();
-          }
-          return commands2.toggleList(this.name, this.options.itemTypeName, this.options.keepMarks);
-        }
-      };
-    },
-    addKeyboardShortcuts() {
-      return {
-        "Mod-Shift-8": () => this.editor.commands.toggleBulletList()
-      };
-    },
-    addInputRules() {
-      let inputRule = wrappingInputRule({
-        find: inputRegex2,
-        type: this.type
-      });
-      if (this.options.keepMarks || this.options.keepAttributes) {
-        inputRule = wrappingInputRule({
-          find: inputRegex2,
-          type: this.type,
-          keepMarks: this.options.keepMarks,
-          keepAttributes: this.options.keepAttributes,
-          getAttributes: () => {
-            return this.editor.getAttributes(TextStyleName);
-          },
-          editor: this.editor
-        });
-      }
-      return [
-        inputRule
-      ];
-    }
-  });
-
-  // node_modules/@tiptap/extension-code/dist/index.js
-  var inputRegex3 = /(^|[^`])`([^`]+)`(?!`)/;
-  var pasteRegex = /(^|[^`])`([^`]+)`(?!`)/g;
-  var Code = Mark2.create({
-    name: "code",
-    addOptions() {
-      return {
-        HTMLAttributes: {}
-      };
-    },
-    excludes: "_",
-    code: true,
-    exitable: true,
-    parseHTML() {
-      return [
-        { tag: "code" }
-      ];
-    },
-    renderHTML({ HTMLAttributes }) {
-      return ["code", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
-    },
-    addCommands() {
-      return {
-        setCode: () => ({ commands: commands2 }) => {
-          return commands2.setMark(this.name);
-        },
-        toggleCode: () => ({ commands: commands2 }) => {
-          return commands2.toggleMark(this.name);
-        },
-        unsetCode: () => ({ commands: commands2 }) => {
-          return commands2.unsetMark(this.name);
-        }
-      };
-    },
-    addKeyboardShortcuts() {
-      return {
-        "Mod-e": () => this.editor.commands.toggleCode()
-      };
-    },
-    addInputRules() {
-      return [
-        markInputRule({
-          find: inputRegex3,
-          type: this.type
-        })
-      ];
-    },
-    addPasteRules() {
-      return [
-        markPasteRule({
-          find: pasteRegex,
-          type: this.type
-        })
-      ];
-    }
-  });
-
-  // node_modules/@tiptap/extension-code-block/dist/index.js
-  var backtickInputRegex = /^```([a-z]+)?[\s\n]$/;
-  var tildeInputRegex = /^~~~([a-z]+)?[\s\n]$/;
-  var CodeBlock = Node2.create({
-    name: "codeBlock",
-    addOptions() {
-      return {
-        languageClassPrefix: "language-",
-        exitOnTripleEnter: true,
-        exitOnArrowDown: true,
-        defaultLanguage: null,
-        HTMLAttributes: {}
-      };
-    },
-    content: "text*",
-    marks: "",
-    group: "block",
-    code: true,
-    defining: true,
-    addAttributes() {
-      return {
-        language: {
-          default: this.options.defaultLanguage,
-          parseHTML: (element) => {
-            var _a;
-            const { languageClassPrefix } = this.options;
-            const classNames = [...((_a = element.firstElementChild) === null || _a === void 0 ? void 0 : _a.classList) || []];
-            const languages = classNames.filter((className) => className.startsWith(languageClassPrefix)).map((className) => className.replace(languageClassPrefix, ""));
-            const language = languages[0];
-            if (!language) {
-              return null;
-            }
-            return language;
-          },
-          rendered: false
-        }
-      };
-    },
-    parseHTML() {
-      return [
-        {
-          tag: "pre",
-          preserveWhitespace: "full"
-        }
-      ];
-    },
-    renderHTML({ node, HTMLAttributes }) {
-      return [
-        "pre",
-        mergeAttributes(this.options.HTMLAttributes, HTMLAttributes),
-        [
-          "code",
-          {
-            class: node.attrs.language ? this.options.languageClassPrefix + node.attrs.language : null
-          },
-          0
-        ]
-      ];
-    },
-    addCommands() {
-      return {
-        setCodeBlock: (attributes) => ({ commands: commands2 }) => {
-          return commands2.setNode(this.name, attributes);
-        },
-        toggleCodeBlock: (attributes) => ({ commands: commands2 }) => {
-          return commands2.toggleNode(this.name, "paragraph", attributes);
-        }
-      };
-    },
-    addKeyboardShortcuts() {
-      return {
-        "Mod-Alt-c": () => this.editor.commands.toggleCodeBlock(),
-        // remove code block when at start of document or code block is empty
-        Backspace: () => {
-          const { empty: empty2, $anchor } = this.editor.state.selection;
-          const isAtStart = $anchor.pos === 1;
-          if (!empty2 || $anchor.parent.type.name !== this.name) {
-            return false;
-          }
-          if (isAtStart || !$anchor.parent.textContent.length) {
-            return this.editor.commands.clearNodes();
-          }
-          return false;
-        },
-        // exit node on triple enter
-        Enter: ({ editor }) => {
-          if (!this.options.exitOnTripleEnter) {
-            return false;
-          }
-          const { state } = editor;
-          const { selection } = state;
-          const { $from, empty: empty2 } = selection;
-          if (!empty2 || $from.parent.type !== this.type) {
-            return false;
-          }
-          const isAtEnd = $from.parentOffset === $from.parent.nodeSize - 2;
-          const endsWithDoubleNewline = $from.parent.textContent.endsWith("\n\n");
-          if (!isAtEnd || !endsWithDoubleNewline) {
-            return false;
-          }
-          return editor.chain().command(({ tr: tr2 }) => {
-            tr2.delete($from.pos - 2, $from.pos);
-            return true;
-          }).exitCode().run();
-        },
-        // exit node on arrow down
-        ArrowDown: ({ editor }) => {
-          if (!this.options.exitOnArrowDown) {
-            return false;
-          }
-          const { state } = editor;
-          const { selection, doc: doc3 } = state;
-          const { $from, empty: empty2 } = selection;
-          if (!empty2 || $from.parent.type !== this.type) {
-            return false;
-          }
-          const isAtEnd = $from.parentOffset === $from.parent.nodeSize - 2;
-          if (!isAtEnd) {
-            return false;
-          }
-          const after = $from.after();
-          if (after === void 0) {
-            return false;
-          }
-          const nodeAfter = doc3.nodeAt(after);
-          if (nodeAfter) {
-            return editor.commands.command(({ tr: tr2 }) => {
-              tr2.setSelection(Selection.near(doc3.resolve(after)));
-              return true;
-            });
-          }
-          return editor.commands.exitCode();
-        }
-      };
-    },
-    addInputRules() {
-      return [
-        textblockTypeInputRule({
-          find: backtickInputRegex,
-          type: this.type,
-          getAttributes: (match) => ({
-            language: match[1]
-          })
-        }),
-        textblockTypeInputRule({
-          find: tildeInputRegex,
-          type: this.type,
-          getAttributes: (match) => ({
-            language: match[1]
-          })
-        })
-      ];
-    },
-    addProseMirrorPlugins() {
-      return [
-        // this plugin creates a code block for pasted content from VS Code
-        // we can also detect the copied code language
-        new Plugin({
-          key: new PluginKey("codeBlockVSCodeHandler"),
-          props: {
-            handlePaste: (view, event) => {
-              if (!event.clipboardData) {
-                return false;
-              }
-              if (this.editor.isActive(this.type.name)) {
-                return false;
-              }
-              const text = event.clipboardData.getData("text/plain");
-              const vscode = event.clipboardData.getData("vscode-editor-data");
-              const vscodeData = vscode ? JSON.parse(vscode) : void 0;
-              const language = vscodeData === null || vscodeData === void 0 ? void 0 : vscodeData.mode;
-              if (!text || !language) {
-                return false;
-              }
-              const { tr: tr2, schema } = view.state;
-              const textNode = schema.text(text.replace(/\r\n?/g, "\n"));
-              tr2.replaceSelectionWith(this.type.create({ language }, textNode));
-              if (tr2.selection.$from.parent.type !== this.type) {
-                tr2.setSelection(TextSelection.near(tr2.doc.resolve(Math.max(0, tr2.selection.from - 2))));
-              }
-              tr2.setMeta("paste", true);
-              view.dispatch(tr2);
-              return true;
-            }
-          }
-        })
-      ];
-    }
-  });
-
-  // node_modules/@tiptap/extension-document/dist/index.js
-  var Document = Node2.create({
-    name: "doc",
-    topNode: true,
-    content: "block+"
-  });
-
-  // node_modules/prosemirror-dropcursor/dist/index.js
-  function dropCursor(options = {}) {
-    return new Plugin({
-      view(editorView) {
-        return new DropCursorView(editorView, options);
-      }
-    });
-  }
-  var DropCursorView = class {
-    constructor(editorView, options) {
-      var _a;
-      this.editorView = editorView;
-      this.cursorPos = null;
-      this.element = null;
-      this.timeout = -1;
-      this.lastDragEvent = null;
-      this.width = (_a = options.width) !== null && _a !== void 0 ? _a : 1;
-      this.color = options.color === false ? void 0 : options.color || "black";
-      this.class = options.class;
-      this.handlers = ["dragover", "dragend", "drop", "dragleave"].map((name) => {
-        let handler = (e) => {
-          this[name](e);
-        };
-        editorView.dom.addEventListener(name, handler);
-        return { name, handler };
-      });
-    }
-    destroy() {
-      this.setCursor(null);
-      this.handlers.forEach(({ name, handler }) => this.editorView.dom.removeEventListener(name, handler));
-    }
-    update(editorView, prevState) {
-      if (this.cursorPos != null && prevState.doc != editorView.state.doc) {
-        if (this.lastDragEvent) {
-          let target = this.computeTarget(this.lastDragEvent);
-          if (target == this.cursorPos)
-            this.updateOverlay();
-          else
-            this.setCursor(target);
-        } else {
-          this.updateOverlay();
-        }
-      }
-    }
-    setCursor(pos) {
-      if (pos == this.cursorPos)
-        return;
-      this.cursorPos = pos;
-      if (pos == null) {
-        this.element.parentNode.removeChild(this.element);
-        this.element = null;
-      } else {
-        this.updateOverlay();
-      }
-    }
-    updateOverlay() {
-      let $pos = this.editorView.state.doc.resolve(this.cursorPos);
-      let isBlock = !$pos.parent.inlineContent, rect;
-      let editorDOM = this.editorView.dom, editorRect = editorDOM.getBoundingClientRect();
-      let scaleX = editorRect.width / editorDOM.offsetWidth, scaleY = editorRect.height / editorDOM.offsetHeight;
-      if (isBlock) {
-        let before = $pos.nodeBefore, after = $pos.nodeAfter;
-        if (before || after) {
-          let node = this.editorView.nodeDOM(this.cursorPos - (before ? before.nodeSize : 0));
-          if (node) {
-            let nodeRect = node.getBoundingClientRect();
-            let top = before ? nodeRect.bottom : nodeRect.top;
-            if (before && after)
-              top = (top + this.editorView.nodeDOM(this.cursorPos).getBoundingClientRect().top) / 2;
-            let halfWidth = this.width / 2 * scaleY;
-            rect = { left: nodeRect.left, right: nodeRect.right, top: top - halfWidth, bottom: top + halfWidth };
-          }
-        }
-      }
-      if (!rect) {
-        let coords = this.editorView.coordsAtPos(this.cursorPos);
-        let halfWidth = this.width / 2 * scaleX;
-        rect = { left: coords.left - halfWidth, right: coords.left + halfWidth, top: coords.top, bottom: coords.bottom };
-      }
-      let parent = this.editorView.dom.offsetParent;
-      if (!this.element) {
-        this.element = parent.appendChild(document.createElement("div"));
-        if (this.class)
-          this.element.className = this.class;
-        this.element.style.cssText = "position: absolute; z-index: 50; pointer-events: none;";
-        if (this.color) {
-          this.element.style.backgroundColor = this.color;
-        }
-      }
-      this.element.classList.toggle("prosemirror-dropcursor-block", isBlock);
-      this.element.classList.toggle("prosemirror-dropcursor-inline", !isBlock);
-      let parentLeft, parentTop;
-      if (!parent || parent == document.body && getComputedStyle(parent).position == "static") {
-        parentLeft = -pageXOffset;
-        parentTop = -pageYOffset;
-      } else {
-        let rect2 = parent.getBoundingClientRect();
-        let parentScaleX = rect2.width / parent.offsetWidth, parentScaleY = rect2.height / parent.offsetHeight;
-        parentLeft = rect2.left - parent.scrollLeft * parentScaleX;
-        parentTop = rect2.top - parent.scrollTop * parentScaleY;
-      }
-      this.element.style.left = (rect.left - parentLeft) / scaleX + "px";
-      this.element.style.top = (rect.top - parentTop) / scaleY + "px";
-      this.element.style.width = (rect.right - rect.left) / scaleX + "px";
-      this.element.style.height = (rect.bottom - rect.top) / scaleY + "px";
-    }
-    scheduleRemoval(timeout) {
-      clearTimeout(this.timeout);
-      this.timeout = setTimeout(() => this.setCursor(null), timeout);
-    }
-    computeTarget(event) {
-      let pos = this.editorView.posAtCoords({ left: event.clientX, top: event.clientY });
-      let node = pos && pos.inside >= 0 && this.editorView.state.doc.nodeAt(pos.inside);
-      let disableDropCursor = node && node.type.spec.disableDropCursor;
-      let disabled = typeof disableDropCursor == "function" ? disableDropCursor(this.editorView, pos, event) : disableDropCursor;
-      if (!pos || disabled)
-        return null;
-      let target = pos.pos;
-      if (this.editorView.dragging && this.editorView.dragging.slice) {
-        let point = dropPoint(this.editorView.state.doc, target, this.editorView.dragging.slice);
-        if (point != null)
-          target = point;
-      }
-      return target;
-    }
-    dragover(event) {
-      if (!this.editorView.editable)
-        return;
-      this.lastDragEvent = event;
-      let target = this.computeTarget(event);
-      if (target != null) {
-        this.setCursor(target);
-        this.scheduleRemoval(5e3);
-      }
-    }
-    dragend() {
-      this.scheduleRemoval(20);
-    }
-    drop() {
-      this.scheduleRemoval(20);
-    }
-    dragleave(event) {
-      if (!this.editorView.dom.contains(event.relatedTarget))
-        this.setCursor(null);
-    }
-  };
-
-  // node_modules/@tiptap/extension-dropcursor/dist/index.js
-  var Dropcursor = Extension.create({
-    name: "dropCursor",
-    addOptions() {
-      return {
-        color: "currentColor",
-        width: 1,
-        class: void 0
-      };
-    },
-    addProseMirrorPlugins() {
-      return [
-        dropCursor(this.options)
-      ];
-    }
-  });
-
-  // node_modules/prosemirror-gapcursor/dist/index.js
-  var GapCursor = class _GapCursor extends Selection {
-    /**
-    Create a gap cursor.
-    */
-    constructor($pos) {
-      super($pos, $pos);
-    }
-    map(doc3, mapping) {
-      let $pos = doc3.resolve(mapping.map(this.head));
-      return _GapCursor.valid($pos) ? new _GapCursor($pos) : Selection.near($pos);
-    }
-    content() {
-      return Slice.empty;
-    }
-    eq(other) {
-      return other instanceof _GapCursor && other.head == this.head;
-    }
-    toJSON() {
-      return { type: "gapcursor", pos: this.head };
-    }
-    /**
-    @internal
-    */
-    static fromJSON(doc3, json) {
-      if (typeof json.pos != "number")
-        throw new RangeError("Invalid input for GapCursor.fromJSON");
-      return new _GapCursor(doc3.resolve(json.pos));
-    }
-    /**
-    @internal
-    */
-    getBookmark() {
-      return new GapBookmark(this.anchor);
-    }
-    /**
-    @internal
-    */
-    static valid($pos) {
-      let parent = $pos.parent;
-      if (parent.inlineContent || !closedBefore($pos) || !closedAfter($pos))
-        return false;
-      let override = parent.type.spec.allowGapCursor;
-      if (override != null)
-        return override;
-      let deflt = parent.contentMatchAt($pos.index()).defaultType;
-      return deflt && deflt.isTextblock;
-    }
-    /**
-    @internal
-    */
-    static findGapCursorFrom($pos, dir, mustMove = false) {
-      search: for (; ; ) {
-        if (!mustMove && _GapCursor.valid($pos))
-          return $pos;
-        let pos = $pos.pos, next = null;
-        for (let d = $pos.depth; ; d--) {
-          let parent = $pos.node(d);
-          if (dir > 0 ? $pos.indexAfter(d) < parent.childCount : $pos.index(d) > 0) {
-            next = parent.child(dir > 0 ? $pos.indexAfter(d) : $pos.index(d) - 1);
-            break;
-          } else if (d == 0) {
-            return null;
-          }
-          pos += dir;
-          let $cur = $pos.doc.resolve(pos);
-          if (_GapCursor.valid($cur))
-            return $cur;
-        }
-        for (; ; ) {
-          let inside = dir > 0 ? next.firstChild : next.lastChild;
-          if (!inside) {
-            if (next.isAtom && !next.isText && !NodeSelection.isSelectable(next)) {
-              $pos = $pos.doc.resolve(pos + next.nodeSize * dir);
-              mustMove = false;
-              continue search;
-            }
-            break;
-          }
-          next = inside;
-          pos += dir;
-          let $cur = $pos.doc.resolve(pos);
-          if (_GapCursor.valid($cur))
-            return $cur;
-        }
-        return null;
-      }
-    }
-  };
-  GapCursor.prototype.visible = false;
-  GapCursor.findFrom = GapCursor.findGapCursorFrom;
-  Selection.jsonID("gapcursor", GapCursor);
-  var GapBookmark = class _GapBookmark {
-    constructor(pos) {
-      this.pos = pos;
-    }
-    map(mapping) {
-      return new _GapBookmark(mapping.map(this.pos));
-    }
-    resolve(doc3) {
-      let $pos = doc3.resolve(this.pos);
-      return GapCursor.valid($pos) ? new GapCursor($pos) : Selection.near($pos);
-    }
-  };
-  function needsGap(type) {
-    return type.isAtom || type.spec.isolating || type.spec.createGapCursor;
-  }
-  function closedBefore($pos) {
-    for (let d = $pos.depth; d >= 0; d--) {
-      let index = $pos.index(d), parent = $pos.node(d);
-      if (index == 0) {
-        if (parent.type.spec.isolating)
-          return true;
-        continue;
-      }
-      for (let before = parent.child(index - 1); ; before = before.lastChild) {
-        if (before.childCount == 0 && !before.inlineContent || needsGap(before.type))
-          return true;
-        if (before.inlineContent)
-          return false;
-      }
-    }
-    return true;
-  }
-  function closedAfter($pos) {
-    for (let d = $pos.depth; d >= 0; d--) {
-      let index = $pos.indexAfter(d), parent = $pos.node(d);
-      if (index == parent.childCount) {
-        if (parent.type.spec.isolating)
-          return true;
-        continue;
-      }
-      for (let after = parent.child(index); ; after = after.firstChild) {
-        if (after.childCount == 0 && !after.inlineContent || needsGap(after.type))
-          return true;
-        if (after.inlineContent)
-          return false;
-      }
-    }
-    return true;
-  }
-  function gapCursor() {
-    return new Plugin({
-      props: {
-        decorations: drawGapCursor,
-        createSelectionBetween(_view, $anchor, $head) {
-          return $anchor.pos == $head.pos && GapCursor.valid($head) ? new GapCursor($head) : null;
-        },
-        handleClick,
-        handleKeyDown,
-        handleDOMEvents: { beforeinput }
-      }
-    });
-  }
-  var handleKeyDown = keydownHandler({
-    "ArrowLeft": arrow("horiz", -1),
-    "ArrowRight": arrow("horiz", 1),
-    "ArrowUp": arrow("vert", -1),
-    "ArrowDown": arrow("vert", 1)
-  });
-  function arrow(axis, dir) {
-    const dirStr = axis == "vert" ? dir > 0 ? "down" : "up" : dir > 0 ? "right" : "left";
-    return function(state, dispatch, view) {
-      let sel = state.selection;
-      let $start = dir > 0 ? sel.$to : sel.$from, mustMove = sel.empty;
-      if (sel instanceof TextSelection) {
-        if (!view.endOfTextblock(dirStr) || $start.depth == 0)
-          return false;
-        mustMove = false;
-        $start = state.doc.resolve(dir > 0 ? $start.after() : $start.before());
-      }
-      let $found = GapCursor.findGapCursorFrom($start, dir, mustMove);
-      if (!$found)
-        return false;
-      if (dispatch)
-        dispatch(state.tr.setSelection(new GapCursor($found)));
-      return true;
-    };
-  }
-  function handleClick(view, pos, event) {
-    if (!view || !view.editable)
-      return false;
-    let $pos = view.state.doc.resolve(pos);
-    if (!GapCursor.valid($pos))
-      return false;
-    let clickPos = view.posAtCoords({ left: event.clientX, top: event.clientY });
-    if (clickPos && clickPos.inside > -1 && NodeSelection.isSelectable(view.state.doc.nodeAt(clickPos.inside)))
-      return false;
-    view.dispatch(view.state.tr.setSelection(new GapCursor($pos)));
-    return true;
-  }
-  function beforeinput(view, event) {
-    if (event.inputType != "insertCompositionText" || !(view.state.selection instanceof GapCursor))
-      return false;
-    let { $from } = view.state.selection;
-    let insert = $from.parent.contentMatchAt($from.index()).findWrapping(view.state.schema.nodes.text);
-    if (!insert)
-      return false;
-    let frag = Fragment.empty;
-    for (let i = insert.length - 1; i >= 0; i--)
-      frag = Fragment.from(insert[i].createAndFill(null, frag));
-    let tr2 = view.state.tr.replace($from.pos, $from.pos, new Slice(frag, 0, 0));
-    tr2.setSelection(TextSelection.near(tr2.doc.resolve($from.pos + 1)));
-    view.dispatch(tr2);
-    return false;
-  }
-  function drawGapCursor(state) {
-    if (!(state.selection instanceof GapCursor))
-      return null;
-    let node = document.createElement("div");
-    node.className = "ProseMirror-gapcursor";
-    return DecorationSet.create(state.doc, [Decoration.widget(state.selection.head, node, { key: "gapcursor" })]);
-  }
-
-  // node_modules/@tiptap/extension-gapcursor/dist/index.js
-  var Gapcursor = Extension.create({
-    name: "gapCursor",
-    addProseMirrorPlugins() {
-      return [
-        gapCursor()
-      ];
-    },
-    extendNodeSchema(extension) {
-      var _a;
-      const context = {
-        name: extension.name,
-        options: extension.options,
-        storage: extension.storage
-      };
-      return {
-        allowGapCursor: (_a = callOrReturn(getExtensionField(extension, "allowGapCursor", context))) !== null && _a !== void 0 ? _a : null
-      };
-    }
-  });
-
-  // node_modules/@tiptap/extension-hard-break/dist/index.js
-  var HardBreak = Node2.create({
-    name: "hardBreak",
-    addOptions() {
-      return {
-        keepMarks: true,
-        HTMLAttributes: {}
-      };
-    },
-    inline: true,
-    group: "inline",
-    selectable: false,
-    linebreakReplacement: true,
-    parseHTML() {
-      return [
-        { tag: "br" }
-      ];
-    },
-    renderHTML({ HTMLAttributes }) {
-      return ["br", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes)];
-    },
-    renderText() {
-      return "\n";
-    },
-    addCommands() {
-      return {
-        setHardBreak: () => ({ commands: commands2, chain, state, editor }) => {
-          return commands2.first([
-            () => commands2.exitCode(),
-            () => commands2.command(() => {
-              const { selection, storedMarks } = state;
-              if (selection.$from.parent.type.spec.isolating) {
-                return false;
-              }
-              const { keepMarks } = this.options;
-              const { splittableMarks } = editor.extensionManager;
-              const marks = storedMarks || selection.$to.parentOffset && selection.$from.marks();
-              return chain().insertContent({ type: this.name }).command(({ tr: tr2, dispatch }) => {
-                if (dispatch && marks && keepMarks) {
-                  const filteredMarks = marks.filter((mark) => splittableMarks.includes(mark.type.name));
-                  tr2.ensureMarks(filteredMarks);
-                }
-                return true;
-              }).run();
-            })
-          ]);
-        }
-      };
-    },
-    addKeyboardShortcuts() {
-      return {
-        "Mod-Enter": () => this.editor.commands.setHardBreak(),
-        "Shift-Enter": () => this.editor.commands.setHardBreak()
-      };
-    }
-  });
-
-  // node_modules/@tiptap/extension-heading/dist/index.js
-  var Heading = Node2.create({
-    name: "heading",
-    addOptions() {
-      return {
-        levels: [1, 2, 3, 4, 5, 6],
-        HTMLAttributes: {}
-      };
-    },
-    content: "inline*",
-    group: "block",
-    defining: true,
-    addAttributes() {
-      return {
-        level: {
-          default: 1,
-          rendered: false
-        }
-      };
-    },
-    parseHTML() {
-      return this.options.levels.map((level) => ({
-        tag: `h${level}`,
-        attrs: { level }
-      }));
-    },
-    renderHTML({ node, HTMLAttributes }) {
-      const hasLevel = this.options.levels.includes(node.attrs.level);
-      const level = hasLevel ? node.attrs.level : this.options.levels[0];
-      return [`h${level}`, mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
-    },
-    addCommands() {
-      return {
-        setHeading: (attributes) => ({ commands: commands2 }) => {
-          if (!this.options.levels.includes(attributes.level)) {
-            return false;
-          }
-          return commands2.setNode(this.name, attributes);
-        },
-        toggleHeading: (attributes) => ({ commands: commands2 }) => {
-          if (!this.options.levels.includes(attributes.level)) {
-            return false;
-          }
-          return commands2.toggleNode(this.name, "paragraph", attributes);
-        }
-      };
-    },
-    addKeyboardShortcuts() {
-      return this.options.levels.reduce((items, level) => ({
-        ...items,
-        ...{
-          [`Mod-Alt-${level}`]: () => this.editor.commands.toggleHeading({ level })
-        }
-      }), {});
-    },
-    addInputRules() {
-      return this.options.levels.map((level) => {
-        return textblockTypeInputRule({
-          find: new RegExp(`^(#{${Math.min(...this.options.levels)},${level}})\\s$`),
-          type: this.type,
-          getAttributes: {
-            level
-          }
-        });
-      });
-    }
-  });
-
   // node_modules/rope-sequence/dist/index.js
   var GOOD_LEAF_SIZE = 200;
   var RopeSequence = function RopeSequence2() {
@@ -17472,7 +12340,7 @@ img.ProseMirror-separator {
     }
     return this.getInner(i);
   };
-  RopeSequence.prototype.forEach = function forEach2(f, from2, to) {
+  RopeSequence.prototype.forEach = function forEach(f, from2, to) {
     if (from2 === void 0) from2 = 0;
     if (to === void 0) to = this.length;
     if (from2 <= to) {
@@ -17925,6 +12793,9 @@ img.ProseMirror-separator {
     }
     return cachedPreserveItems;
   }
+  function closeHistory(tr2) {
+    return tr2.setMeta(closeHistoryKey, true);
+  }
   var historyKey = new PluginKey("history");
   var closeHistoryKey = new PluginKey("closeHistory");
   function history(config = {}) {
@@ -17974,40 +12845,5729 @@ img.ProseMirror-separator {
   var redo = buildCommand(true, true);
   var undoNoScroll = buildCommand(false, false);
   var redoNoScroll = buildCommand(true, false);
+  function isHistoryTransaction(tr2) {
+    return tr2.getMeta(historyKey) != null;
+  }
 
-  // node_modules/@tiptap/extension-history/dist/index.js
-  var History = Extension.create({
-    name: "history",
-    addOptions() {
-      return {
-        depth: 100,
-        newGroupDelay: 500
+  // node_modules/@tiptap/core/dist/index.js
+  function createChainableState(config) {
+    const { state, transaction } = config;
+    let { selection } = transaction;
+    let { doc: doc3 } = transaction;
+    let { storedMarks } = transaction;
+    return {
+      ...state,
+      apply: state.apply.bind(state),
+      applyTransaction: state.applyTransaction.bind(state),
+      plugins: state.plugins,
+      schema: state.schema,
+      reconfigure: state.reconfigure.bind(state),
+      toJSON: state.toJSON.bind(state),
+      get storedMarks() {
+        return storedMarks;
+      },
+      get selection() {
+        return selection;
+      },
+      get doc() {
+        return doc3;
+      },
+      get tr() {
+        selection = transaction.selection;
+        doc3 = transaction.doc;
+        storedMarks = transaction.storedMarks;
+        return transaction;
+      }
+    };
+  }
+  var CommandManager = class CommandManager2 {
+    constructor(props) {
+      this.editor = props.editor;
+      this.rawCommands = this.editor.extensionManager.commands;
+      this.customState = props.state;
+    }
+    get hasCustomState() {
+      return !!this.customState;
+    }
+    get state() {
+      return this.customState || this.editor.state;
+    }
+    get commands() {
+      const { rawCommands, editor, state } = this;
+      const { view } = editor;
+      const { tr: tr2 } = state;
+      const props = this.buildProps(tr2);
+      return Object.fromEntries(Object.entries(rawCommands).map(([name, command2]) => {
+        const method = (...args) => {
+          const callback = command2(...args)(props);
+          if (!tr2.getMeta("preventDispatch") && !this.hasCustomState) view.dispatch(tr2);
+          return callback;
+        };
+        return [name, method];
+      }));
+    }
+    get chain() {
+      return () => this.createChain();
+    }
+    get can() {
+      return () => this.createCan();
+    }
+    createChain(startTr, shouldDispatch = true) {
+      const { rawCommands, editor, state } = this;
+      const { view } = editor;
+      const callbacks = [];
+      const hasStartTransaction = !!startTr;
+      const tr2 = startTr || state.tr;
+      const run3 = () => {
+        if (!hasStartTransaction && shouldDispatch && !tr2.getMeta("preventDispatch") && !this.hasCustomState) view.dispatch(tr2);
+        return callbacks.every((callback) => callback === true);
       };
+      const chain = {
+        ...Object.fromEntries(Object.entries(rawCommands).map(([name, command2]) => {
+          const chainedCommand = (...args) => {
+            const props = this.buildProps(tr2, shouldDispatch);
+            const callback = command2(...args)(props);
+            callbacks.push(callback);
+            return chain;
+          };
+          return [name, chainedCommand];
+        })),
+        run: run3
+      };
+      return chain;
+    }
+    /**
+    * Creates a chain that safely returns `false` when run.
+    * @returns A non-dispatching command chain.
+    * @example
+    * const chain = CommandManager.createFakeChain()
+    * chain.focus().run() // false
+    */
+    static createFakeChain() {
+      const chain = new Proxy({}, { get: (_target, property) => {
+        if (property === "then") return;
+        if (property === "run") return () => false;
+        return () => chain;
+      } });
+      return chain;
+    }
+    createCan(startTr) {
+      const { rawCommands, state } = this;
+      const dispatch = false;
+      const tr2 = startTr || state.tr;
+      const props = this.buildProps(tr2, dispatch);
+      return {
+        ...Object.fromEntries(Object.entries(rawCommands).map(([name, command2]) => {
+          return [name, (...args) => command2(...args)({
+            ...props,
+            dispatch: void 0
+          })];
+        })),
+        chain: () => this.createChain(tr2, dispatch)
+      };
+    }
+    /**
+    * Creates capability checks that safely return `false`.
+    * @returns A non-dispatching capability checker.
+    * @example
+    * const can = CommandManager.createFallbackCan()
+    * can.focus() // false
+    */
+    static createFallbackCan() {
+      const chain = CommandManager2.createFakeChain();
+      return new Proxy({ chain: () => chain }, { get: (target, property) => {
+        if (property === "then") return;
+        if (property === "chain") return target.chain;
+        return () => false;
+      } });
+    }
+    buildProps(tr2, shouldDispatch = true) {
+      const { rawCommands, editor, state } = this;
+      const { view } = editor;
+      const props = {
+        tr: tr2,
+        editor,
+        view,
+        state: createChainableState({
+          state,
+          transaction: tr2
+        }),
+        dispatch: shouldDispatch ? () => void 0 : void 0,
+        chain: () => this.createChain(tr2, shouldDispatch),
+        can: () => this.createCan(tr2),
+        get commands() {
+          return Object.fromEntries(Object.entries(rawCommands).map(([name, command2]) => {
+            return [name, (...args) => command2(...args)(props)];
+          }));
+        }
+      };
+      return props;
+    }
+  };
+  var blur = () => ({ editor, view }) => {
+    requestAnimationFrame(() => {
+      if (!editor.isDestroyed) {
+        var _window;
+        view.dom.blur();
+        (_window = window) === null || _window === void 0 || (_window = _window.getSelection()) === null || _window === void 0 || _window.removeAllRanges();
+      }
+    });
+    return true;
+  };
+  var clearContent = (emitUpdate = true) => ({ commands }) => {
+    return commands.setContent("", { emitUpdate });
+  };
+  var clearNodes = () => ({ state, tr: tr2, dispatch }) => {
+    const { selection } = tr2;
+    const { ranges } = selection;
+    if (!dispatch) return true;
+    ranges.forEach(({ $from, $to }) => {
+      state.doc.nodesBetween($from.pos, $to.pos, (node, pos) => {
+        if (node.type.isText) return;
+        const { doc: doc3, mapping } = tr2;
+        const $mappedFrom = doc3.resolve(mapping.map(pos));
+        const $mappedTo = doc3.resolve(mapping.map(pos + node.nodeSize));
+        const nodeRange = $mappedFrom.blockRange($mappedTo);
+        if (!nodeRange) return;
+        const targetLiftDepth = liftTarget(nodeRange);
+        if (node.type.isTextblock) {
+          const { defaultType } = $mappedFrom.parent.contentMatchAt($mappedFrom.index());
+          tr2.setNodeMarkup(nodeRange.start, defaultType);
+        }
+        if (targetLiftDepth || targetLiftDepth === 0) tr2.lift(nodeRange, targetLiftDepth);
+      });
+    });
+    return true;
+  };
+  var command = (fn) => (props) => {
+    return fn(props);
+  };
+  var createParagraphNear$1 = () => ({ state, dispatch }) => {
+    return createParagraphNear(state, dispatch);
+  };
+  var cut = (originRange, targetPos) => ({ editor, tr: tr2 }) => {
+    const { state } = editor;
+    const contentSlice = state.doc.slice(originRange.from, originRange.to);
+    tr2.deleteRange(originRange.from, originRange.to);
+    const newPos = tr2.mapping.map(targetPos);
+    tr2.insert(newPos, contentSlice.content);
+    tr2.setSelection(new TextSelection(tr2.doc.resolve(Math.max(newPos - 1, 0))));
+    return true;
+  };
+  var deleteCurrentNode = () => ({ tr: tr2, dispatch }) => {
+    const { selection } = tr2;
+    const currentNode = selection.$anchor.node();
+    if (currentNode.content.size > 0) return false;
+    const $pos = tr2.selection.$anchor;
+    for (let depth = $pos.depth; depth > 0; depth -= 1) if ($pos.node(depth).type === currentNode.type) {
+      if (dispatch) {
+        const from2 = $pos.before(depth);
+        const to = $pos.after(depth);
+        tr2.delete(from2, to).scrollIntoView();
+      }
+      return true;
+    }
+    return false;
+  };
+  function getNodeType(nameOrType, schema) {
+    if (typeof nameOrType === "string") {
+      if (!schema.nodes[nameOrType]) throw Error(`There is no node type named '${nameOrType}'. Maybe you forgot to add the extension?`);
+      return schema.nodes[nameOrType];
+    }
+    return nameOrType;
+  }
+  var deleteNode = (typeOrName) => ({ tr: tr2, state, dispatch }) => {
+    const type = getNodeType(typeOrName, state.schema);
+    const $pos = tr2.selection.$anchor;
+    for (let depth = $pos.depth; depth > 0; depth -= 1) if ($pos.node(depth).type === type) {
+      if (dispatch) {
+        const from2 = $pos.before(depth);
+        const to = $pos.after(depth);
+        tr2.delete(from2, to).scrollIntoView();
+      }
+      return true;
+    }
+    return false;
+  };
+  var deleteRange2 = (range) => ({ tr: tr2, dispatch }) => {
+    const { from: from2, to } = range;
+    if (dispatch) tr2.delete(from2, to);
+    return true;
+  };
+  var hasTextContent = (nodeSpec) => {
+    if (!nodeSpec.content) return false;
+    return /^text(\*|\+)/.test(nodeSpec.content);
+  };
+  var expandSelectionForSide = ($pos, schema, side) => {
+    if (!$pos.parent.isInline) return $pos.pos;
+    if (side === "left" && $pos.pos > $pos.start() || side === "right" && $pos.pos < $pos.end()) return $pos.pos;
+    const parentContent = schema.nodes[$pos.parent.type.name].spec;
+    if (!hasTextContent(parentContent)) return $pos.pos;
+    return side === "left" ? $pos.start() - 1 : $pos.end() + 1;
+  };
+  var expandSelectionForInlineText = ($from, $to, schema) => {
+    return {
+      from: expandSelectionForSide($from, schema, "left"),
+      to: expandSelectionForSide($to, schema, "right")
+    };
+  };
+  var deleteSelection2 = () => ({ state, dispatch }) => {
+    if (state.selection.empty) return false;
+    if (dispatch) {
+      const tr2 = state.tr;
+      const { ranges } = state.selection;
+      const mapFrom = tr2.steps.length;
+      ranges.forEach((range) => {
+        const mapping = tr2.mapping.slice(mapFrom);
+        const $from = tr2.doc.resolve(mapping.map(range.$from.pos));
+        const $to = tr2.doc.resolve(mapping.map(range.$to.pos));
+        const { from: from2, to } = expandSelectionForInlineText($from, $to, state.schema);
+        tr2.deleteRange(from2, to);
+      });
+      if (!tr2.selection.empty) tr2.setSelection(TextSelection.near(tr2.doc.resolve(tr2.selection.from)));
+      tr2.scrollIntoView();
+      dispatch(tr2);
+    }
+    return true;
+  };
+  var enter = () => ({ commands }) => {
+    return commands.keyboardShortcut("Enter");
+  };
+  var exitCode$1 = () => ({ state, dispatch }) => {
+    return exitCode(state, dispatch);
+  };
+  function isRegExp(value) {
+    return Object.prototype.toString.call(value) === "[object RegExp]";
+  }
+  function objectIncludes(object1, object2, options = { strict: true }) {
+    const keys2 = Object.keys(object2);
+    if (!keys2.length) return true;
+    return keys2.every((key) => {
+      if (options.strict) return object2[key] === object1[key];
+      if (isRegExp(object2[key])) return object2[key].test(object1[key]);
+      return object2[key] === object1[key];
+    });
+  }
+  function findMarkInSet(marks, type, attributes = {}) {
+    return marks.find((item) => {
+      return item.type === type && objectIncludes(Object.fromEntries(Object.keys(attributes).map((k) => [k, item.attrs[k]])), attributes);
+    });
+  }
+  function isMarkInSet(marks, type, attributes = {}) {
+    return !!findMarkInSet(marks, type, attributes);
+  }
+  function getMarkRange($pos, type, attributes) {
+    if (!$pos || !type) return;
+    let start = $pos.parent.childAfter($pos.parentOffset);
+    if (!start.node || !start.node.marks.some((mark) => mark.type === type)) start = $pos.parent.childBefore($pos.parentOffset);
+    if (!start.node || !start.node.marks.some((mark) => mark.type === type)) return;
+    if (!attributes) {
+      const firstMark = start.node.marks.find((mark) => mark.type === type);
+      if (firstMark) attributes = firstMark.attrs;
+    }
+    if (!findMarkInSet([...start.node.marks], type, attributes)) return;
+    let startIndex = start.index;
+    let startPos = $pos.start() + start.offset;
+    let endIndex = startIndex + 1;
+    let endPos = startPos + start.node.nodeSize;
+    while (startIndex > 0 && isMarkInSet([...$pos.parent.child(startIndex - 1).marks], type, attributes)) {
+      startIndex -= 1;
+      startPos -= $pos.parent.child(startIndex).nodeSize;
+    }
+    while (endIndex < $pos.parent.childCount && isMarkInSet([...$pos.parent.child(endIndex).marks], type, attributes)) {
+      endPos += $pos.parent.child(endIndex).nodeSize;
+      endIndex += 1;
+    }
+    return {
+      from: startPos,
+      to: endPos
+    };
+  }
+  function getMarkType(nameOrType, schema) {
+    if (typeof nameOrType === "string") {
+      if (!schema.marks[nameOrType]) throw Error(`There is no mark type named '${nameOrType}'. Maybe you forgot to add the extension?`);
+      return schema.marks[nameOrType];
+    }
+    return nameOrType;
+  }
+  var extendMarkRange = (typeOrName, attributes) => ({ tr: tr2, state, dispatch }) => {
+    const type = getMarkType(typeOrName, state.schema);
+    const { doc: doc3, selection } = tr2;
+    const { $from, from: from2, to } = selection;
+    if (dispatch) {
+      const range = getMarkRange($from, type, attributes);
+      if (range && range.from <= from2 && range.to >= to) {
+        const newSelection = TextSelection.create(doc3, range.from, range.to);
+        tr2.setSelection(newSelection);
+      }
+    }
+    return true;
+  };
+  var first = (commands) => (props) => {
+    const items = typeof commands === "function" ? commands(props) : commands;
+    for (let i = 0; i < items.length; i += 1) if (items[i](props)) return true;
+    return false;
+  };
+  function isTextSelection(value) {
+    return value instanceof TextSelection;
+  }
+  function minMax(value = 0, min = 0, max = 0) {
+    return Math.min(Math.max(value, min), max);
+  }
+  function resolveFocusPosition(doc3, position = null) {
+    if (!position) return null;
+    const selectionAtStart = Selection.atStart(doc3);
+    const selectionAtEnd = Selection.atEnd(doc3);
+    if (position === "start" || position === true) return selectionAtStart;
+    if (position === "end") return selectionAtEnd;
+    const minPos = selectionAtStart.from;
+    const maxPos = selectionAtEnd.to;
+    if (position === "all") return TextSelection.create(doc3, minMax(0, minPos, maxPos), minMax(doc3.content.size, minPos, maxPos));
+    return TextSelection.create(doc3, minMax(position, minPos, maxPos), minMax(position, minPos, maxPos));
+  }
+  function isAndroid() {
+    return ["Android"].includes(navigator.platform) || /android/i.test(navigator.userAgent);
+  }
+  function isiOS() {
+    return [
+      "iPad Simulator",
+      "iPhone Simulator",
+      "iPod Simulator",
+      "iPad",
+      "iPhone",
+      "iPod"
+    ].includes(navigator.platform) || navigator.userAgent.includes("Mac") && "ontouchend" in document;
+  }
+  function isSafari() {
+    return typeof navigator !== "undefined" ? /^((?!chrome|android).)*safari/i.test(navigator.userAgent) : false;
+  }
+  var focus = (position = null, options = {}) => ({ editor, view, tr: tr2, dispatch }) => {
+    options = {
+      scrollIntoView: true,
+      ...options
+    };
+    const delayedFocus = () => {
+      if (isiOS() || isAndroid()) view.dom.focus();
+      if (isSafari() && !isiOS() && !isAndroid()) view.dom.focus({ preventScroll: true });
+      requestAnimationFrame(() => {
+        if (!editor.isDestroyed) {
+          view.focus();
+          if (options === null || options === void 0 ? void 0 : options.scrollIntoView) editor.commands.scrollIntoView();
+        }
+      });
+    };
+    try {
+      if (view.hasFocus() && position === null || position === false) return true;
+    } catch {
+      return false;
+    }
+    if (dispatch && position === null && !isTextSelection(editor.state.selection)) {
+      delayedFocus();
+      return true;
+    }
+    const selection = resolveFocusPosition(tr2.doc, position) || editor.state.selection;
+    const isSameSelection = editor.state.selection.eq(selection);
+    if (dispatch) {
+      if (!isSameSelection) tr2.setSelection(selection);
+      if (isSameSelection && tr2.storedMarks) tr2.setStoredMarks(tr2.storedMarks);
+      delayedFocus();
+    }
+    return true;
+  };
+  var forEach2 = (items, fn) => (props) => {
+    return items.every((item, index) => fn(item, {
+      ...props,
+      index
+    }));
+  };
+  var insertContent = (value, options) => ({ tr: tr2, commands }) => {
+    return commands.insertContentAt({
+      from: tr2.selection.from,
+      to: tr2.selection.to
+    }, value, options);
+  };
+  var removeWhitespaces = (node) => {
+    const children = node.childNodes;
+    for (let i = children.length - 1; i >= 0; i -= 1) {
+      const child = children[i];
+      if (child.nodeType === 3 && child.nodeValue && /^(\n\s\s|\n)$/.test(child.nodeValue)) node.removeChild(child);
+      else if (child.nodeType === 1) removeWhitespaces(child);
+    }
+    return node;
+  };
+  function elementFromString(value) {
+    if (typeof window === "undefined") throw new Error("[tiptap error]: there is no window object available, so this function cannot be used");
+    const wrappedValue = `<body>${value}</body>`;
+    const html = new window.DOMParser().parseFromString(wrappedValue, "text/html").body;
+    return removeWhitespaces(html);
+  }
+  function isProseMirrorContent(value) {
+    return typeof (value === null || value === void 0 ? void 0 : value.nodesBetween) === "function";
+  }
+  function createNodeFromContent(content, schema, options) {
+    if (isProseMirrorContent(content)) return content;
+    const isJSONContent = typeof content === "object" && content !== null;
+    options = {
+      slice: true,
+      parseOptions: {},
+      ...options
+    };
+    const isTextContent = typeof content === "string";
+    if (isJSONContent) try {
+      if (Array.isArray(content) && content.length > 0) return Fragment.fromArray(content.map((item) => schema.nodeFromJSON(item)));
+      const node = schema.nodeFromJSON(content);
+      if (options.errorOnInvalidContent) node.check();
+      return node;
+    } catch (error) {
+      if (options.errorOnInvalidContent) throw new Error("[tiptap error]: Invalid JSON content", { cause: error });
+      console.warn("[tiptap warn]: Invalid content.", "Passed value:", content, "Error:", error);
+      return createNodeFromContent("", schema, options);
+    }
+    if (isTextContent) {
+      if (options.errorOnInvalidContent) {
+        let hasInvalidContent = false;
+        let invalidContent = "";
+        const contentCheckSchema = new Schema({
+          topNode: schema.spec.topNode,
+          marks: schema.spec.marks,
+          nodes: schema.spec.nodes.append({ __tiptap__private__unknown__catch__all__node: {
+            content: "inline*",
+            group: "block",
+            parseDOM: [{
+              tag: "*",
+              getAttrs: (e) => {
+                hasInvalidContent = true;
+                invalidContent = typeof e === "string" ? e : e.outerHTML;
+                return null;
+              }
+            }]
+          } })
+        });
+        if (options.slice) DOMParser.fromSchema(contentCheckSchema).parseSlice(elementFromString(content), options.parseOptions);
+        else DOMParser.fromSchema(contentCheckSchema).parse(elementFromString(content), options.parseOptions);
+        if (options.errorOnInvalidContent && hasInvalidContent) throw new Error("[tiptap error]: Invalid HTML content", { cause: /* @__PURE__ */ new Error(`Invalid element found: ${invalidContent}`) });
+      }
+      const parser = DOMParser.fromSchema(schema);
+      if (options.slice) return parser.parseSlice(elementFromString(content), options.parseOptions).content;
+      return parser.parse(elementFromString(content), options.parseOptions);
+    }
+    return createNodeFromContent("", schema, options);
+  }
+  function isFragment(nodeOrFragment) {
+    return !("type" in nodeOrFragment);
+  }
+  function selectionToInsertionEnd2(tr2, startLen, bias) {
+    const last = tr2.steps.length - 1;
+    if (last < startLen) return;
+    const step = tr2.steps[last];
+    if (!(step instanceof ReplaceStep || step instanceof ReplaceAroundStep)) return;
+    const map2 = tr2.mapping.maps[last];
+    let end = 0;
+    map2.forEach((_from, _to, _newFrom, newTo) => {
+      if (end === 0) end = newTo;
+    });
+    tr2.setSelection(Selection.near(tr2.doc.resolve(end), bias));
+  }
+  var insertContentAt = (position, value, options) => ({ tr: tr2, dispatch, editor }) => {
+    if (dispatch) {
+      options = {
+        parseOptions: editor.options.parseOptions,
+        updateSelection: true,
+        applyInputRules: false,
+        applyPasteRules: false,
+        ...options
+      };
+      let content;
+      const emitContentError = (error) => {
+        editor.emit("contentError", {
+          editor,
+          error,
+          disableCollaboration: () => {
+            if ("collaboration" in editor.storage && typeof editor.storage.collaboration === "object" && editor.storage.collaboration) editor.storage.collaboration.isDisabled = true;
+          }
+        });
+      };
+      const parseOptions = {
+        preserveWhitespace: "full",
+        ...options.parseOptions
+      };
+      if (!options.errorOnInvalidContent && !editor.options.enableContentCheck && editor.options.emitContentError) try {
+        createNodeFromContent(value, editor.schema, {
+          parseOptions,
+          errorOnInvalidContent: true
+        });
+      } catch (e) {
+        emitContentError(e);
+      }
+      try {
+        var _options$errorOnInval;
+        content = createNodeFromContent(value, editor.schema, {
+          parseOptions,
+          errorOnInvalidContent: (_options$errorOnInval = options.errorOnInvalidContent) !== null && _options$errorOnInval !== void 0 ? _options$errorOnInval : editor.options.enableContentCheck
+        });
+      } catch (e) {
+        emitContentError(e);
+        return false;
+      }
+      let { from: from2, to } = typeof position === "number" ? {
+        from: position,
+        to: position
+      } : {
+        from: position.from,
+        to: position.to
+      };
+      let isOnlyTextContent = true;
+      let isOnlyBlockContent = true;
+      const nodes = isFragment(content) ? content.content : [content];
+      nodes.forEach((node) => {
+        node.check();
+        isOnlyTextContent = isOnlyTextContent ? node.isText && node.marks.length === 0 : false;
+        isOnlyBlockContent = isOnlyBlockContent ? node.isBlock : false;
+      });
+      if (from2 === to && isOnlyBlockContent) {
+        const { parent } = tr2.doc.resolve(from2);
+        if (parent.isTextblock && !parent.type.spec.code && !parent.childCount) {
+          from2 -= 1;
+          to += 1;
+        }
+      }
+      let newContent;
+      if (isOnlyTextContent) {
+        if (Array.isArray(value)) newContent = value.map((item) => item.text || "").join("");
+        else if (isProseMirrorContent(value)) newContent = nodes.map((node) => {
+          var _node$text;
+          return (_node$text = node.text) !== null && _node$text !== void 0 ? _node$text : "";
+        }).join("");
+        else if (typeof value === "object" && !!value && !!value.text) newContent = value.text;
+        else newContent = value;
+        tr2.insertText(newContent, from2, to);
+      } else {
+        newContent = Fragment.from(nodes);
+        const $from = tr2.doc.resolve(from2);
+        const $fromNode = $from.node();
+        const fromSelectionAtStart = $from.parentOffset === 0;
+        const isTextSelection2 = $fromNode.isText || $fromNode.isTextblock;
+        const hasContent = $fromNode.content.size > 0;
+        if (fromSelectionAtStart && isTextSelection2 && hasContent && isOnlyBlockContent) from2 = Math.max(0, from2 - 1);
+        tr2.replaceWith(from2, to, nodes);
+      }
+      if (options.updateSelection) selectionToInsertionEnd2(tr2, tr2.steps.length - 1, -1);
+      if (options.applyInputRules) tr2.setMeta("applyInputRules", {
+        from: from2,
+        text: newContent
+      });
+      if (options.applyPasteRules) tr2.setMeta("applyPasteRules", {
+        from: from2,
+        text: newContent
+      });
+    }
+    return true;
+  };
+  function defaultBlockAt2(match) {
+    for (let i = 0; i < match.edgeCount; i += 1) {
+      const { type } = match.edge(i);
+      if (type.isTextblock && !type.hasRequiredAttrs()) return type;
+    }
+    return null;
+  }
+  var insertDefaultBlock = (options = {}) => ({ tr: tr2, dispatch, editor }) => {
+    const { pos, attrs, content, updateSelection: updateSelection2 = true } = options;
+    let $pos;
+    if (typeof pos === "number") $pos = tr2.doc.resolve(pos);
+    else if (pos) $pos = pos;
+    else $pos = tr2.selection.$from;
+    const defaultType = defaultBlockAt2($pos.parent.contentMatchAt($pos.index()));
+    if (!defaultType) return false;
+    const validAttrKeys = Object.keys(defaultType.spec.attrs || {});
+    const filteredAttrs = attrs ? Object.fromEntries(Object.entries(attrs).filter(([key]) => validAttrKeys.includes(key))) : {};
+    let node;
+    if (content) {
+      const parsed = createNodeFromContent(content, editor.schema);
+      node = defaultType.createAndFill(filteredAttrs, parsed);
+    } else node = defaultType.createAndFill(filteredAttrs);
+    if (!node) return false;
+    if (dispatch) {
+      tr2.insert($pos.pos, node);
+      if (updateSelection2) selectionToInsertionEnd2(tr2, tr2.steps.length - 1, -1);
+    }
+    return true;
+  };
+  var joinUp$1 = () => ({ state, dispatch }) => {
+    return joinUp(state, dispatch);
+  };
+  var joinDown$1 = () => ({ state, dispatch }) => {
+    return joinDown(state, dispatch);
+  };
+  var joinBackward$1 = () => ({ state, dispatch }) => {
+    return joinBackward(state, dispatch);
+  };
+  var joinForward$1 = () => ({ state, dispatch }) => {
+    return joinForward(state, dispatch);
+  };
+  var canJoinItemsAt = (doc3, pos) => {
+    const $pos = doc3.resolve(pos);
+    const before = $pos.nodeBefore;
+    const after = $pos.nodeAfter;
+    if (!before || !after) return false;
+    return !before.type.spec.isolating && !after.type.spec.isolating;
+  };
+  var joinItemBackward = () => ({ state, dispatch, tr: tr2 }) => {
+    try {
+      const point = joinPoint(state.doc, state.selection.$from.pos, -1);
+      if (point === null || point === void 0) return false;
+      if (!canJoinItemsAt(state.doc, point)) return false;
+      tr2.join(point, 2);
+      if (dispatch) dispatch(tr2);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  var joinItemForward = () => ({ state, dispatch, tr: tr2 }) => {
+    try {
+      const point = joinPoint(state.doc, state.selection.$from.pos, 1);
+      if (point === null || point === void 0) return false;
+      if (!canJoinItemsAt(state.doc, point)) return false;
+      tr2.join(point, 2);
+      if (dispatch) dispatch(tr2);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  var joinTextblockBackward$1 = () => ({ state, dispatch }) => {
+    return joinTextblockBackward(state, dispatch);
+  };
+  var joinTextblockForward$1 = () => ({ state, dispatch }) => {
+    return joinTextblockForward(state, dispatch);
+  };
+  function isMacOS() {
+    return typeof navigator !== "undefined" ? /Mac/.test(navigator.platform) : false;
+  }
+  function normalizeKeyName2(name) {
+    const parts = name.split(/-(?!$)/);
+    let result = parts[parts.length - 1];
+    if (result === "Space") result = " ";
+    let alt;
+    let ctrl;
+    let shift2;
+    let meta;
+    for (let i = 0; i < parts.length - 1; i += 1) {
+      const mod = parts[i];
+      if (/^(cmd|meta|m)$/i.test(mod)) meta = true;
+      else if (/^a(lt)?$/i.test(mod)) alt = true;
+      else if (/^(c|ctrl|control)$/i.test(mod)) ctrl = true;
+      else if (/^s(hift)?$/i.test(mod)) shift2 = true;
+      else if (/^mod$/i.test(mod)) {
+        if (isiOS() || isMacOS()) meta = true;
+        else ctrl = true;
+      } else throw new Error(`Unrecognized modifier name: ${mod}`);
+    }
+    if (alt) result = `Alt-${result}`;
+    if (ctrl) result = `Ctrl-${result}`;
+    if (meta) result = `Meta-${result}`;
+    if (shift2) result = `Shift-${result}`;
+    return result;
+  }
+  var keyboardShortcut = (name) => ({ editor, view, tr: tr2, dispatch }) => {
+    const keys2 = normalizeKeyName2(name).split(/-(?!$)/);
+    const key = keys2.find((item) => ![
+      "Alt",
+      "Ctrl",
+      "Meta",
+      "Shift"
+    ].includes(item));
+    const event = new KeyboardEvent("keydown", {
+      key: key === "Space" ? " " : key,
+      altKey: keys2.includes("Alt"),
+      ctrlKey: keys2.includes("Ctrl"),
+      metaKey: keys2.includes("Meta"),
+      shiftKey: keys2.includes("Shift"),
+      bubbles: true,
+      cancelable: true
+    });
+    const capturedTransaction = editor.captureTransaction(() => {
+      view.someProp("handleKeyDown", (f) => f(view, event));
+    });
+    capturedTransaction === null || capturedTransaction === void 0 || capturedTransaction.steps.forEach((step) => {
+      const newStep = step.map(tr2.mapping);
+      if (newStep && dispatch) tr2.maybeStep(newStep);
+    });
+    return true;
+  };
+  function isNodeActive(state, typeOrName, attributes = {}) {
+    const { from: from2, to, empty: empty2 } = state.selection;
+    const type = typeOrName ? getNodeType(typeOrName, state.schema) : null;
+    const nodeRanges = [];
+    state.doc.nodesBetween(from2, to, (node, pos) => {
+      if (node.isText) return;
+      const relativeFrom = Math.max(from2, pos);
+      const relativeTo = Math.min(to, pos + node.nodeSize);
+      nodeRanges.push({
+        node,
+        from: relativeFrom,
+        to: relativeTo
+      });
+    });
+    const selectionRange = to - from2;
+    const matchedNodeRanges = nodeRanges.filter((nodeRange) => {
+      if (!type) return true;
+      return type.name === nodeRange.node.type.name;
+    }).filter((nodeRange) => objectIncludes(nodeRange.node.attrs, attributes, { strict: false }));
+    if (empty2) return !!matchedNodeRanges.length;
+    return matchedNodeRanges.reduce((sum, nodeRange) => sum + nodeRange.to - nodeRange.from, 0) >= selectionRange;
+  }
+  var lift$1 = (typeOrName, attributes = {}) => ({ state, dispatch }) => {
+    if (!isNodeActive(state, getNodeType(typeOrName, state.schema), attributes)) return false;
+    return lift2(state, dispatch);
+  };
+  var liftEmptyBlock$1 = () => ({ state, dispatch }) => {
+    return liftEmptyBlock(state, dispatch);
+  };
+  var liftListItem$1 = (typeOrName) => ({ state, dispatch }) => {
+    const type = getNodeType(typeOrName, state.schema);
+    return liftListItem(type)(state, dispatch);
+  };
+  var newlineInCode$1 = () => ({ state, dispatch }) => {
+    return newlineInCode(state, dispatch);
+  };
+  function getSchemaTypeNameByName(name, schema) {
+    if (schema.nodes[name]) return "node";
+    if (schema.marks[name]) return "mark";
+    return null;
+  }
+  function deleteProps(obj, propOrProps) {
+    const props = typeof propOrProps === "string" ? [propOrProps] : propOrProps;
+    return Object.keys(obj).reduce((newObj, prop) => {
+      if (!props.includes(prop)) newObj[prop] = obj[prop];
+      return newObj;
+    }, {});
+  }
+  var resetAttributes = (typeOrName, attributes) => ({ tr: tr2, state, dispatch }) => {
+    let nodeType = null;
+    let markType = null;
+    const schemaType = getSchemaTypeNameByName(typeof typeOrName === "string" ? typeOrName : typeOrName.name, state.schema);
+    if (!schemaType) return false;
+    if (schemaType === "node") nodeType = getNodeType(typeOrName, state.schema);
+    if (schemaType === "mark") markType = getMarkType(typeOrName, state.schema);
+    let canReset = false;
+    tr2.selection.ranges.forEach((range) => {
+      state.doc.nodesBetween(range.$from.pos, range.$to.pos, (node, pos) => {
+        if (nodeType && nodeType === node.type) {
+          canReset = true;
+          if (dispatch) tr2.setNodeMarkup(pos, void 0, deleteProps(node.attrs, attributes));
+        }
+        if (markType && node.marks.length) node.marks.forEach((mark) => {
+          if (markType === mark.type) {
+            canReset = true;
+            if (dispatch) tr2.addMark(pos, pos + node.nodeSize, markType.create(deleteProps(mark.attrs, attributes)));
+          }
+        });
+      });
+    });
+    return canReset;
+  };
+  var scrollIntoView = () => ({ tr: tr2, dispatch }) => {
+    if (dispatch) tr2.scrollIntoView();
+    return true;
+  };
+  var selectAll2 = () => ({ tr: tr2, dispatch }) => {
+    if (dispatch) {
+      const selection = new AllSelection(tr2.doc);
+      tr2.setSelection(selection);
+    }
+    return true;
+  };
+  var selectNodeBackward$1 = () => ({ state, dispatch }) => {
+    return selectNodeBackward(state, dispatch);
+  };
+  var selectNodeForward$1 = () => ({ state, dispatch }) => {
+    return selectNodeForward(state, dispatch);
+  };
+  var selectParentNode$1 = () => ({ state, dispatch }) => {
+    return selectParentNode(state, dispatch);
+  };
+  var selectTextblockEnd$1 = () => ({ state, dispatch }) => {
+    return selectTextblockEnd(state, dispatch);
+  };
+  var selectTextblockStart$1 = () => ({ state, dispatch }) => {
+    return selectTextblockStart(state, dispatch);
+  };
+  function createDocument(content, schema, parseOptions = {}, options = {}) {
+    return createNodeFromContent(content, schema, {
+      slice: false,
+      parseOptions,
+      errorOnInvalidContent: options.errorOnInvalidContent
+    });
+  }
+  var setContent = (content, { errorOnInvalidContent, emitUpdate = true, parseOptions = {} } = {}) => ({ editor, tr: tr2, dispatch, commands }) => {
+    const { doc: doc3 } = tr2;
+    if (parseOptions.preserveWhitespace !== "full") {
+      const document2 = createDocument(content, editor.schema, parseOptions, { errorOnInvalidContent: errorOnInvalidContent !== null && errorOnInvalidContent !== void 0 ? errorOnInvalidContent : editor.options.enableContentCheck });
+      if (dispatch) {
+        const nodes = isFragment(document2) ? document2.content : [document2];
+        tr2.replaceWith(0, doc3.content.size, nodes).setMeta("preventUpdate", !emitUpdate);
+      }
+      return true;
+    }
+    if (dispatch) tr2.setMeta("preventUpdate", !emitUpdate);
+    return commands.insertContentAt({
+      from: 0,
+      to: doc3.content.size
+    }, content, {
+      parseOptions,
+      errorOnInvalidContent: errorOnInvalidContent !== null && errorOnInvalidContent !== void 0 ? errorOnInvalidContent : editor.options.enableContentCheck
+    });
+  };
+  function getMarkAttributes(state, typeOrName) {
+    const type = getMarkType(typeOrName, state.schema);
+    const { from: from2, to, empty: empty2 } = state.selection;
+    const marks = [];
+    if (empty2) {
+      if (state.storedMarks) marks.push(...state.storedMarks);
+      marks.push(...state.selection.$head.marks());
+    } else state.doc.nodesBetween(from2, to, (node) => {
+      marks.push(...node.marks);
+    });
+    const mark = marks.find((markItem) => markItem.type.name === type.name);
+    if (!mark) return {};
+    return { ...mark.attrs };
+  }
+  function combineTransactionSteps(oldDoc, transactions) {
+    const transform = new Transform(oldDoc);
+    transactions.forEach((transaction) => {
+      transaction.steps.forEach((step) => {
+        transform.step(step);
+      });
+    });
+    return transform;
+  }
+  function findChildrenInRange(node, range, predicate) {
+    const nodesWithPos = [];
+    node.nodesBetween(range.from, range.to, (child, pos) => {
+      if (predicate(child)) nodesWithPos.push({
+        node: child,
+        pos
+      });
+    });
+    return nodesWithPos;
+  }
+  function findParentNodeClosestToPos($pos, predicate) {
+    for (let i = $pos.depth; i > 0; i -= 1) {
+      const node = $pos.node(i);
+      if (predicate(node)) return {
+        pos: i > 0 ? $pos.before(i) : 0,
+        start: $pos.start(i),
+        depth: i,
+        node
+      };
+    }
+  }
+  function findParentNode(predicate) {
+    return (selection) => findParentNodeClosestToPos(selection.$from, predicate);
+  }
+  function getExtensionField(extension, field, context) {
+    if (extension.config[field] === void 0 && extension.parent) return getExtensionField(extension.parent, field, context);
+    if (typeof extension.config[field] === "function") return extension.config[field].bind({
+      ...context,
+      parent: extension.parent ? getExtensionField(extension.parent, field, context) : null
+    });
+    return extension.config[field];
+  }
+  function flattenExtensions(extensions) {
+    return extensions.map((extension) => {
+      const addExtensions = getExtensionField(extension, "addExtensions", {
+        name: extension.name,
+        options: extension.options,
+        storage: extension.storage
+      });
+      if (addExtensions) return [extension, ...flattenExtensions(addExtensions())];
+      return extension;
+    }).flat(10);
+  }
+  function getHTMLFromFragment(fragment, schema) {
+    const documentFragment = DOMSerializer.fromSchema(schema).serializeFragment(fragment);
+    const container = document.implementation.createHTMLDocument().createElement("div");
+    container.appendChild(documentFragment);
+    return container.innerHTML;
+  }
+  function getSchemaAttributes(attributes, schema) {
+    const attributesByType = /* @__PURE__ */ new Map();
+    for (const attribute of attributes) {
+      var _attributesByType$get;
+      const typeAttributes = (_attributesByType$get = attributesByType.get(attribute.type)) !== null && _attributesByType$get !== void 0 ? _attributesByType$get : /* @__PURE__ */ new Map();
+      typeAttributes.set(attribute.name, attribute);
+      attributesByType.set(attribute.type, typeAttributes);
+    }
+    return [...Object.values(schema.nodes), ...Object.values(schema.marks)].flatMap((type) => {
+      var _type$spec$attrs;
+      return Object.entries((_type$spec$attrs = type.spec.attrs) !== null && _type$spec$attrs !== void 0 ? _type$spec$attrs : {}).map(([name, spec]) => {
+        var _attributesByType$get2;
+        const local = (_attributesByType$get2 = attributesByType.get(type.name)) === null || _attributesByType$get2 === void 0 ? void 0 : _attributesByType$get2.get(name);
+        const hasDefault = Object.hasOwn(spec, "default");
+        return {
+          type: type.name,
+          name,
+          attribute: {
+            rendered: true,
+            renderHTML: null,
+            parseHTML: null,
+            keepOnSplit: true,
+            ...local === null || local === void 0 ? void 0 : local.attribute,
+            default: spec.default,
+            isRequired: !hasDefault,
+            validate: spec.validate
+          }
+        };
+      });
+    });
+  }
+  var nodeSchemaFields = {
+    content: "string",
+    marks: "string",
+    group: "string",
+    inline: "boolean",
+    atom: "boolean",
+    selectable: "boolean",
+    draggable: "boolean",
+    code: "boolean",
+    whitespace: ["pre", "normal"],
+    definingAsContext: "boolean",
+    definingForContent: "boolean",
+    defining: "boolean",
+    isolating: "boolean",
+    linebreakReplacement: "boolean"
+  };
+  var markSchemaFields = {
+    inclusive: "boolean",
+    excludes: "string",
+    group: "string",
+    spanning: "boolean",
+    code: "boolean"
+  };
+  function structuralFields(spec, fields, path) {
+    return Object.fromEntries(Object.entries(fields).flatMap(([name, expected]) => {
+      const value = spec[name];
+      if (value === void 0) return [];
+      if (!(typeof expected === "string" ? typeof value === expected : typeof value === "string" && expected.includes(value))) throw new RangeError(`Invalid schemaSpec field '${path}.${name}'`);
+      return [[name, value]];
+    }));
+  }
+  function mergeType(name, local, external, fields) {
+    return {
+      ...Object.fromEntries(Object.entries(local).filter(([key]) => key !== "attrs" && !Object.hasOwn(fields, key))),
+      ...structuralFields(external, fields, name),
+      attrs: external.attrs
+    };
+  }
+  function checkTypes(local, external, kind) {
+    for (const name of Object.keys(external)) if (!Object.hasOwn(local, name)) throw new RangeError(`schemaSpec requires a local ${kind} extension named '${name}'`);
+    for (const name of Object.keys(local)) if (!Object.hasOwn(external, name)) throw new RangeError(`Local ${kind} extension '${name}' is not in schemaSpec`);
+  }
+  function mergeSchemaSpec(local, external) {
+    checkTypes(local.nodes, external.nodes, "node");
+    checkTypes(local.marks, external.marks, "mark");
+    let nodes = external.spec.nodes;
+    let marks = external.spec.marks;
+    external.spec.nodes.forEach((name, spec) => {
+      nodes = nodes.update(name, mergeType(name, local.nodes[name], spec, nodeSchemaFields));
+    });
+    external.spec.marks.forEach((name, spec) => {
+      marks = marks.update(name, mergeType(name, local.marks[name], spec, markSchemaFields));
+    });
+    return {
+      topNode: external.topNodeType.name,
+      nodes,
+      marks
+    };
+  }
+  function findDuplicates(items) {
+    const filtered = items.filter((el, index) => items.indexOf(el) !== index);
+    return Array.from(new Set(filtered));
+  }
+  function splitExtensions(extensions) {
+    return {
+      baseExtensions: extensions.filter((extension) => extension.type === "extension"),
+      nodeExtensions: extensions.filter((extension) => extension.type === "node"),
+      markExtensions: extensions.filter((extension) => extension.type === "mark")
+    };
+  }
+  function getAttributesFromExtensions(extensions) {
+    const extensionAttributes = [];
+    const { nodeExtensions, markExtensions } = splitExtensions(extensions);
+    const nodeAndMarkExtensions = [...nodeExtensions, ...markExtensions];
+    const defaultAttribute = {
+      default: null,
+      validate: void 0,
+      rendered: true,
+      renderHTML: null,
+      parseHTML: null,
+      keepOnSplit: true,
+      isRequired: false
+    };
+    const nodeExtensionTypes = nodeExtensions.filter((ext) => ext.name !== "text").map((ext) => ext.name);
+    const markExtensionTypes = markExtensions.map((ext) => ext.name);
+    const allExtensionTypes = [...nodeExtensionTypes, ...markExtensionTypes];
+    extensions.forEach((extension) => {
+      const addGlobalAttributes = getExtensionField(extension, "addGlobalAttributes", {
+        name: extension.name,
+        options: extension.options,
+        storage: extension.storage,
+        extensions: nodeAndMarkExtensions
+      });
+      if (!addGlobalAttributes) return;
+      addGlobalAttributes().forEach((globalAttribute) => {
+        let resolvedTypes;
+        if (Array.isArray(globalAttribute.types)) resolvedTypes = globalAttribute.types;
+        else if (globalAttribute.types === "*") resolvedTypes = allExtensionTypes;
+        else if (globalAttribute.types === "nodes") resolvedTypes = nodeExtensionTypes;
+        else if (globalAttribute.types === "marks") resolvedTypes = markExtensionTypes;
+        else resolvedTypes = [];
+        resolvedTypes.forEach((type) => {
+          Object.entries(globalAttribute.attributes).forEach(([name, attribute]) => {
+            extensionAttributes.push({
+              type,
+              name,
+              attribute: {
+                ...defaultAttribute,
+                ...attribute
+              }
+            });
+          });
+        });
+      });
+    });
+    nodeAndMarkExtensions.forEach((extension) => {
+      const addAttributes = getExtensionField(extension, "addAttributes", {
+        name: extension.name,
+        options: extension.options,
+        storage: extension.storage
+      });
+      if (!addAttributes) return;
+      const attributes = addAttributes();
+      Object.entries(attributes).forEach(([name, attribute]) => {
+        const mergedAttr = {
+          ...defaultAttribute,
+          ...attribute
+        };
+        if (typeof (mergedAttr === null || mergedAttr === void 0 ? void 0 : mergedAttr.default) === "function") mergedAttr.default = mergedAttr.default();
+        if ((mergedAttr === null || mergedAttr === void 0 ? void 0 : mergedAttr.isRequired) && (mergedAttr === null || mergedAttr === void 0 ? void 0 : mergedAttr.default) === void 0) delete mergedAttr.default;
+        extensionAttributes.push({
+          type: extension.name,
+          name,
+          attribute: mergedAttr
+        });
+      });
+    });
+    return extensionAttributes;
+  }
+  function isFunction(value) {
+    return typeof value === "function";
+  }
+  function callOrReturn(value, context = void 0, ...props) {
+    if (isFunction(value)) {
+      if (context) return value.bind(context)(...props);
+      return value(...props);
+    }
+    return value;
+  }
+  function isEmptyObject(value = {}) {
+    return Object.keys(value).length === 0 && value.constructor === Object;
+  }
+  function splitStyleDeclarations(styles) {
+    const result = [];
+    let current = "";
+    let inSingleQuote = false;
+    let inDoubleQuote = false;
+    let parenDepth = 0;
+    const length = styles.length;
+    for (let i = 0; i < length; i += 1) {
+      const char = styles[i];
+      if (char === "'" && !inDoubleQuote) {
+        inSingleQuote = !inSingleQuote;
+        current += char;
+        continue;
+      }
+      if (char === '"' && !inSingleQuote) {
+        inDoubleQuote = !inDoubleQuote;
+        current += char;
+        continue;
+      }
+      if (!inSingleQuote && !inDoubleQuote) {
+        if (char === "(") {
+          parenDepth += 1;
+          current += char;
+          continue;
+        }
+        if (char === ")" && parenDepth > 0) {
+          parenDepth -= 1;
+          current += char;
+          continue;
+        }
+        if (char === ";" && parenDepth === 0) {
+          result.push(current);
+          current = "";
+          continue;
+        }
+      }
+      current += char;
+    }
+    if (current) result.push(current);
+    return result;
+  }
+  function parseStyleEntries(styles) {
+    const pairs = [];
+    const declarations = splitStyleDeclarations(styles || "");
+    const numDeclarations = declarations.length;
+    for (let i = 0; i < numDeclarations; i += 1) {
+      const declaration = declarations[i];
+      const firstColonIndex = declaration.indexOf(":");
+      if (firstColonIndex === -1) continue;
+      const property = declaration.slice(0, firstColonIndex).trim();
+      const value = declaration.slice(firstColonIndex + 1).trim();
+      if (property && value) pairs.push([property, value]);
+    }
+    return pairs;
+  }
+  function mergeAttributes(...objects) {
+    return objects.filter((item) => !!item).reduce((items, item) => {
+      const mergedAttributes = { ...items };
+      Object.entries(item).forEach(([key, value]) => {
+        if (key === "__proto__") {
+          Object.defineProperty(mergedAttributes, key, {
+            configurable: true,
+            enumerable: true,
+            value,
+            writable: true
+          });
+          return;
+        }
+        if (!mergedAttributes[key]) {
+          mergedAttributes[key] = value;
+          return;
+        }
+        if (key === "class") {
+          const valueClasses = value ? String(value).split(" ") : [];
+          const existingClasses = mergedAttributes[key] ? mergedAttributes[key].split(" ") : [];
+          const insertClasses = valueClasses.filter((valueClass) => !existingClasses.includes(valueClass));
+          mergedAttributes[key] = [...existingClasses, ...insertClasses].join(" ");
+        } else if (key === "style") {
+          const styleMap = new Map([...parseStyleEntries(mergedAttributes[key]), ...parseStyleEntries(value)]);
+          mergedAttributes[key] = Array.from(styleMap.entries()).map(([property, val]) => `${property}: ${val}`).join("; ");
+        } else mergedAttributes[key] = value;
+      });
+      return mergedAttributes;
+    }, {});
+  }
+  function getRenderedAttributes(nodeOrMark, extensionAttributes) {
+    return extensionAttributes.filter((attribute) => attribute.type === nodeOrMark.type.name).filter((item) => item.attribute.rendered).map((item) => {
+      if (!item.attribute.renderHTML) return { [item.name]: nodeOrMark.attrs[item.name] };
+      return item.attribute.renderHTML(nodeOrMark.attrs) || {};
+    }).reduce((attributes, attribute) => mergeAttributes(attributes, attribute), {});
+  }
+  function fromString(value) {
+    if (typeof value !== "string") return value;
+    if (value.match(/^[+-]?(?:\d*\.)?\d+$/)) return Number(value);
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return value;
+  }
+  function injectExtensionAttributesToParseRule(parseRule, extensionAttributes) {
+    if ("style" in parseRule) return parseRule;
+    return {
+      ...parseRule,
+      getAttrs: (node) => {
+        const oldAttributes = parseRule.getAttrs ? parseRule.getAttrs(node) : parseRule.attrs;
+        if (oldAttributes === false) return false;
+        const newAttributes = extensionAttributes.reduce((items, item) => {
+          const value = item.attribute.parseHTML ? item.attribute.parseHTML(node) : fromString(node.getAttribute(item.name));
+          if (value === null || value === void 0) return items;
+          return {
+            ...items,
+            [item.name]: value
+          };
+        }, {});
+        return {
+          ...oldAttributes,
+          ...newAttributes
+        };
+      }
+    };
+  }
+  function cleanUpSchemaItem(data) {
+    return Object.fromEntries(Object.entries(data).filter(([key, value]) => {
+      if (key === "attrs" && isEmptyObject(value)) return false;
+      return value !== null && value !== void 0;
+    }));
+  }
+  function buildAttributeSpec(extensionAttribute) {
+    var _extensionAttribute$a, _extensionAttribute$a2;
+    const spec = {};
+    if (!(extensionAttribute === null || extensionAttribute === void 0 || (_extensionAttribute$a = extensionAttribute.attribute) === null || _extensionAttribute$a === void 0 ? void 0 : _extensionAttribute$a.isRequired) && "default" in ((extensionAttribute === null || extensionAttribute === void 0 ? void 0 : extensionAttribute.attribute) || {})) spec.default = extensionAttribute.attribute.default;
+    if ((extensionAttribute === null || extensionAttribute === void 0 || (_extensionAttribute$a2 = extensionAttribute.attribute) === null || _extensionAttribute$a2 === void 0 ? void 0 : _extensionAttribute$a2.validate) !== void 0) spec.validate = extensionAttribute.attribute.validate;
+    return [extensionAttribute.name, spec];
+  }
+  function getSchemaSpecByResolvedExtensions(extensions, editor, allAttributes = getAttributesFromExtensions(extensions)) {
+    var _nodeExtensions$find;
+    const { nodeExtensions, markExtensions } = splitExtensions(extensions);
+    return {
+      topNode: (_nodeExtensions$find = nodeExtensions.find((extension) => getExtensionField(extension, "topNode"))) === null || _nodeExtensions$find === void 0 ? void 0 : _nodeExtensions$find.name,
+      nodes: Object.fromEntries(nodeExtensions.map((extension) => {
+        const extensionAttributes = allAttributes.filter((attribute) => attribute.type === extension.name);
+        const context = {
+          name: extension.name,
+          options: extension.options,
+          storage: extension.storage,
+          editor
+        };
+        const schema = cleanUpSchemaItem({
+          ...extensions.reduce((fields, e) => {
+            const extendNodeSchema = getExtensionField(e, "extendNodeSchema", context);
+            return {
+              ...fields,
+              ...extendNodeSchema ? extendNodeSchema(extension) : {}
+            };
+          }, {}),
+          content: callOrReturn(getExtensionField(extension, "content", context)),
+          marks: callOrReturn(getExtensionField(extension, "marks", context)),
+          group: callOrReturn(getExtensionField(extension, "group", context)),
+          inline: callOrReturn(getExtensionField(extension, "inline", context)),
+          atom: callOrReturn(getExtensionField(extension, "atom", context)),
+          selectable: callOrReturn(getExtensionField(extension, "selectable", context)),
+          draggable: callOrReturn(getExtensionField(extension, "draggable", context)),
+          code: callOrReturn(getExtensionField(extension, "code", context)),
+          whitespace: callOrReturn(getExtensionField(extension, "whitespace", context)),
+          linebreakReplacement: callOrReturn(getExtensionField(extension, "linebreakReplacement", context)),
+          defining: callOrReturn(getExtensionField(extension, "defining", context)),
+          isolating: callOrReturn(getExtensionField(extension, "isolating", context)),
+          attrs: Object.fromEntries(extensionAttributes.map(buildAttributeSpec))
+        });
+        const parseHTML = callOrReturn(getExtensionField(extension, "parseHTML", context));
+        if (parseHTML) schema.parseDOM = parseHTML.map((parseRule) => injectExtensionAttributesToParseRule(parseRule, extensionAttributes));
+        const renderHTML = getExtensionField(extension, "renderHTML", context);
+        if (renderHTML) schema.toDOM = (node) => renderHTML({
+          node,
+          HTMLAttributes: getRenderedAttributes(node, extensionAttributes)
+        });
+        const renderText = getExtensionField(extension, "renderText", context);
+        if (renderText) schema.toText = renderText;
+        return [extension.name, schema];
+      })),
+      marks: Object.fromEntries(markExtensions.map((extension) => {
+        const extensionAttributes = allAttributes.filter((attribute) => attribute.type === extension.name);
+        const context = {
+          name: extension.name,
+          options: extension.options,
+          storage: extension.storage,
+          editor
+        };
+        const schema = cleanUpSchemaItem({
+          ...extensions.reduce((fields, e) => {
+            const extendMarkSchema = getExtensionField(e, "extendMarkSchema", context);
+            return {
+              ...fields,
+              ...extendMarkSchema ? extendMarkSchema(extension) : {}
+            };
+          }, {}),
+          inclusive: callOrReturn(getExtensionField(extension, "inclusive", context)),
+          excludes: callOrReturn(getExtensionField(extension, "excludes", context)),
+          group: callOrReturn(getExtensionField(extension, "group", context)),
+          spanning: callOrReturn(getExtensionField(extension, "spanning", context)),
+          code: callOrReturn(getExtensionField(extension, "code", context)),
+          attrs: Object.fromEntries(extensionAttributes.map(buildAttributeSpec))
+        });
+        const parseHTML = callOrReturn(getExtensionField(extension, "parseHTML", context));
+        if (parseHTML) schema.parseDOM = parseHTML.map((parseRule) => injectExtensionAttributesToParseRule(parseRule, extensionAttributes));
+        const renderHTML = getExtensionField(extension, "renderHTML", context);
+        if (renderHTML) schema.toDOM = (mark) => renderHTML({
+          mark,
+          HTMLAttributes: getRenderedAttributes(mark, extensionAttributes)
+        });
+        return [extension.name, schema];
+      }))
+    };
+  }
+  function getSchemaByResolvedExtensions(extensions, editor, schemaSpec) {
+    if (schemaSpec === void 0) return new Schema(getSchemaSpecByResolvedExtensions(extensions, editor));
+    const duplicates = findDuplicates(extensions.filter((extension) => extension.type !== "extension").map((extension) => extension.name));
+    if (duplicates.length) throw new RangeError(`Duplicate local schema types: ${duplicates.join(", ")}`);
+    const external = new Schema(schemaSpec);
+    const local = getSchemaSpecByResolvedExtensions(extensions, editor, getSchemaAttributes(getAttributesFromExtensions(extensions), external));
+    return new Schema(mergeSchemaSpec(local, external));
+  }
+  function sortExtensions(extensions) {
+    const defaultPriority = 100;
+    return extensions.sort((a, b) => {
+      const priorityA = getExtensionField(a, "priority") || defaultPriority;
+      const priorityB = getExtensionField(b, "priority") || defaultPriority;
+      if (priorityA > priorityB) return -1;
+      if (priorityA < priorityB) return 1;
+      return 0;
+    });
+  }
+  function resolveExtensions(extensions) {
+    const resolvedExtensions = sortExtensions(flattenExtensions(extensions));
+    const duplicatedNames = findDuplicates(resolvedExtensions.map((extension) => extension.name));
+    if (duplicatedNames.length) console.warn(`[tiptap warn]: Duplicate extension names found: [${duplicatedNames.map((item) => `'${item}'`).join(", ")}]. This can lead to issues.`);
+    return resolvedExtensions;
+  }
+  function getTextBetween(startNode, range, options) {
+    const { from: from2, to } = range;
+    const { blockSeparator = "\n\n", textSerializers = {} } = options || {};
+    let text = "";
+    startNode.nodesBetween(from2, to, (node, pos, parent, index) => {
+      if (node.isBlock && pos > from2) text += blockSeparator;
+      const textSerializer = textSerializers === null || textSerializers === void 0 ? void 0 : textSerializers[node.type.name];
+      if (textSerializer) {
+        if (parent) text += textSerializer({
+          node,
+          pos,
+          parent,
+          index,
+          range
+        });
+        return false;
+      }
+      if (node.isText) {
+        var _node$text;
+        text += node === null || node === void 0 || (_node$text = node.text) === null || _node$text === void 0 ? void 0 : _node$text.slice(Math.max(from2, pos) - pos, to - pos);
+      }
+    });
+    return text;
+  }
+  function getText2(node, options) {
+    return getTextBetween(node, {
+      from: 0,
+      to: node.content.size
+    }, options);
+  }
+  function getTextSerializersFromSchema(schema) {
+    return Object.fromEntries(Object.entries(schema.nodes).filter(([, node]) => node.spec.toText).map(([name, node]) => [name, node.spec.toText]));
+  }
+  function getNodeAttributes(state, typeOrName) {
+    const type = getNodeType(typeOrName, state.schema);
+    const { from: from2, to } = state.selection;
+    const nodes = [];
+    state.doc.nodesBetween(from2, to, (node2) => {
+      nodes.push(node2);
+    });
+    const node = nodes.reverse().find((nodeItem) => nodeItem.type.name === type.name);
+    if (!node) return {};
+    return { ...node.attrs };
+  }
+  function getAttributes(state, typeOrName) {
+    const schemaType = getSchemaTypeNameByName(typeof typeOrName === "string" ? typeOrName : typeOrName.name, state.schema);
+    if (schemaType === "node") return getNodeAttributes(state, typeOrName);
+    if (schemaType === "mark") return getMarkAttributes(state, typeOrName);
+    return {};
+  }
+  function removeDuplicates(array, by = JSON.stringify) {
+    const seen = {};
+    return array.filter((item) => {
+      const key = by(item);
+      return Object.prototype.hasOwnProperty.call(seen, key) ? false : seen[key] = true;
+    });
+  }
+  function simplifyChangedRanges(changes) {
+    const uniqueChanges = removeDuplicates(changes);
+    return uniqueChanges.length === 1 ? uniqueChanges : uniqueChanges.filter((change, index) => {
+      return !uniqueChanges.filter((_, i) => i !== index).some((otherChange) => {
+        return change.oldRange.from >= otherChange.oldRange.from && change.oldRange.to <= otherChange.oldRange.to && change.newRange.from >= otherChange.newRange.from && change.newRange.to <= otherChange.newRange.to;
+      });
+    });
+  }
+  function getChangedRanges(transform) {
+    const { mapping, steps } = transform;
+    const changes = [];
+    mapping.maps.forEach((stepMap, index) => {
+      const ranges = [];
+      if (!stepMap.ranges.length) {
+        const { from: from2, to } = steps[index];
+        if (from2 === void 0 || to === void 0) return;
+        ranges.push({
+          from: from2,
+          to
+        });
+      } else stepMap.forEach((from2, to) => {
+        ranges.push({
+          from: from2,
+          to
+        });
+      });
+      ranges.forEach(({ from: from2, to }) => {
+        const newStart = mapping.slice(index).map(from2, -1);
+        const newEnd = mapping.slice(index).map(to);
+        const oldStart = mapping.invert().map(newStart, -1);
+        const oldEnd = mapping.invert().map(newEnd);
+        changes.push({
+          oldRange: {
+            from: oldStart,
+            to: oldEnd
+          },
+          newRange: {
+            from: newStart,
+            to: newEnd
+          }
+        });
+      });
+    });
+    return simplifyChangedRanges(changes);
+  }
+  function getMarksBetween(from2, to, doc3) {
+    const marks = [];
+    if (from2 === to) doc3.resolve(from2).marks().forEach((mark) => {
+      const range = getMarkRange(doc3.resolve(from2), mark.type);
+      if (!range) return;
+      marks.push({
+        mark,
+        ...range
+      });
+    });
+    else doc3.nodesBetween(from2, to, (node, pos) => {
+      if (!node || (node === null || node === void 0 ? void 0 : node.nodeSize) === void 0) return;
+      marks.push(...node.marks.map((mark) => ({
+        from: pos,
+        to: pos + node.nodeSize,
+        mark
+      })));
+    });
+    return marks;
+  }
+  var getNodeAtPosition = (state, typeOrName, pos, maxDepth = 20) => {
+    const $pos = state.doc.resolve(pos);
+    let currentDepth = maxDepth;
+    let node = null;
+    while (currentDepth > 0 && node === null) {
+      const currentNode = $pos.node(currentDepth);
+      if ((currentNode === null || currentNode === void 0 ? void 0 : currentNode.type.name) === typeOrName) node = currentNode;
+      else currentDepth -= 1;
+    }
+    return [node, currentDepth];
+  };
+  var getPreviousBlockSibling = ($pos) => {
+    const parentDepth = $pos.depth - 1;
+    if (parentDepth < 0) return null;
+    const index = $pos.index(parentDepth);
+    if (index === 0) return null;
+    return $pos.node(parentDepth).child(index - 1);
+  };
+  function getSchemaTypeByName(name, schema) {
+    return schema.nodes[name] || schema.marks[name] || null;
+  }
+  function getSplittedAttributes(extensionAttributes, typeName, attributes) {
+    return Object.fromEntries(Object.entries(attributes).filter(([name]) => {
+      const extensionAttribute = extensionAttributes.find((item) => {
+        return item.type === typeName && item.name === name;
+      });
+      if (!extensionAttribute) return false;
+      return extensionAttribute.attribute.keepOnSplit;
+    }));
+  }
+  var getTextContentFromNodes = ($from, maxMatch = 500) => {
+    let textBefore = "";
+    const sliceEndPos = $from.parentOffset;
+    $from.parent.nodesBetween(Math.max(0, sliceEndPos - maxMatch), sliceEndPos, (node, pos, parent, index) => {
+      var _node$type$spec$toTex, _node$type$spec;
+      const chunk = ((_node$type$spec$toTex = (_node$type$spec = node.type.spec).toText) === null || _node$type$spec$toTex === void 0 ? void 0 : _node$type$spec$toTex.call(_node$type$spec, {
+        node,
+        pos,
+        parent,
+        index
+      })) || node.textContent || "%leaf%";
+      textBefore += node.isAtom && !node.isText ? chunk : chunk.slice(0, Math.max(0, sliceEndPos - pos));
+    });
+    return textBefore;
+  };
+  function isMarkActive(state, typeOrName, attributes = {}) {
+    const { empty: empty2, ranges } = state.selection;
+    const type = typeOrName ? getMarkType(typeOrName, state.schema) : null;
+    if (empty2) return !!(state.storedMarks || state.selection.$from.marks()).filter((mark) => {
+      if (!type) return true;
+      return type.name === mark.type.name;
+    }).find((mark) => objectIncludes(mark.attrs, attributes, { strict: false }));
+    let selectionRange = 0;
+    const markRanges = [];
+    ranges.forEach(({ $from, $to }) => {
+      const from2 = $from.pos;
+      const to = $to.pos;
+      state.doc.nodesBetween(from2, to, (node, pos) => {
+        if (type && node.inlineContent && !node.type.allowsMarkType(type)) return false;
+        if (!node.isText && !node.marks.length) return;
+        const relativeFrom = Math.max(from2, pos);
+        const relativeTo = Math.min(to, pos + node.nodeSize);
+        const range = relativeTo - relativeFrom;
+        selectionRange += range;
+        markRanges.push(...node.marks.map((mark) => ({
+          mark,
+          from: relativeFrom,
+          to: relativeTo
+        })));
+      });
+    });
+    if (selectionRange === 0) return false;
+    const matchedRange = markRanges.filter((markRange) => {
+      if (!type) return true;
+      return type.name === markRange.mark.type.name;
+    }).filter((markRange) => objectIncludes(markRange.mark.attrs, attributes, { strict: false })).reduce((sum, markRange) => sum + markRange.to - markRange.from, 0);
+    const excludedRange = markRanges.filter((markRange) => {
+      if (!type) return true;
+      return markRange.mark.type !== type && markRange.mark.type.excludes(type);
+    }).reduce((sum, markRange) => sum + markRange.to - markRange.from, 0);
+    return (matchedRange > 0 ? matchedRange + excludedRange : matchedRange) >= selectionRange;
+  }
+  function isActive(state, name, attributes = {}) {
+    if (!name) return isNodeActive(state, null, attributes) || isMarkActive(state, null, attributes);
+    const schemaType = getSchemaTypeNameByName(name, state.schema);
+    if (schemaType === "node") return isNodeActive(state, name, attributes);
+    if (schemaType === "mark") return isMarkActive(state, name, attributes);
+    return false;
+  }
+  var isAtEndOfNode = (state, nodeType) => {
+    const { $from, $to, $anchor } = state.selection;
+    if (nodeType) {
+      const parentNode2 = findParentNode((node) => node.type.name === nodeType)(state.selection);
+      if (!parentNode2) return false;
+      const $parentPos = state.doc.resolve(parentNode2.pos + 1);
+      if ($anchor.pos + 1 === $parentPos.end()) return true;
+      return false;
+    }
+    if ($to.parentOffset < $to.parent.nodeSize - 2 || $from.pos !== $to.pos) return false;
+    return true;
+  };
+  var isAtStartOfNode = (state) => {
+    const { $from, $to } = state.selection;
+    if ($from.parentOffset > 0 || $from.pos !== $to.pos) return false;
+    return true;
+  };
+  function isExtensionRulesEnabled(extension, enabled) {
+    if (Array.isArray(enabled)) return enabled.some((enabledExtension) => {
+      return (typeof enabledExtension === "string" ? enabledExtension : enabledExtension.name) === extension.name;
+    });
+    return enabled;
+  }
+  function isList(name, extensions) {
+    const { nodeExtensions } = splitExtensions(extensions);
+    const extension = nodeExtensions.find((item) => item.name === name);
+    if (!extension) return false;
+    const group = callOrReturn(getExtensionField(extension, "group", {
+      name: extension.name,
+      options: extension.options,
+      storage: extension.storage
+    }));
+    if (typeof group !== "string") return false;
+    return group.split(" ").includes("list");
+  }
+  function isNodeEmpty(node, { checkChildren = true, ignoreWhitespace = false } = {}) {
+    if (ignoreWhitespace) {
+      if (node.type.name === "hardBreak") return true;
+      if (node.isText) {
+        var _node$text;
+        return !/\S/.test((_node$text = node.text) !== null && _node$text !== void 0 ? _node$text : "");
+      }
+    }
+    if (node.isText) return !node.text;
+    if (node.isAtom || node.isLeaf) return false;
+    if (node.content.childCount === 0) return true;
+    if (checkChildren) {
+      let isContentEmpty = true;
+      node.content.forEach((childNode) => {
+        if (isContentEmpty === false) return;
+        if (!isNodeEmpty(childNode, {
+          ignoreWhitespace,
+          checkChildren
+        })) isContentEmpty = false;
+      });
+      return isContentEmpty;
+    }
+    return false;
+  }
+  function isNodeSelection(value) {
+    return value instanceof NodeSelection;
+  }
+  function isProseMirrorStep(value) {
+    if (value === null || typeof value !== "object") return false;
+    const step = value;
+    if (typeof step.apply !== "function" || typeof step.getMap !== "function" || typeof step.invert !== "function" || typeof step.map !== "function" || typeof step.merge !== "function" || typeof step.toJSON !== "function") return false;
+    return true;
+  }
+  function isProseMirrorReplaceStep(value) {
+    if (value === null || typeof value !== "object") return false;
+    const step = value;
+    if (!isProseMirrorStep(step)) return false;
+    const json = step.toJSON();
+    if (json === null || typeof json !== "object" || json.stepType !== "replace") return false;
+    return true;
+  }
+  var MappablePosition = class MappablePosition2 {
+    constructor(position) {
+      this.position = position;
+    }
+    /**
+    * Creates a MappablePosition from a JSON object.
+    */
+    static fromJSON(json) {
+      return new MappablePosition2(json.position);
+    }
+    /**
+    * Converts the MappablePosition to a JSON object.
+    */
+    toJSON() {
+      return { position: this.position };
+    }
+  };
+  function getUpdatedPosition(position, transaction) {
+    const mapResult = transaction.mapping.mapResult(position.position);
+    return {
+      position: new MappablePosition(mapResult.pos),
+      mapResult
+    };
+  }
+  function createMappablePosition(position) {
+    return new MappablePosition(position);
+  }
+  function canSetMark(state, tr2, newMarkType) {
+    const { selection } = tr2;
+    let cursor = null;
+    if (isTextSelection(selection)) cursor = selection.$cursor;
+    if (cursor) {
+      var _state$storedMarks;
+      const currentMarks = (_state$storedMarks = state.storedMarks) !== null && _state$storedMarks !== void 0 ? _state$storedMarks : cursor.marks();
+      return cursor.parent.type.allowsMarkType(newMarkType) && (!!newMarkType.isInSet(currentMarks) || !currentMarks.some((mark) => mark.type.excludes(newMarkType)));
+    }
+    const { ranges } = selection;
+    return ranges.some(({ $from, $to }) => {
+      let someNodeSupportsMark = $from.depth === 0 ? state.doc.inlineContent && state.doc.type.allowsMarkType(newMarkType) : false;
+      state.doc.nodesBetween($from.pos, $to.pos, (node, _pos, parent) => {
+        if (someNodeSupportsMark) return false;
+        if (node.isInline) {
+          const parentAllowsMarkType = !parent || parent.type.allowsMarkType(newMarkType);
+          const currentMarksAllowMarkType = !!newMarkType.isInSet(node.marks) || !node.marks.some((otherMark) => otherMark.type.excludes(newMarkType));
+          someNodeSupportsMark = parentAllowsMarkType && currentMarksAllowMarkType;
+        }
+        return !someNodeSupportsMark;
+      });
+      return someNodeSupportsMark;
+    });
+  }
+  var setMark = (typeOrName, attributes = {}) => ({ tr: tr2, state, dispatch }) => {
+    const { selection } = tr2;
+    const { empty: empty2, ranges } = selection;
+    const type = getMarkType(typeOrName, state.schema);
+    if (dispatch) {
+      if (empty2) {
+        const oldAttributes = getMarkAttributes(state, type);
+        tr2.addStoredMark(type.create({
+          ...oldAttributes,
+          ...attributes
+        }));
+      } else ranges.forEach((range) => {
+        const from2 = range.$from.pos;
+        const to = range.$to.pos;
+        state.doc.nodesBetween(from2, to, (node, pos) => {
+          const trimmedFrom = Math.max(pos, from2);
+          const trimmedTo = Math.min(pos + node.nodeSize, to);
+          if (node.marks.find((mark) => mark.type === type)) node.marks.forEach((mark) => {
+            if (type === mark.type) tr2.addMark(trimmedFrom, trimmedTo, type.create({
+              ...mark.attrs,
+              ...attributes
+            }));
+          });
+          else tr2.addMark(trimmedFrom, trimmedTo, type.create(attributes));
+        });
+      });
+    }
+    return canSetMark(state, tr2, type);
+  };
+  var setMeta = (key, value) => ({ tr: tr2 }) => {
+    tr2.setMeta(key, value);
+    return true;
+  };
+  var setNode = (typeOrName, attributes = {}) => ({ state, dispatch, chain }) => {
+    const type = getNodeType(typeOrName, state.schema);
+    let attributesToCopy;
+    if (state.selection.$anchor.sameParent(state.selection.$head)) attributesToCopy = state.selection.$anchor.parent.attrs;
+    if (!type.isTextblock) {
+      console.warn('[tiptap warn]: Currently "setNode()" only supports text block nodes.');
+      return false;
+    }
+    return chain().command(({ commands }) => {
+      if (setBlockType2(type, {
+        ...attributesToCopy,
+        ...attributes
+      })(state)) return true;
+      return commands.clearNodes();
+    }).command(({ state: updatedState }) => {
+      return setBlockType2(type, {
+        ...attributesToCopy,
+        ...attributes
+      })(updatedState, dispatch);
+    }).run();
+  };
+  var setNodeSelection = (position) => ({ tr: tr2, dispatch }) => {
+    if (dispatch) {
+      const { doc: doc3 } = tr2;
+      const from2 = minMax(position, 0, doc3.content.size);
+      const selection = NodeSelection.create(doc3, from2);
+      tr2.setSelection(selection);
+    }
+    return true;
+  };
+  var setTextDirection = (direction, position) => ({ tr: tr2, state, dispatch }) => {
+    const { selection } = state;
+    let from2;
+    let to;
+    if (typeof position === "number") {
+      from2 = position;
+      to = position;
+    } else if (position && "from" in position && "to" in position) {
+      from2 = position.from;
+      to = position.to;
+    } else {
+      from2 = selection.from;
+      to = selection.to;
+    }
+    if (dispatch) tr2.doc.nodesBetween(from2, to, (node, pos) => {
+      if (node.isText) return;
+      tr2.setNodeMarkup(pos, void 0, {
+        ...node.attrs,
+        dir: direction
+      });
+    });
+    return true;
+  };
+  var setTextSelection = (position) => ({ tr: tr2, dispatch }) => {
+    if (dispatch) {
+      const { doc: doc3 } = tr2;
+      const { from: from2, to } = typeof position === "number" ? {
+        from: position,
+        to: position
+      } : position;
+      const minPos = TextSelection.atStart(doc3).from;
+      const maxPos = TextSelection.atEnd(doc3).to;
+      const resolvedFrom = minMax(from2, minPos, maxPos);
+      const resolvedEnd = minMax(to, minPos, maxPos);
+      const selection = TextSelection.create(doc3, resolvedFrom, resolvedEnd);
+      tr2.setSelection(selection);
+    }
+    return true;
+  };
+  var sinkListItem$1 = (typeOrName) => ({ state, dispatch }) => {
+    const type = getNodeType(typeOrName, state.schema);
+    return sinkListItem(type)(state, dispatch);
+  };
+  function ensureMarks(state, splittableMarks) {
+    const marks = state.storedMarks || state.selection.$to.parentOffset && state.selection.$from.marks();
+    if (marks) {
+      const filteredMarks = marks.filter((mark) => splittableMarks === null || splittableMarks === void 0 ? void 0 : splittableMarks.includes(mark.type.name));
+      state.tr.ensureMarks(filteredMarks);
+    }
+  }
+  var splitBlock2 = ({ keepMarks = true } = {}) => ({ tr: tr2, state, dispatch, editor }) => {
+    const { selection, doc: doc3 } = tr2;
+    const { $from, $to } = selection;
+    const extensionAttributes = editor.extensionManager.attributes;
+    const newAttributes = getSplittedAttributes(extensionAttributes, $from.node().type.name, $from.node().attrs);
+    if (selection instanceof NodeSelection && selection.node.isBlock) {
+      if (!$from.parentOffset || !canSplit(doc3, $from.pos)) return false;
+      if (dispatch) {
+        if (keepMarks) ensureMarks(state, editor.extensionManager.splittableMarks);
+        tr2.split($from.pos).scrollIntoView();
+      }
+      return true;
+    }
+    if (!$from.parent.isBlock) return false;
+    const atEnd = $to.parentOffset === $to.parent.content.size;
+    const deflt = $from.depth === 0 ? void 0 : defaultBlockAt2($from.node(-1).contentMatchAt($from.indexAfter(-1)));
+    let types = atEnd && deflt ? [{
+      type: deflt,
+      attrs: newAttributes
+    }] : void 0;
+    const deletedTr = selection instanceof TextSelection && !selection.empty ? EditorState.create({
+      doc: tr2.doc,
+      selection
+    }).tr.deleteSelection() : null;
+    const splitDoc = deletedTr ? deletedTr.doc : tr2.doc;
+    const splitPos = deletedTr ? deletedTr.mapping.map($from.pos) : $from.pos;
+    let can = canSplit(splitDoc, splitPos, 1, types);
+    if (!types && !can && canSplit(splitDoc, splitPos, 1, deflt ? [{ type: deflt }] : void 0)) {
+      can = true;
+      types = deflt ? [{
+        type: deflt,
+        attrs: newAttributes
+      }] : void 0;
+    }
+    if (dispatch) {
+      if (can) {
+        const mapFrom = tr2.steps.length;
+        if (selection instanceof TextSelection) tr2.deleteSelection();
+        tr2.split(tr2.mapping.slice(mapFrom).map($from.pos), 1, types);
+        if (deflt && !atEnd && !$from.parentOffset && $from.parent.type !== deflt) {
+          const first2 = tr2.mapping.slice(mapFrom).map($from.before());
+          const $first = tr2.doc.resolve(first2);
+          if ($from.node(-1).canReplaceWith($first.index(), $first.index() + 1, deflt)) tr2.setNodeMarkup(tr2.mapping.slice(mapFrom).map($from.before()), deflt);
+        }
+      }
+      if (keepMarks) ensureMarks(state, editor.extensionManager.splittableMarks);
+      tr2.scrollIntoView();
+    }
+    return can;
+  };
+  var splitListItem = (typeOrName, overrideAttrs = {}) => ({ tr: tr2, state, dispatch, editor }) => {
+    const type = getNodeType(typeOrName, state.schema);
+    const { $from, $to } = state.selection;
+    const node = state.selection.node;
+    if (node && node.isBlock || $from.depth < 2 || !$from.sameParent($to)) return false;
+    const grandParent = $from.node(-1);
+    if (grandParent.type !== type) return false;
+    const extensionAttributes = editor.extensionManager.attributes;
+    if ($from.parent.content.size === 0 && $from.node(-1).childCount === $from.indexAfter(-1)) {
+      if ($from.depth === 2 || $from.node(-3).type !== type || $from.index(-2) !== $from.node(-2).childCount - 1) return false;
+      if (dispatch) {
+        var _type$contentMatch$de;
+        let wrap2 = Fragment.empty;
+        const depthBefore = $from.index(-1) ? 1 : $from.index(-2) ? 2 : 3;
+        for (let d = $from.depth - depthBefore; d >= $from.depth - 3; d -= 1) wrap2 = Fragment.from($from.node(d).copy(wrap2));
+        const depthAfter = $from.indexAfter(-1) < $from.node(-2).childCount ? 1 : $from.indexAfter(-2) < $from.node(-3).childCount ? 2 : 3;
+        const newNextTypeAttributes2 = {
+          ...getSplittedAttributes(extensionAttributes, $from.node().type.name, $from.node().attrs),
+          ...overrideAttrs
+        };
+        const nextType2 = ((_type$contentMatch$de = type.contentMatch.defaultType) === null || _type$contentMatch$de === void 0 ? void 0 : _type$contentMatch$de.createAndFill(newNextTypeAttributes2)) || void 0;
+        wrap2 = wrap2.append(Fragment.from(type.createAndFill(null, nextType2) || void 0));
+        const start = $from.before($from.depth - (depthBefore - 1));
+        tr2.replace(start, $from.after(-depthAfter), new Slice(wrap2, 4 - depthBefore, 0));
+        let sel = -1;
+        tr2.doc.nodesBetween(start, tr2.doc.content.size, (n, pos) => {
+          if (sel > -1) return false;
+          if (n.isTextblock && n.content.size === 0) sel = pos + 1;
+        });
+        if (sel > -1) tr2.setSelection(TextSelection.near(tr2.doc.resolve(sel)));
+        tr2.scrollIntoView();
+      }
+      return true;
+    }
+    const nextType = $to.pos === $from.end() ? grandParent.contentMatchAt(0).defaultType : null;
+    const newTypeAttributes = {
+      ...getSplittedAttributes(extensionAttributes, grandParent.type.name, grandParent.attrs),
+      ...overrideAttrs
+    };
+    const newNextTypeAttributes = {
+      ...getSplittedAttributes(extensionAttributes, $from.node().type.name, $from.node().attrs),
+      ...overrideAttrs
+    };
+    const splitsAtStartOfItem = $from.parentOffset === 0 && $from.index(-1) === 0;
+    const itemStart = $from.before(-1);
+    tr2.delete($from.pos, $to.pos);
+    const trailingTypeAttributes = splitsAtStartOfItem ? grandParent.attrs : newTypeAttributes;
+    const types = nextType ? [{
+      type,
+      attrs: trailingTypeAttributes
+    }, {
+      type: nextType,
+      attrs: newNextTypeAttributes
+    }] : [{
+      type,
+      attrs: trailingTypeAttributes
+    }];
+    if (!canSplit(tr2.doc, $from.pos, 2)) return false;
+    if (dispatch) {
+      const { selection, storedMarks } = state;
+      const { splittableMarks } = editor.extensionManager;
+      const marks = storedMarks || selection.$to.parentOffset && selection.$from.marks();
+      tr2.split($from.pos, 2, types).scrollIntoView();
+      if (splitsAtStartOfItem) tr2.setNodeMarkup(itemStart, void 0, newTypeAttributes);
+      if (!marks || !dispatch) return true;
+      const filteredMarks = marks.filter((mark) => splittableMarks.includes(mark.type.name));
+      tr2.ensureMarks(filteredMarks);
+    }
+    return true;
+  };
+  function createNode(type, content, attrs) {
+    if (!type.validContent(content)) return null;
+    try {
+      return type.create(attrs, content);
+    } catch {
+      return null;
+    }
+  }
+  function flushPendingContent(state, itemType) {
+    if (state.pendingContent.length === 0) return true;
+    const item = createNode(itemType, Fragment.from(state.pendingContent));
+    if (!item) return false;
+    state.items.push(item);
+    state.pendingContent = [];
+    return true;
+  }
+  function appendContentNode(node, state, itemType) {
+    if (itemType.validContent(Fragment.from([...state.pendingContent, node]))) {
+      state.pendingContent.push(node);
+      return true;
+    }
+    if (!flushPendingContent(state, itemType) || !itemType.validContent(Fragment.from(node))) return false;
+    state.pendingContent.push(node);
+    return true;
+  }
+  function appendNestedList(sourceList, state, context, convertListItems2) {
+    const nestedItems = convertListItems2(sourceList, context);
+    if (!nestedItems) return false;
+    const nestedList = createNode(context.listType, Fragment.from(nestedItems), sourceList.attrs);
+    if (!nestedList) return false;
+    if (context.itemType.validContent(Fragment.from([...state.pendingContent, nestedList]))) {
+      state.pendingContent.push(nestedList);
+      return true;
+    }
+    if (!flushPendingContent(state, context.itemType)) return false;
+    state.items.push(...nestedItems);
+    return true;
+  }
+  function convertListItem(sourceItem, context, convertListItems2) {
+    const state = {
+      items: [],
+      pendingContent: []
+    };
+    for (let index = 0; index < sourceItem.childCount; index += 1) {
+      const child = sourceItem.child(index);
+      if (!(context.isListNode(child) ? appendNestedList(child, state, context, convertListItems2) : appendContentNode(child, state, context.itemType))) return null;
+    }
+    return flushPendingContent(state, context.itemType) ? state.items : null;
+  }
+  function convertListItems(sourceList, context) {
+    const convertedItems = [];
+    for (let index = 0; index < sourceList.childCount; index += 1) {
+      const items = convertListItem(sourceList.child(index), context, convertListItems);
+      if (!items) return null;
+      convertedItems.push(...items);
+    }
+    return convertedItems;
+  }
+  function findNodePosition(root, target) {
+    let targetPos = null;
+    root.descendants((node, pos) => {
+      if (node !== target) return true;
+      targetPos = pos;
+      return false;
+    });
+    return targetPos;
+  }
+  function normalizeListType(type) {
+    return !type || type === "1" ? null : type;
+  }
+  function areListTypesCompatible(typeA, typeB) {
+    return normalizeListType(typeA) === normalizeListType(typeB);
+  }
+  var joinListBackwards = (tr2, listType) => {
+    const list = findParentNode((node) => node.type === listType)(tr2.selection);
+    if (!list) return true;
+    const before = tr2.doc.resolve(Math.max(0, list.pos - 1)).before(list.depth);
+    if (before === void 0) return true;
+    const nodeBefore = tr2.doc.nodeAt(before);
+    if (!(list.node.type === (nodeBefore === null || nodeBefore === void 0 ? void 0 : nodeBefore.type) && canJoin(tr2.doc, list.pos))) return true;
+    if (!areListTypesCompatible(list.node.attrs.type, nodeBefore === null || nodeBefore === void 0 ? void 0 : nodeBefore.attrs.type)) return true;
+    tr2.join(list.pos);
+    return true;
+  };
+  var joinListForwards = (tr2, listType) => {
+    const list = findParentNode((node) => node.type === listType)(tr2.selection);
+    if (!list) return true;
+    const after = tr2.doc.resolve(list.start).after(list.depth);
+    if (after === void 0) return true;
+    const nodeAfter = tr2.doc.nodeAt(after);
+    if (!(list.node.type === (nodeAfter === null || nodeAfter === void 0 ? void 0 : nodeAfter.type) && canJoin(tr2.doc, after))) return true;
+    if (!areListTypesCompatible(list.node.attrs.type, nodeAfter === null || nodeAfter === void 0 ? void 0 : nodeAfter.attrs.type)) return true;
+    tr2.join(after);
+    return true;
+  };
+  function createInnerSelectionForWholeDocList(tr2) {
+    const doc3 = tr2.doc;
+    const list = doc3.firstChild;
+    if (!list) return null;
+    const $start = doc3.resolve(1);
+    const $end = doc3.resolve(list.nodeSize - 1);
+    return TextSelection.between($start, $end);
+  }
+  var toggleList = (listTypeOrName, itemTypeOrName, keepMarks, attributes = {}) => ({ editor, tr: tr2, state, dispatch, chain, commands, can }) => {
+    const { extensions, splittableMarks } = editor.extensionManager;
+    const listType = getNodeType(listTypeOrName, state.schema);
+    const itemType = getNodeType(itemTypeOrName, state.schema);
+    const { selection, storedMarks } = state;
+    const { $from, $to } = selection;
+    const range = $from.blockRange($to);
+    const marks = storedMarks || selection.$to.parentOffset && selection.$from.marks();
+    if (!range) return false;
+    const parentList = findParentNode((node) => isList(node.type.name, extensions))(selection);
+    const isAllSelection = selection.from === 0 && selection.to === state.doc.content.size;
+    const topLevelNodes = state.doc.content.content;
+    const soleTopLevelNode = topLevelNodes.length === 1 ? topLevelNodes[0] : null;
+    const allSelectionList = isAllSelection && soleTopLevelNode && isList(soleTopLevelNode.type.name, extensions) ? {
+      node: soleTopLevelNode,
+      pos: 0,
+      depth: 0
+    } : null;
+    const currentList = parentList !== null && parentList !== void 0 ? parentList : allSelectionList;
+    const isInsideExistingList = !!parentList && range.depth >= 1 && range.depth - parentList.depth <= 1;
+    const hasWholeDocSelectedList = !!allSelectionList;
+    if ((isInsideExistingList || hasWholeDocSelectedList) && currentList) {
+      if (currentList.node.type === listType) {
+        if (isAllSelection && hasWholeDocSelectedList) return chain().command(({ tr: trx, dispatch: disp }) => {
+          const nextSelection = createInnerSelectionForWholeDocList(trx);
+          if (!nextSelection) return false;
+          trx.setSelection(nextSelection);
+          if (disp) disp(trx);
+          return true;
+        }).liftListItem(itemType).run();
+        return commands.liftListItem(itemType);
+      }
+      if (isList(currentList.node.type.name, extensions) && listType.validContent(currentList.node.content)) return chain().command(() => {
+        tr2.setNodeMarkup(currentList.pos, listType);
+        return true;
+      }).command(() => joinListBackwards(tr2, listType)).command(() => joinListForwards(tr2, listType)).run();
+      if (isList(currentList.node.type.name, extensions)) {
+        var _currentList$node$fir;
+        const currentItemType = (_currentList$node$fir = currentList.node.firstChild) === null || _currentList$node$fir === void 0 ? void 0 : _currentList$node$fir.type;
+        if (currentItemType && currentItemType !== itemType) {
+          const convertedItems = convertListItems(currentList.node, {
+            listType,
+            itemType,
+            isListNode: (node) => isList(node.type.name, extensions)
+          });
+          const convertedContent = convertedItems ? Fragment.from(convertedItems) : null;
+          if (!convertedContent || !listType.validContent(convertedContent)) return false;
+          return chain().command(() => {
+            const { $anchor, $head } = tr2.selection;
+            const anchorParent = $anchor.parent;
+            const headParent = $head.parent;
+            const anchorOffset = $anchor.parentOffset;
+            const headOffset = $head.parentOffset;
+            let newList;
+            try {
+              newList = listType.create(attributes, convertedContent);
+            } catch {
+              return false;
+            }
+            tr2.replaceWith(currentList.pos, currentList.pos + currentList.node.nodeSize, newList);
+            if (anchorParent.inlineContent && headParent.inlineContent) {
+              const anchorParentPos = findNodePosition(newList, anchorParent);
+              const headParentPos = findNodePosition(newList, headParent);
+              if (anchorParentPos !== null && headParentPos !== null) {
+                const anchor = currentList.pos + anchorParentPos + 2 + anchorOffset;
+                const head = currentList.pos + headParentPos + 2 + headOffset;
+                tr2.setSelection(TextSelection.create(tr2.doc, anchor, head));
+              }
+            }
+            return true;
+          }).command(() => joinListBackwards(tr2, listType)).command(() => joinListForwards(tr2, listType)).run();
+        }
+      }
+    }
+    if (!keepMarks || !marks || !dispatch) return chain().command(() => {
+      if (can().wrapInList(listType, attributes)) return true;
+      return commands.clearNodes();
+    }).wrapInList(listType, attributes).command(() => joinListBackwards(tr2, listType)).command(() => joinListForwards(tr2, listType)).run();
+    return chain().command(() => {
+      const canWrapInList = can().wrapInList(listType, attributes);
+      const filteredMarks = marks.filter((mark) => splittableMarks.includes(mark.type.name));
+      tr2.ensureMarks(filteredMarks);
+      if (canWrapInList) return true;
+      return commands.clearNodes();
+    }).wrapInList(listType, attributes).command(() => joinListBackwards(tr2, listType)).command(() => joinListForwards(tr2, listType)).run();
+  };
+  var toggleMark = (typeOrName, attributes = {}, options = {}) => ({ state, commands }) => {
+    const { extendEmptyMarkRange = false } = options;
+    const type = getMarkType(typeOrName, state.schema);
+    if (isMarkActive(state, type, attributes)) return commands.unsetMark(type, { extendEmptyMarkRange });
+    return commands.setMark(type, attributes);
+  };
+  var toggleNode = (typeOrName, toggleTypeOrName, attributes = {}) => ({ state, commands }) => {
+    const type = getNodeType(typeOrName, state.schema);
+    const toggleType = getNodeType(toggleTypeOrName, state.schema);
+    const isActive2 = isNodeActive(state, type, attributes);
+    let attributesToCopy;
+    if (state.selection.$anchor.sameParent(state.selection.$head)) attributesToCopy = state.selection.$anchor.parent.attrs;
+    if (isActive2) return commands.setNode(toggleType, attributesToCopy);
+    return commands.setNode(type, {
+      ...attributesToCopy,
+      ...attributes
+    });
+  };
+  var toggleWrap = (typeOrName, attributes = {}) => ({ state, commands }) => {
+    const type = getNodeType(typeOrName, state.schema);
+    if (isNodeActive(state, type, attributes)) return commands.lift(type);
+    return commands.wrapIn(type, attributes);
+  };
+  var undoInputRule = () => ({ state, dispatch }) => {
+    const plugins = state.plugins;
+    for (let i = 0; i < plugins.length; i += 1) {
+      const plugin = plugins[i];
+      let undoable;
+      if (plugin.spec.isInputRules && (undoable = plugin.getState(state))) {
+        if (dispatch) {
+          const tr2 = state.tr;
+          const toUndo = undoable.transform;
+          for (let j = toUndo.steps.length - 1; j >= 0; j -= 1) tr2.step(toUndo.steps[j].invert(toUndo.docs[j]));
+          if (undoable.text) {
+            const marks = tr2.doc.resolve(undoable.from).marks();
+            tr2.replaceWith(undoable.from, undoable.to, state.schema.text(undoable.text, marks));
+          } else tr2.delete(undoable.from, undoable.to);
+        }
+        return true;
+      }
+    }
+    return false;
+  };
+  var unsetAllMarks = (options = {}) => ({ tr: tr2, dispatch, editor }) => {
+    const { ignoreClearable = false } = options;
+    const { selection } = tr2;
+    const { empty: empty2, ranges } = selection;
+    if (empty2) return true;
+    const { nonClearableMarks } = editor.extensionManager;
+    if (dispatch) {
+      const clearableMarkTypes = Object.values(editor.schema.marks).filter((markType) => ignoreClearable || !nonClearableMarks.includes(markType.name));
+      ranges.forEach((range) => {
+        for (const markType of clearableMarkTypes) tr2.removeMark(range.$from.pos, range.$to.pos, markType);
+      });
+    }
+    return true;
+  };
+  var unsetMark = (typeOrName, options = {}) => ({ tr: tr2, state, dispatch }) => {
+    const { extendEmptyMarkRange = false } = options;
+    const { selection } = tr2;
+    const type = getMarkType(typeOrName, state.schema);
+    const { $from, empty: empty2, ranges } = selection;
+    if (!dispatch) return true;
+    if (empty2 && extendEmptyMarkRange) {
+      var _$from$marks$find;
+      let { from: from2, to } = selection;
+      const range = getMarkRange($from, type, (_$from$marks$find = $from.marks().find((mark) => mark.type === type)) === null || _$from$marks$find === void 0 ? void 0 : _$from$marks$find.attrs);
+      if (range) {
+        from2 = range.from;
+        to = range.to;
+      }
+      tr2.removeMark(from2, to, type);
+    } else ranges.forEach((range) => {
+      tr2.removeMark(range.$from.pos, range.$to.pos, type);
+    });
+    tr2.removeStoredMark(type);
+    return true;
+  };
+  var unsetTextDirection = (position) => ({ tr: tr2, state, dispatch }) => {
+    const { selection } = state;
+    let from2;
+    let to;
+    if (typeof position === "number") {
+      from2 = position;
+      to = position;
+    } else if (position && "from" in position && "to" in position) {
+      from2 = position.from;
+      to = position.to;
+    } else {
+      from2 = selection.from;
+      to = selection.to;
+    }
+    if (dispatch) tr2.doc.nodesBetween(from2, to, (node, pos) => {
+      if (node.isText) return;
+      const newAttrs = { ...node.attrs };
+      delete newAttrs.dir;
+      tr2.setNodeMarkup(pos, void 0, newAttrs);
+    });
+    return true;
+  };
+  var updateAttributes = (typeOrName, attributes = {}) => ({ tr: tr2, state, dispatch }) => {
+    let nodeType = null;
+    let markType = null;
+    const schemaType = getSchemaTypeNameByName(typeof typeOrName === "string" ? typeOrName : typeOrName.name, state.schema);
+    if (!schemaType) return false;
+    if (schemaType === "node") nodeType = getNodeType(typeOrName, state.schema);
+    if (schemaType === "mark") markType = getMarkType(typeOrName, state.schema);
+    let canUpdate = false;
+    tr2.selection.ranges.forEach((range) => {
+      const from2 = range.$from.pos;
+      const to = range.$to.pos;
+      let lastPos;
+      let lastNode;
+      let trimmedFrom;
+      let trimmedTo;
+      if (tr2.selection.empty) state.doc.nodesBetween(from2, to, (node, pos) => {
+        if (nodeType && nodeType === node.type) {
+          canUpdate = true;
+          trimmedFrom = Math.max(pos, from2);
+          trimmedTo = Math.min(pos + node.nodeSize, to);
+          lastPos = pos;
+          lastNode = node;
+        }
+      });
+      else state.doc.nodesBetween(from2, to, (node, pos) => {
+        if (pos < from2 && nodeType && nodeType === node.type) {
+          canUpdate = true;
+          trimmedFrom = Math.max(pos, from2);
+          trimmedTo = Math.min(pos + node.nodeSize, to);
+          lastPos = pos;
+          lastNode = node;
+        }
+        if (pos >= from2 && pos <= to) {
+          if (nodeType && nodeType === node.type) {
+            canUpdate = true;
+            if (dispatch) tr2.setNodeMarkup(pos, void 0, {
+              ...node.attrs,
+              ...attributes
+            });
+          }
+          if (markType && node.marks.length) node.marks.forEach((mark) => {
+            if (markType === mark.type) {
+              canUpdate = true;
+              if (dispatch) {
+                const trimmedFrom2 = Math.max(pos, from2);
+                const trimmedTo2 = Math.min(pos + node.nodeSize, to);
+                tr2.addMark(trimmedFrom2, trimmedTo2, markType.create({
+                  ...mark.attrs,
+                  ...attributes
+                }));
+              }
+            }
+          });
+        }
+      });
+      if (lastNode) {
+        if (lastPos !== void 0 && dispatch) tr2.setNodeMarkup(lastPos, void 0, {
+          ...lastNode.attrs,
+          ...attributes
+        });
+        if (markType && lastNode.marks.length) lastNode.marks.forEach((mark) => {
+          if (markType === mark.type && dispatch) tr2.addMark(trimmedFrom, trimmedTo, markType.create({
+            ...mark.attrs,
+            ...attributes
+          }));
+        });
+      }
+    });
+    return canUpdate;
+  };
+  var DECORATION_MANAGER_PLUGIN_KEY = new PluginKey("__tiptap_decorations__");
+  var updateDecorations = (extensionName) => ({ tr: tr2, dispatch }) => {
+    if (dispatch) tr2.setMeta(DECORATION_MANAGER_PLUGIN_KEY, {
+      type: "force",
+      name: extensionName
+    });
+    return true;
+  };
+  var wrapIn$1 = (typeOrName, attributes = {}) => ({ state, dispatch }) => {
+    const type = getNodeType(typeOrName, state.schema);
+    return wrapIn(type, attributes)(state, dispatch);
+  };
+  var wrapInList$1 = (typeOrName, attributes = {}) => ({ state, dispatch }) => {
+    const type = getNodeType(typeOrName, state.schema);
+    return wrapInList(type, attributes)(state, dispatch);
+  };
+  var commands_exports = /* @__PURE__ */ __exportAll({
+    blur: () => blur,
+    clearContent: () => clearContent,
+    clearNodes: () => clearNodes,
+    command: () => command,
+    createParagraphNear: () => createParagraphNear$1,
+    cut: () => cut,
+    deleteCurrentNode: () => deleteCurrentNode,
+    deleteNode: () => deleteNode,
+    deleteRange: () => deleteRange2,
+    deleteSelection: () => deleteSelection2,
+    enter: () => enter,
+    exitCode: () => exitCode$1,
+    extendMarkRange: () => extendMarkRange,
+    first: () => first,
+    focus: () => focus,
+    forEach: () => forEach2,
+    insertContent: () => insertContent,
+    insertContentAt: () => insertContentAt,
+    insertDefaultBlock: () => insertDefaultBlock,
+    joinBackward: () => joinBackward$1,
+    joinDown: () => joinDown$1,
+    joinForward: () => joinForward$1,
+    joinItemBackward: () => joinItemBackward,
+    joinItemForward: () => joinItemForward,
+    joinTextblockBackward: () => joinTextblockBackward$1,
+    joinTextblockForward: () => joinTextblockForward$1,
+    joinUp: () => joinUp$1,
+    keyboardShortcut: () => keyboardShortcut,
+    lift: () => lift$1,
+    liftEmptyBlock: () => liftEmptyBlock$1,
+    liftListItem: () => liftListItem$1,
+    newlineInCode: () => newlineInCode$1,
+    resetAttributes: () => resetAttributes,
+    scrollIntoView: () => scrollIntoView,
+    selectAll: () => selectAll2,
+    selectNodeBackward: () => selectNodeBackward$1,
+    selectNodeForward: () => selectNodeForward$1,
+    selectParentNode: () => selectParentNode$1,
+    selectTextblockEnd: () => selectTextblockEnd$1,
+    selectTextblockStart: () => selectTextblockStart$1,
+    setContent: () => setContent,
+    setMark: () => setMark,
+    setMeta: () => setMeta,
+    setNode: () => setNode,
+    setNodeSelection: () => setNodeSelection,
+    setTextDirection: () => setTextDirection,
+    setTextSelection: () => setTextSelection,
+    sinkListItem: () => sinkListItem$1,
+    splitBlock: () => splitBlock2,
+    splitListItem: () => splitListItem,
+    toggleList: () => toggleList,
+    toggleMark: () => toggleMark,
+    toggleNode: () => toggleNode,
+    toggleWrap: () => toggleWrap,
+    undoInputRule: () => undoInputRule,
+    unsetAllMarks: () => unsetAllMarks,
+    unsetMark: () => unsetMark,
+    unsetTextDirection: () => unsetTextDirection,
+    updateAttributes: () => updateAttributes,
+    updateDecorations: () => updateDecorations,
+    wrapIn: () => wrapIn$1,
+    wrapInList: () => wrapInList$1
+  });
+  var depthByEditor = /* @__PURE__ */ new WeakMap();
+  function runInDecorationApplyScope(editor, callback) {
+    var _depthByEditor$get;
+    depthByEditor.set(editor, ((_depthByEditor$get = depthByEditor.get(editor)) !== null && _depthByEditor$get !== void 0 ? _depthByEditor$get : 0) + 1);
+    try {
+      return callback();
+    } finally {
+      var _depthByEditor$get2;
+      const remaining = ((_depthByEditor$get2 = depthByEditor.get(editor)) !== null && _depthByEditor$get2 !== void 0 ? _depthByEditor$get2 : 1) - 1;
+      if (remaining > 0) depthByEditor.set(editor, remaining);
+      else depthByEditor.delete(editor);
+    }
+  }
+  function isInDecorationApplyScope(editor) {
+    return depthByEditor.has(editor);
+  }
+  var EventEmitter = class {
+    constructor() {
+      this.callbacks = {};
+    }
+    on(event, fn) {
+      if (!this.callbacks[event]) this.callbacks[event] = [];
+      this.callbacks[event].push(fn);
+      return this;
+    }
+    emit(event, ...args) {
+      const callbacks = this.callbacks[event];
+      if (callbacks) callbacks.forEach((callback) => callback.apply(this, args));
+      return this;
+    }
+    off(event, fn) {
+      const callbacks = this.callbacks[event];
+      if (callbacks) {
+        if (fn) this.callbacks[event] = callbacks.filter((callback) => callback !== fn);
+        else delete this.callbacks[event];
+      }
+      return this;
+    }
+    once(event, fn) {
+      const onceFn = (...args) => {
+        this.off(event, onceFn);
+        fn.apply(this, args);
+      };
+      return this.on(event, onceFn);
+    }
+    removeAllListeners() {
+      this.callbacks = {};
+    }
+  };
+  var isDev = typeof process !== "undefined" && true;
+  function isWidgetDecoration(decoration) {
+    return decoration.kind === "widget";
+  }
+  function decorationsToPMDecorations(decorations, extensionName) {
+    const pmDecorations = [];
+    const widgetKeys = /* @__PURE__ */ new Set();
+    for (const decoration of decorations) {
+      if (decoration.kind === "widget") {
+        if (isWidgetDecoration(decoration)) widgetKeys.add(decoration.key);
+      }
+      pmDecorations.push(decoration.toPMDecoration(extensionName));
+    }
+    return {
+      decorations: pmDecorations,
+      widgetKeys
+    };
+  }
+  function buildDecorationSet(doc3, decorations, extensionName) {
+    const { decorations: pmDecorations, widgetKeys } = decorationsToPMDecorations(decorations, extensionName);
+    return {
+      set: DecorationSet.create(doc3, pmDecorations),
+      widgetKeys
+    };
+  }
+  function rangeOwnsPosition({ position, from: from2, to, docSize }) {
+    if (position < from2) return false;
+    if (position < to) return true;
+    return position === to && to === docSize;
+  }
+  function filterOutOfRangeDecorations({ decorations, from: from2, to, docSize, extensionName, warnedExtensions }) {
+    return decorations.filter((decoration) => {
+      if (rangeOwnsPosition({
+        position: decoration.anchor,
+        from: from2,
+        to,
+        docSize
+      })) return true;
+      if (decoration.anchor === to) return false;
+      if (!warnedExtensions.has(extensionName)) {
+        warnedExtensions.add(extensionName);
+        console.warn(`[tiptap warn]: Extension "${extensionName}" returned a decoration outside the requested range [${from2}, ${to}). It was ignored.`);
+      }
+      return false;
+    });
+  }
+  function widgetKeyOf(decoration) {
+    var _decoration$spec;
+    const key = (_decoration$spec = decoration.spec) === null || _decoration$spec === void 0 ? void 0 : _decoration$spec.key;
+    return typeof key === "string" ? key : void 0;
+  }
+  function findDuplicateWidgetKeys(decorationSet) {
+    const extensionsByKey = /* @__PURE__ */ new Map();
+    const counts = /* @__PURE__ */ new Map();
+    for (const decoration of decorationSet.find()) {
+      var _extensionName, _extensionsByKey$get, _counts$get;
+      const key = widgetKeyOf(decoration);
+      if (!key) continue;
+      const extension = (_extensionName = decoration.spec.extensionName) !== null && _extensionName !== void 0 ? _extensionName : "unknown";
+      const extensions = (_extensionsByKey$get = extensionsByKey.get(key)) !== null && _extensionsByKey$get !== void 0 ? _extensionsByKey$get : /* @__PURE__ */ new Set();
+      extensions.add(extension);
+      extensionsByKey.set(key, extensions);
+      counts.set(key, ((_counts$get = counts.get(key)) !== null && _counts$get !== void 0 ? _counts$get : 0) + 1);
+    }
+    return Array.from(extensionsByKey, ([key, extensions]) => ({
+      key,
+      extensions
+    })).filter(({ key }) => {
+      var _counts$get2;
+      return ((_counts$get2 = counts.get(key)) !== null && _counts$get2 !== void 0 ? _counts$get2 : 0) > 1;
+    });
+  }
+  function isAttrStep(step) {
+    return step.jsonID === "attr";
+  }
+  function hasResolvableChangedRange(step) {
+    let hasMappedRange = false;
+    step.getMap().forEach(() => {
+      hasMappedRange = true;
+    });
+    if (hasMappedRange || isAttrStep(step)) return true;
+    const positionalStep = step;
+    return typeof positionalStep.from === "number" && typeof positionalStep.to === "number";
+  }
+  function blockRangeFor(doc3, changed) {
+    let from2 = null;
+    let to = 0;
+    let nodeStart = 0;
+    for (let index = 0; index < doc3.childCount; index += 1) {
+      if (nodeStart > changed.to) break;
+      const nodeEnd = nodeStart + doc3.child(index).nodeSize;
+      if (nodeEnd >= changed.from) {
+        if (from2 === null) from2 = nodeStart;
+        to = nodeEnd;
+      }
+      nodeStart = nodeEnd;
+    }
+    return from2 === null ? null : {
+      from: from2,
+      to
+    };
+  }
+  function getRebuildRanges(tr2, doc3) {
+    if (tr2.steps.some((step) => !hasResolvableChangedRange(step))) return { type: "full" };
+    const newRanges = getChangedRanges(tr2).map(({ newRange }) => newRange);
+    tr2.steps.forEach((step, index) => {
+      if (!isAttrStep(step)) return;
+      const mapping = tr2.mapping.slice(index);
+      newRanges.push({
+        from: mapping.map(step.pos, -1),
+        to: mapping.map(step.pos + 1)
+      });
+    });
+    const ranges = [];
+    for (const newRange of newRanges) {
+      const blockRange = blockRangeFor(doc3, newRange);
+      if (blockRange) ranges.push(blockRange);
+    }
+    ranges.sort((a, b) => a.from - b.from);
+    const merged = [];
+    for (const range of ranges) {
+      const last = merged[merged.length - 1];
+      if (last && range.from <= last.to) last.to = Math.max(last.to, range.to);
+      else merged.push({ ...range });
+    }
+    return {
+      type: "ranges",
+      ranges: merged
+    };
+  }
+  function mapDecorationSet(set, mapping, doc3, widgetKeys) {
+    return set.map(mapping, doc3, { onRemove: (removedSpec) => {
+      const key = removedSpec === null || removedSpec === void 0 ? void 0 : removedSpec.key;
+      if (typeof key === "string") widgetKeys.delete(key);
+    } });
+  }
+  function mapDecorations(name, previous, tr2) {
+    var _previous$decorationS, _previous$widgetKeysB;
+    const previousSet = (_previous$decorationS = previous.decorationSetsByExtension[name]) !== null && _previous$decorationS !== void 0 ? _previous$decorationS : DecorationSet.empty;
+    const widgetKeys = new Set((_previous$widgetKeysB = previous.widgetKeysByExtension[name]) !== null && _previous$widgetKeysB !== void 0 ? _previous$widgetKeysB : []);
+    return {
+      set: mapDecorationSet(previousSet, tr2.mapping, tr2.doc, widgetKeys),
+      widgetKeys
+    };
+  }
+  function mergeDecorationSets(doc3, decorationSetsByExtension) {
+    const allDecorations = Object.values(decorationSetsByExtension).flatMap((set) => set.find());
+    return DecorationSet.create(doc3, allDecorations);
+  }
+  function unionWidgetKeys(widgetKeysByExtension) {
+    const merged = /* @__PURE__ */ new Set();
+    for (const keys2 of Object.values(widgetKeysByExtension)) for (const key of keys2) merged.add(key);
+    return merged;
+  }
+  function validateDecorationSpec(name, spec) {
+    var _update;
+    switch ((_update = spec.update) !== null && _update !== void 0 ? _update : "document") {
+      case "document":
+        if (spec.createInRange) throw new Error(`[tiptap error]: Extension "${name}" provides createInRange() but does not use the "changedRanges" decoration update strategy.`);
+        return;
+      case "changedRanges":
+        if (!spec.createInRange) throw new Error(`[tiptap error]: Extension "${name}" uses the "changedRanges" decoration update strategy but does not provide createInRange().`);
+        return;
+      case "manual":
+        if (spec.createInRange) throw new Error(`[tiptap error]: Extension "${name}" uses the "manual" decoration update strategy, which is not compatible with createInRange(). createInRange() requires the "changedRanges" strategy.`);
+        if (spec.shouldUpdate) throw new Error(`[tiptap error]: Extension "${name}" cannot combine the "manual" decoration update strategy with shouldUpdate().`);
+        return;
+      default:
+        throw new Error(`[tiptap error]: Extension "${name}" uses an unknown decoration update strategy. Expected "document", "changedRanges", or "manual".`);
+    }
+  }
+  function shouldRecomputeDecoration(spec, props, forced) {
+    if (forced) return true;
+    if (spec.update === "manual") return false;
+    return spec.shouldUpdate ? spec.shouldUpdate(props) : props.tr.docChanged;
+  }
+  var EMPTY_KEYS = /* @__PURE__ */ new Set();
+  var DecorationManager = class {
+    constructor(options) {
+      this.warnedWidgetKeys = /* @__PURE__ */ new Set();
+      this.warnedOutOfRangeExtensions = /* @__PURE__ */ new Set();
+      this.handleBeforeTransaction = ({ nextState }) => {
+        const state = DECORATION_MANAGER_PLUGIN_KEY.getState(nextState);
+        if (state) this.warnDuplicateWidgetKeys(state);
+      };
+      this.editor = options.editor;
+      this.entries = this.resolveEntries(options.entries);
+      this.entries.forEach(({ name, spec }) => validateDecorationSpec(name, spec));
+      this.plugin = this.entries.length > 0 ? this.createPlugin() : null;
+      this.editor.on("beforeTransaction", this.handleBeforeTransaction);
+    }
+    destroy() {
+      this.editor.off("beforeTransaction", this.handleBeforeTransaction);
+    }
+    /**
+    * Returns the set of live widget keys from all decoration extensions.
+    * @returns A readonly set of widget keys
+    */
+    liveWidgetKeys() {
+      var _DECORATION_MANAGER_P, _DECORATION_MANAGER_P2;
+      return (_DECORATION_MANAGER_P = (_DECORATION_MANAGER_P2 = DECORATION_MANAGER_PLUGIN_KEY.getState(this.editor.state)) === null || _DECORATION_MANAGER_P2 === void 0 ? void 0 : _DECORATION_MANAGER_P2.widgetKeys) !== null && _DECORATION_MANAGER_P !== void 0 ? _DECORATION_MANAGER_P : EMPTY_KEYS;
+    }
+    /**
+    * The mounted editor view, or `null` when destroyed. Decoration callbacks
+    * must never receive the placeholder view `editor.view` falls back to.
+    * @returns The mounted editor view, or `null`
+    */
+    get mountedView() {
+      return this.editor.isDestroyed ? null : this.editor.view;
+    }
+    /**
+    * Resolves decoration entries by calling the addDecorations function for each extension entry.
+    * @param entries The decoration manager entries to resolve
+    * @returns An array of resolved decoration entries
+    */
+    resolveEntries(entries) {
+      const resolved = [];
+      for (const { name, addDecorations } of entries) {
+        const spec = addDecorations();
+        if (spec) resolved.push({
+          name,
+          spec
+        });
+      }
+      return resolved;
+    }
+    /**
+    * Creates the ProseMirror plugin for managing decorations.
+    * @returns A ProseMirror plugin with state management
+    */
+    createPlugin() {
+      const { editor, entries } = this;
+      return new Plugin({
+        key: DECORATION_MANAGER_PLUGIN_KEY,
+        state: {
+          init: (_config, state) => {
+            const decorationSetsByExtension = {};
+            const widgetKeysByExtension = {};
+            for (const { name, spec } of entries) {
+              const { set, widgetKeys } = this.buildFullSet(name, spec, state);
+              decorationSetsByExtension[name] = set;
+              widgetKeysByExtension[name] = widgetKeys;
+            }
+            const managerState = {
+              decorationSetsByExtension,
+              widgetKeysByExtension,
+              mergedDecorationSet: this.buildMergedSet(state.doc, decorationSetsByExtension),
+              widgetKeys: unionWidgetKeys(widgetKeysByExtension)
+            };
+            this.warnDuplicateWidgetKeys(managerState);
+            return managerState;
+          },
+          apply: (tr2, previous, oldState, newState) => {
+            const meta = tr2.getMeta(DECORATION_MANAGER_PLUGIN_KEY);
+            const forceAll = (meta === null || meta === void 0 ? void 0 : meta.type) === "force" && !meta.name;
+            const forceName = (meta === null || meta === void 0 ? void 0 : meta.type) === "force" ? meta.name : void 0;
+            const decorationSetsByExtension = {};
+            const widgetKeysByExtension = {};
+            const recomputedNames = /* @__PURE__ */ new Set();
+            runInDecorationApplyScope(editor, () => {
+              for (const { name, spec } of entries) {
+                const forced = forceAll || forceName === name;
+                if (!shouldRecomputeDecoration(spec, {
+                  editor,
+                  tr: tr2,
+                  oldState,
+                  newState
+                }, forced)) {
+                  const result = mapDecorations(name, previous, tr2);
+                  decorationSetsByExtension[name] = result.set;
+                  widgetKeysByExtension[name] = result.widgetKeys;
+                } else if (spec.update === "changedRanges" && tr2.docChanged && !forced) {
+                  const result = this.applyChangedRangesRecompute(name, spec, previous, tr2, newState);
+                  decorationSetsByExtension[name] = result.set;
+                  widgetKeysByExtension[name] = result.widgetKeys;
+                  recomputedNames.add(name);
+                } else {
+                  const { set, widgetKeys } = this.buildFullSet(name, spec, newState);
+                  decorationSetsByExtension[name] = set;
+                  widgetKeysByExtension[name] = widgetKeys;
+                  recomputedNames.add(name);
+                }
+              }
+            });
+            if (recomputedNames.size === 0 && !tr2.docChanged) return previous;
+            return {
+              decorationSetsByExtension,
+              widgetKeysByExtension,
+              mergedDecorationSet: this.mergeAfterApply({
+                entries,
+                previous,
+                tr: tr2,
+                decorationSetsByExtension,
+                recomputedNames
+              }),
+              widgetKeys: unionWidgetKeys(widgetKeysByExtension)
+            };
+          }
+        },
+        props: { decorations(state) {
+          var _DECORATION_MANAGER_P3, _DECORATION_MANAGER_P4;
+          return (_DECORATION_MANAGER_P3 = (_DECORATION_MANAGER_P4 = DECORATION_MANAGER_PLUGIN_KEY.getState(state)) === null || _DECORATION_MANAGER_P4 === void 0 ? void 0 : _DECORATION_MANAGER_P4.mergedDecorationSet) !== null && _DECORATION_MANAGER_P3 !== void 0 ? _DECORATION_MANAGER_P3 : DecorationSet.empty;
+        } }
+      });
+    }
+    /**
+    * Applies changed ranges recomputation to a decoration set, dropping stale decorations and rebuilding only the touched blocks.
+    * @param name The name of the decoration extension
+    * @param spec The decoration spec
+    * @param previous The previous decoration manager state
+    * @param tr The transaction to apply
+    * @param newState The new editor state
+    * @returns The updated decoration set and widget keys
+    */
+    applyChangedRangesRecompute(name, spec, previous, tr2, newState) {
+      const resolution = getRebuildRanges(tr2, newState.doc);
+      if (resolution.type === "full") return this.buildFullSet(name, spec, newState);
+      return this.rebuildRanges(name, spec, previous, tr2, newState, resolution.ranges);
+    }
+    /**
+    * Rebuilds decorations for the changed block ranges: maps the previous set
+    * forward, then for each range removes stale decorations, calls
+    * `createInRange`, and adds the new ones while syncing widget keys.
+    * @param name The extension name.
+    * @param spec The decoration spec.
+    * @param previous The previous decoration manager state.
+    * @param tr The transaction to apply.
+    * @param newState The new editor state.
+    * @param ranges The block ranges to rebuild.
+    * @returns The updated decoration set and widget keys.
+    */
+    rebuildRanges(name, spec, previous, tr2, newState, ranges) {
+      var _previous$decorationS, _previous$widgetKeysB;
+      const previousSet = (_previous$decorationS = previous.decorationSetsByExtension[name]) !== null && _previous$decorationS !== void 0 ? _previous$decorationS : DecorationSet.empty;
+      const widgetKeys = new Set((_previous$widgetKeysB = previous.widgetKeysByExtension[name]) !== null && _previous$widgetKeysB !== void 0 ? _previous$widgetKeysB : []);
+      let set = mapDecorationSet(previousSet, tr2.mapping, tr2.doc, widgetKeys);
+      const docSize = newState.doc.content.size;
+      for (const { from: from2, to } of ranges) {
+        const stale = set.find(from2, to).filter((decoration) => rangeOwnsPosition({
+          position: decoration.from,
+          from: from2,
+          to,
+          docSize
+        }));
+        for (const decoration of stale) {
+          const key = widgetKeyOf(decoration);
+          if (key) widgetKeys.delete(key);
+        }
+        set = set.remove(stale);
+        const { decorations: pmDecorations, widgetKeys: addedKeys } = decorationsToPMDecorations(filterOutOfRangeDecorations({
+          decorations: this.runCreate(name, "createInRange", () => spec.createInRange({
+            editor: this.editor,
+            state: newState,
+            view: this.mountedView,
+            from: from2,
+            to
+          })),
+          from: from2,
+          to,
+          docSize,
+          extensionName: name,
+          warnedExtensions: this.warnedOutOfRangeExtensions
+        }), name);
+        set = set.add(newState.doc, pmDecorations);
+        for (const key of addedKeys) widgetKeys.add(key);
+      }
+      return {
+        set,
+        widgetKeys
+      };
+    }
+    /**
+    * Builds a full decoration set for the entire document.
+    * @param name The name of the decoration extension
+    * @param spec The decoration spec
+    * @param state The editor state
+    * @returns The decoration set and widget keys
+    */
+    buildFullSet(name, spec, state) {
+      const decorations = this.runCreate(name, "create", () => spec.create({
+        editor: this.editor,
+        state,
+        view: this.mountedView
+      }));
+      return buildDecorationSet(state.doc, decorations, name);
+    }
+    /**
+    * Runs a decoration callback and swallows anything it throws. These run inside
+    * `state.apply`, where an uncaught error would abort the whole transaction.
+    * @param name The extension name.
+    * @param method The callback name, used in the error message.
+    * @param create The callback to run.
+    * @returns The decorations, or an empty array if the callback threw.
+    */
+    runCreate(name, method, create) {
+      try {
+        return create();
+      } catch (error) {
+        console.error(`[tiptap error]: Extension "${name}" threw in \`addDecorations().${method}()\`. Its decorations were dropped for this update.`, error);
+        return [];
+      }
+    }
+    warnDuplicateWidgetKeys(state) {
+      if (!isDev) return;
+      if (state.widgetKeys.size === 0) {
+        this.warnedWidgetKeys.clear();
+        return;
+      }
+      const duplicateKeys = findDuplicateWidgetKeys(state.mergedDecorationSet);
+      const nextWarningKeys = new Set(duplicateKeys.map(({ key }) => key));
+      for (const { key, extensions } of duplicateKeys) {
+        if (this.warnedWidgetKeys.has(key)) continue;
+        const names = Array.from(extensions).map((name) => `"${name}"`).join(", ");
+        console.warn(`[tiptap warn]: Duplicate widget decoration key "${key}" in extension${extensions.size === 1 ? "" : "s"} ${names}. Widget decoration keys must be globally unique, otherwise ProseMirror misplaces the widget DOM. Use a stable, unique key (e.g. \`comment-\${id}\`).`);
+      }
+      this.warnedWidgetKeys = nextWarningKeys;
+    }
+    /**
+    * Builds the merged DecorationSet during init. Skips the merge for a
+    * single extension since its per-extension set is already correct.
+    * @param doc The document to build the merged set for.
+    * @param decorationSetsByExtension The per-extension decoration sets.
+    * @returns The merged decoration set.
+    */
+    buildMergedSet(doc3, decorationSetsByExtension) {
+      const names = Object.keys(decorationSetsByExtension);
+      if (names.length === 1) return decorationSetsByExtension[names[0]];
+      return mergeDecorationSets(doc3, decorationSetsByExtension);
+    }
+    /**
+    * Computes the merged DecorationSet after apply. Single extension skips the
+    * merge; nothing recomputed maps the previous merged set forward; otherwise
+    * the merge is rebuilt from the per-extension sets.
+    */
+    mergeAfterApply({ entries, previous, tr: tr2, decorationSetsByExtension, recomputedNames }) {
+      if (entries.length === 1) return decorationSetsByExtension[entries[0].name];
+      if (recomputedNames.size === 0) return previous.mergedDecorationSet.map(tr2.mapping, tr2.doc);
+      return mergeDecorationSets(tr2.doc, decorationSetsByExtension);
+    }
+  };
+  function canInsertNode(state, nodeType) {
+    const { selection } = state;
+    const { $from } = selection;
+    if (selection instanceof NodeSelection) {
+      const index = $from.index();
+      return $from.parent.canReplaceWith(index, index + 1, nodeType);
+    }
+    let depth = $from.depth;
+    while (depth >= 0) {
+      const index = $from.index(depth);
+      if ($from.node(depth).contentMatchAt(index).matchType(nodeType)) return true;
+      depth -= 1;
+    }
+    return false;
+  }
+  function createStyleTag(style2, nonce, suffix) {
+    const tiptapStyleTag = document.querySelector(`style[data-tiptap-style${suffix ? `-${suffix}` : ""}]`);
+    if (tiptapStyleTag !== null) return tiptapStyleTag;
+    const styleNode = document.createElement("style");
+    if (nonce) styleNode.setAttribute("nonce", nonce);
+    styleNode.setAttribute(`data-tiptap-style${suffix ? `-${suffix}` : ""}`, "");
+    styleNode.innerHTML = style2;
+    document.getElementsByTagName("head")[0].appendChild(styleNode);
+    return styleNode;
+  }
+  function isNumber(value) {
+    return typeof value === "number";
+  }
+  function getType(value) {
+    return Object.prototype.toString.call(value).slice(8, -1);
+  }
+  function isPlainObject(value) {
+    if (getType(value) !== "Object") return false;
+    return value.constructor === Object && Object.getPrototypeOf(value) === Object.prototype;
+  }
+  function isValidCSSStyleValue(value) {
+    return typeof value === "string" && value.trim().length > 0 && !/[;{}]/.test(value);
+  }
+  function parseIndentedBlocks(src, config, lexer) {
+    const lines = src.split("\n");
+    const items = [];
+    let totalRaw = "";
+    let i = 0;
+    const baseIndentSize = config.baseIndentSize || 2;
+    while (i < lines.length) {
+      const currentLine = lines[i];
+      const itemMatch = currentLine.match(config.itemPattern);
+      if (!itemMatch) {
+        if (items.length > 0) break;
+        else if (currentLine.trim() === "") {
+          i += 1;
+          totalRaw = `${totalRaw}${currentLine}
+`;
+          continue;
+        } else return;
+      }
+      const itemData = config.extractItemData(itemMatch);
+      const { indentLevel, mainContent } = itemData;
+      totalRaw = `${totalRaw}${currentLine}
+`;
+      const itemContent = [mainContent];
+      i += 1;
+      while (i < lines.length) {
+        var _nextLine$match;
+        const nextLine = lines[i];
+        if (nextLine.trim() === "") {
+          var _nextNonEmpty$match;
+          const nextNonEmptyIndex = lines.slice(i + 1).findIndex((l) => l.trim() !== "");
+          if (nextNonEmptyIndex === -1) break;
+          if ((((_nextNonEmpty$match = lines[i + 1 + nextNonEmptyIndex].match(/^(\s*)/)) === null || _nextNonEmpty$match === void 0 || (_nextNonEmpty$match = _nextNonEmpty$match[1]) === null || _nextNonEmpty$match === void 0 ? void 0 : _nextNonEmpty$match.length) || 0) > indentLevel) {
+            itemContent.push(nextLine);
+            totalRaw = `${totalRaw}${nextLine}
+`;
+            i += 1;
+            continue;
+          } else break;
+        }
+        if ((((_nextLine$match = nextLine.match(/^(\s*)/)) === null || _nextLine$match === void 0 || (_nextLine$match = _nextLine$match[1]) === null || _nextLine$match === void 0 ? void 0 : _nextLine$match.length) || 0) > indentLevel) {
+          itemContent.push(nextLine);
+          totalRaw = `${totalRaw}${nextLine}
+`;
+          i += 1;
+        } else break;
+      }
+      let nestedTokens;
+      const nestedContent = itemContent.slice(1);
+      if (nestedContent.length > 0) {
+        const dedentedNested = nestedContent.map((nestedLine) => nestedLine.slice(indentLevel + baseIndentSize)).join("\n");
+        if (dedentedNested.trim()) {
+          if (config.customNestedParser) nestedTokens = config.customNestedParser(dedentedNested);
+          else nestedTokens = lexer.blockTokens(dedentedNested);
+        }
+      }
+      const token = config.createToken(itemData, nestedTokens);
+      items.push(token);
+    }
+    if (items.length === 0) return;
+    return {
+      items,
+      raw: totalRaw
+    };
+  }
+  var TAB_STOP = 4;
+  function columnWidth(text) {
+    let width = 0;
+    for (const character of text) width = character === "	" ? width + TAB_STOP - width % TAB_STOP : width + 1;
+    return width;
+  }
+  function renderNestedMarkdownContent(node, h2, prefixOrGenerator, ctx, options) {
+    if (!node || !Array.isArray(node.content)) return "";
+    const prefix = typeof prefixOrGenerator === "function" ? prefixOrGenerator(ctx) : prefixOrGenerator;
+    const [content, ...children] = node.content;
+    let output = `${prefix}${h2.renderChildren([content])}`;
+    if (children && children.length > 0) children.forEach((child, index) => {
+      var _h$renderChild, _h$renderChild2;
+      const childContent = (_h$renderChild = (_h$renderChild2 = h2.renderChild) === null || _h$renderChild2 === void 0 ? void 0 : _h$renderChild2.call(h2, child, index + 1)) !== null && _h$renderChild !== void 0 ? _h$renderChild : h2.renderChildren([child]);
+      if (childContent !== void 0 && childContent !== null) {
+        const indentLine = (line) => {
+          if (!(options === null || options === void 0 ? void 0 : options.alignNestedToPrefix)) return h2.indent(line);
+          const configured = h2.indent("");
+          const prefixWidth = columnWidth(prefix);
+          return (columnWidth(configured) >= prefixWidth ? configured : " ".repeat(prefixWidth)) + line;
+        };
+        const indentedChild = childContent.split("\n").map((line) => line ? indentLine(line) : indentLine("")).join("\n");
+        output += child.type === "paragraph" ? `
+
+${indentedChild}` : `
+${indentedChild}`;
+      }
+    });
+    return output;
+  }
+  function mergeDeep(target, source) {
+    const output = { ...target };
+    if (isPlainObject(target) && isPlainObject(source)) Object.keys(source).forEach((key) => {
+      if (isPlainObject(source[key]) && isPlainObject(target[key])) output[key] = mergeDeep(target[key], source[key]);
+      else output[key] = source[key];
+    });
+    return output;
+  }
+  function updateMarkViewAttributes(checkMark, editor, attrs = {}) {
+    const { state } = editor;
+    const { doc: doc3, tr: tr2 } = state;
+    const thisMark = checkMark;
+    doc3.descendants((node, pos) => {
+      const from2 = tr2.mapping.map(pos);
+      const to = tr2.mapping.map(pos) + node.nodeSize;
+      let foundMark = null;
+      node.marks.forEach((mark) => {
+        if (mark !== thisMark) return false;
+        foundMark = mark;
+      });
+      if (!foundMark) return;
+      let needsUpdate = false;
+      Object.keys(attrs).forEach((k) => {
+        if (attrs[k] !== foundMark.attrs[k]) needsUpdate = true;
+      });
+      if (needsUpdate) {
+        const updatedMark = checkMark.type.create({
+          ...checkMark.attrs,
+          ...attrs
+        });
+        tr2.removeMark(from2, to, checkMark.type);
+        tr2.addMark(from2, to, updatedMark);
+      }
+    });
+    if (tr2.docChanged) editor.view.dispatch(tr2);
+  }
+  var InputRule = class {
+    constructor(config) {
+      var _config$undoable;
+      this.find = config.find;
+      this.handler = config.handler;
+      this.undoable = (_config$undoable = config.undoable) !== null && _config$undoable !== void 0 ? _config$undoable : true;
+    }
+  };
+  var inputRuleMatcherHandler = (text, find2) => {
+    if (isRegExp(find2)) return find2.exec(text);
+    const inputRuleMatch = find2(text);
+    if (!inputRuleMatch) return null;
+    const result = [inputRuleMatch.text];
+    result.index = inputRuleMatch.index;
+    result.input = text;
+    result.data = inputRuleMatch.data;
+    if (inputRuleMatch.replaceWith) {
+      if (!inputRuleMatch.text.includes(inputRuleMatch.replaceWith)) console.warn('[tiptap warn]: "inputRuleMatch.replaceWith" must be part of "inputRuleMatch.text".');
+      result.push(inputRuleMatch.replaceWith);
+    }
+    return result;
+  };
+  function createRuleTransaction(config) {
+    const { editor, from: from2, to, text, insertText } = config;
+    if (!insertText) return {
+      inputTransaction: null,
+      tr: editor.view.state.tr
+    };
+    const inputTransaction = editor.view.state.tr.insertText(text, from2, to);
+    return {
+      inputTransaction,
+      tr: EditorState.create({
+        doc: inputTransaction.doc,
+        selection: inputTransaction.selection,
+        storedMarks: inputTransaction.storedMarks
+      }).tr
+    };
+  }
+  function applyRule(config) {
+    const { editor, from: from2, to, text, rule, match, plugin, insertText } = config;
+    const { view } = editor;
+    const { inputTransaction, tr: tr2 } = createRuleTransaction({
+      editor,
+      from: from2,
+      to,
+      text,
+      insertText
+    });
+    const inputEnd = inputTransaction ? from2 + text.length : to;
+    const state = createChainableState({
+      state: view.state,
+      transaction: tr2
+    });
+    const range = {
+      from: from2 - (match[0].length - text.length),
+      to: inputEnd
+    };
+    const { commands, chain, can } = new CommandManager({
+      editor,
+      state
+    });
+    if (rule.handler({
+      state,
+      range,
+      match,
+      commands,
+      chain,
+      can
+    }) === null || !tr2.steps.length) return false;
+    if (inputTransaction) {
+      view.dispatch(inputTransaction);
+      if (!view.state.doc.eq(inputTransaction.doc)) return true;
+    }
+    closeHistory(tr2);
+    tr2.setMeta("inputRule", true);
+    if (rule.undoable) tr2.setMeta(plugin, {
+      transform: tr2,
+      from: from2,
+      to: inputEnd,
+      text
+    });
+    view.dispatch(tr2);
+    return true;
+  }
+  function matchesDocument($from, match, text) {
+    const matchedDocLength = match[0].length - text.length;
+    if (matchedDocLength <= 0) return true;
+    const matchStartOffset = $from.parentOffset - matchedDocLength;
+    return matchStartOffset >= 0 && $from.parent.textBetween(matchStartOffset, $from.parentOffset) === match[0].slice(0, matchedDocLength);
+  }
+  function run$1(config) {
+    var _ref;
+    const { editor, from: from2, to, text, rules, plugin, insertText } = config;
+    const { view } = editor;
+    if (view.composing) return false;
+    const $from = view.state.doc.resolve(from2);
+    if ($from.parent.type.spec.code || !!((_ref = $from.nodeBefore || $from.nodeAfter) === null || _ref === void 0 ? void 0 : _ref.marks.find((mark) => mark.type.spec.code))) return false;
+    const textBefore = getTextContentFromNodes($from) + text;
+    for (const rule of rules) {
+      const match = inputRuleMatcherHandler(textBefore, rule.find);
+      if (!match || !matchesDocument($from, match, text)) continue;
+      if (applyRule({
+        editor,
+        from: from2,
+        to,
+        text,
+        rule,
+        match,
+        plugin,
+        insertText
+      })) return true;
+    }
+    return false;
+  }
+  function inputRulesPlugin(props) {
+    const { editor, rules } = props;
+    const plugin = new Plugin({
+      state: {
+        init() {
+          return null;
+        },
+        apply(tr2, prev, state) {
+          const stored = tr2.getMeta(plugin);
+          if (stored) return stored;
+          const simulatedInputMeta = tr2.getMeta("applyInputRules");
+          if (!!simulatedInputMeta) setTimeout(() => {
+            let { text } = simulatedInputMeta;
+            if (typeof text === "string") text = text;
+            else text = getHTMLFromFragment(Fragment.from(text), state.schema);
+            const { from: from2 } = simulatedInputMeta;
+            const to = from2 + text.length;
+            run$1({
+              editor,
+              from: from2,
+              to,
+              text,
+              rules,
+              plugin
+            });
+          });
+          return tr2.selectionSet || tr2.docChanged ? null : prev;
+        }
+      },
+      props: {
+        handleTextInput(view, from2, to, text) {
+          return run$1({
+            editor,
+            from: from2,
+            to,
+            text,
+            rules,
+            plugin,
+            insertText: true
+          });
+        },
+        handleDOMEvents: { compositionend: (view) => {
+          setTimeout(() => {
+            const { $cursor } = view.state.selection;
+            if ($cursor) run$1({
+              editor,
+              from: $cursor.pos,
+              to: $cursor.pos,
+              text: "",
+              rules,
+              plugin
+            });
+          });
+          return false;
+        } },
+        handleKeyDown(view, event) {
+          if (event.key !== "Enter") return false;
+          const { $cursor } = view.state.selection;
+          if ($cursor) return run$1({
+            editor,
+            from: $cursor.pos,
+            to: $cursor.pos,
+            text: "\n",
+            rules,
+            plugin
+          });
+          return false;
+        }
+      },
+      isInputRules: true
+    });
+    return plugin;
+  }
+  var Extendable = class {
+    constructor(config = {}) {
+      this.type = "extendable";
+      this.parent = null;
+      this.child = null;
+      this.name = "";
+      this.config = { name: this.name };
+      this.config = {
+        ...this.config,
+        ...config
+      };
+      this.name = this.config.name;
+    }
+    get options() {
+      return { ...callOrReturn(getExtensionField(this, "addOptions", { name: this.name })) };
+    }
+    get storage() {
+      return { ...callOrReturn(getExtensionField(this, "addStorage", {
+        name: this.name,
+        options: this.options
+      })) };
+    }
+    configure(options = {}) {
+      const extension = this.extend({
+        ...this.config,
+        addOptions: () => {
+          return mergeDeep(this.options, options);
+        }
+      });
+      extension.name = this.name;
+      extension.parent = this.parent;
+      this.child = null;
+      return extension;
+    }
+    extend(extendedConfig = {}) {
+      const extension = new this.constructor({
+        ...this.config,
+        ...extendedConfig
+      });
+      extension.parent = this;
+      this.child = extension;
+      extension.name = "name" in extendedConfig ? extendedConfig.name : extension.parent.name;
+      return extension;
+    }
+  };
+  var Mark2 = class Mark3 extends Extendable {
+    constructor(..._args) {
+      super(..._args);
+      this.type = "mark";
+    }
+    /**
+    * Create a new Mark instance
+    * @param config - Mark configuration object or a function that returns a configuration object
+    */
+    static create(config = {}) {
+      const resolvedConfig = typeof config === "function" ? config() : config;
+      return new Mark3(resolvedConfig);
+    }
+    static handleExit({ editor, mark }) {
+      const { tr: tr2 } = editor.state;
+      const currentPos = editor.state.selection.$from;
+      if (currentPos.pos === currentPos.end()) {
+        const currentMarks = currentPos.marks();
+        if (!!!currentMarks.find((m) => (m === null || m === void 0 ? void 0 : m.type.name) === mark.name)) return false;
+        const removeMark2 = currentMarks.find((m) => (m === null || m === void 0 ? void 0 : m.type.name) === mark.name);
+        if (removeMark2) tr2.removeStoredMark(removeMark2);
+        tr2.insertText(" ", currentPos.pos);
+        editor.view.dispatch(tr2);
+        return true;
+      }
+      return false;
+    }
+    configure(options) {
+      return super.configure(options);
+    }
+    extend(extendedConfig) {
+      const resolvedConfig = typeof extendedConfig === "function" ? extendedConfig() : extendedConfig;
+      return super.extend(resolvedConfig);
+    }
+  };
+  var PasteRule = class {
+    constructor(config) {
+      this.find = config.find;
+      this.handler = config.handler;
+    }
+  };
+  var pasteRuleMatcherHandler = (text, find2, event) => {
+    if (isRegExp(find2)) return [...text.matchAll(find2)];
+    const matches2 = find2(text, event);
+    if (!matches2) return [];
+    return matches2.map((pasteRuleMatch) => {
+      const result = [pasteRuleMatch.text];
+      result.index = pasteRuleMatch.index;
+      result.input = text;
+      result.data = pasteRuleMatch.data;
+      if (pasteRuleMatch.replaceWith) {
+        if (!pasteRuleMatch.text.includes(pasteRuleMatch.replaceWith)) console.warn('[tiptap warn]: "pasteRuleMatch.replaceWith" must be part of "pasteRuleMatch.text".');
+        result.push(pasteRuleMatch.replaceWith);
+      }
+      return result;
+    });
+  };
+  function run(config) {
+    const { editor, state, from: from2, to, rule, pasteEvent, dropEvent } = config;
+    const { commands, chain, can } = new CommandManager({
+      editor,
+      state
+    });
+    const handlers2 = [];
+    state.doc.nodesBetween(from2, to, (node, pos) => {
+      var _node$type, _ref, _node$content$size, _node$content;
+      if (((_node$type = node.type) === null || _node$type === void 0 || (_node$type = _node$type.spec) === null || _node$type === void 0 ? void 0 : _node$type.code) || !(node.isText || node.isTextblock || node.isInline)) return;
+      const contentSize = (_ref = (_node$content$size = (_node$content = node.content) === null || _node$content === void 0 ? void 0 : _node$content.size) !== null && _node$content$size !== void 0 ? _node$content$size : node.nodeSize) !== null && _ref !== void 0 ? _ref : 0;
+      const resolvedFrom = Math.max(from2, pos);
+      const resolvedTo = Math.min(to, pos + contentSize);
+      if (resolvedFrom >= resolvedTo) return;
+      const textToMatch = node.isText ? node.text || "" : node.textBetween(resolvedFrom - pos, resolvedTo - pos, void 0, "\uFFFC");
+      pasteRuleMatcherHandler(textToMatch, rule.find, pasteEvent).forEach((match) => {
+        if (match.index === void 0) return;
+        const start = resolvedFrom + match.index + 1;
+        const end = start + match[0].length;
+        const range = {
+          from: state.tr.mapping.map(start),
+          to: state.tr.mapping.map(end)
+        };
+        const handler = rule.handler({
+          state,
+          range,
+          match,
+          commands,
+          chain,
+          can,
+          pasteEvent,
+          dropEvent
+        });
+        handlers2.push(handler);
+      });
+    });
+    return handlers2.every((handler) => handler !== null);
+  }
+  var tiptapDragFromOtherEditor = null;
+  var createClipboardPasteEvent = (text) => {
+    var _event$clipboardData;
+    const event = new ClipboardEvent("paste", { clipboardData: new DataTransfer() });
+    (_event$clipboardData = event.clipboardData) === null || _event$clipboardData === void 0 || _event$clipboardData.setData("text/html", text);
+    return event;
+  };
+  function pasteRulesPlugin(props) {
+    const { editor, rules } = props;
+    let dragSourceElement = null;
+    let isPastedFromProseMirror = false;
+    let isDroppedFromProseMirror = false;
+    let pasteEvent = typeof ClipboardEvent !== "undefined" ? new ClipboardEvent("paste") : null;
+    let dropEvent;
+    try {
+      dropEvent = typeof DragEvent !== "undefined" ? new DragEvent("drop") : null;
+    } catch {
+      dropEvent = null;
+    }
+    const processEvent = ({ state, from: from2, to, rule, pasteEvt }) => {
+      const tr2 = state.tr;
+      const chainableState = createChainableState({
+        state,
+        transaction: tr2
+      });
+      if (!run({
+        editor,
+        state: chainableState,
+        from: Math.max(from2 - 1, 0),
+        to: to.b - 1,
+        rule,
+        pasteEvent: pasteEvt,
+        dropEvent
+      }) || !tr2.steps.length) return;
+      try {
+        dropEvent = typeof DragEvent !== "undefined" ? new DragEvent("drop") : null;
+      } catch {
+        dropEvent = null;
+      }
+      pasteEvent = typeof ClipboardEvent !== "undefined" ? new ClipboardEvent("paste") : null;
+      return tr2;
+    };
+    editor.on("destroy", () => {
+      if (tiptapDragFromOtherEditor === editor) tiptapDragFromOtherEditor = null;
+    });
+    return rules.map((rule) => {
+      return new Plugin({
+        view(view) {
+          const handleDragstart = (event) => {
+            var _view$dom$parentEleme;
+            dragSourceElement = ((_view$dom$parentEleme = view.dom.parentElement) === null || _view$dom$parentEleme === void 0 ? void 0 : _view$dom$parentEleme.contains(event.target)) ? view.dom.parentElement : null;
+            if (dragSourceElement) tiptapDragFromOtherEditor = editor;
+          };
+          const handleDragend = () => {
+            if (tiptapDragFromOtherEditor) tiptapDragFromOtherEditor = null;
+          };
+          window.addEventListener("dragstart", handleDragstart);
+          window.addEventListener("dragend", handleDragend);
+          return { destroy() {
+            window.removeEventListener("dragstart", handleDragstart);
+            window.removeEventListener("dragend", handleDragend);
+          } };
+        },
+        props: { handleDOMEvents: {
+          drop: (view, event) => {
+            isDroppedFromProseMirror = dragSourceElement === view.dom.parentElement;
+            dropEvent = event;
+            if (!isDroppedFromProseMirror) {
+              const dragFromOtherEditor = tiptapDragFromOtherEditor;
+              if (dragFromOtherEditor === null || dragFromOtherEditor === void 0 ? void 0 : dragFromOtherEditor.isEditable) setTimeout(() => {
+                if (dragFromOtherEditor.isDestroyed) return;
+                const selection = dragFromOtherEditor.state.selection;
+                if (selection) dragFromOtherEditor.commands.deleteRange({
+                  from: selection.from,
+                  to: selection.to
+                });
+              }, 10);
+            }
+            return false;
+          },
+          paste: (_view, event) => {
+            var _clipboardData;
+            const html = (_clipboardData = event.clipboardData) === null || _clipboardData === void 0 ? void 0 : _clipboardData.getData("text/html");
+            pasteEvent = event;
+            isPastedFromProseMirror = !!(html === null || html === void 0 ? void 0 : html.includes("data-pm-slice"));
+            return false;
+          }
+        } },
+        appendTransaction: (transactions, oldState, state) => {
+          const transaction = transactions[0];
+          const isPaste = transaction.getMeta("uiEvent") === "paste" && !isPastedFromProseMirror;
+          const isDrop = transaction.getMeta("uiEvent") === "drop" && !isDroppedFromProseMirror;
+          const simulatedPasteMeta = transaction.getMeta("applyPasteRules");
+          const isSimulatedPaste = !!simulatedPasteMeta;
+          if (!isPaste && !isDrop && !isSimulatedPaste) return;
+          if (isSimulatedPaste) {
+            let { text } = simulatedPasteMeta;
+            if (typeof text === "string") text = text;
+            else text = getHTMLFromFragment(Fragment.from(text), state.schema);
+            const { from: from3 } = simulatedPasteMeta;
+            const to2 = from3 + text.length;
+            const pasteEvt = createClipboardPasteEvent(text);
+            return processEvent({
+              rule,
+              state,
+              from: from3,
+              to: { b: to2 },
+              pasteEvt
+            });
+          }
+          const from2 = oldState.doc.content.findDiffStart(state.doc.content);
+          const to = oldState.doc.content.findDiffEnd(state.doc.content);
+          if (!isNumber(from2) || !to || from2 === to.b) return;
+          return processEvent({
+            rule,
+            state,
+            from: from2,
+            to,
+            pasteEvt: pasteEvent
+          });
+        }
+      });
+    });
+  }
+  var ExtensionManager = class {
+    constructor(extensions, editor) {
+      this.splittableMarks = [];
+      this.nonClearableMarks = [];
+      this.decorationManager = null;
+      this.editor = editor;
+      this.baseExtensions = extensions;
+      this.extensions = resolveExtensions(extensions);
+      this.hasSchemaSpec = editor.options.schemaSpec !== void 0;
+      this.schema = getSchemaByResolvedExtensions(this.extensions, editor, editor.options.schemaSpec);
+      this.setupExtensions();
+    }
+    /**
+    * Get all commands from the extensions.
+    * @returns An object with all commands where the key is the command name and the value is the command function
+    */
+    get commands() {
+      return this.extensions.reduce((commands, extension) => {
+        const addCommands = getExtensionField(extension, "addCommands", {
+          name: extension.name,
+          options: extension.options,
+          storage: this.editor.extensionStorage[extension.name],
+          editor: this.editor,
+          type: getSchemaTypeByName(extension.name, this.schema)
+        });
+        if (!addCommands) return commands;
+        return {
+          ...commands,
+          ...addCommands()
+        };
+      }, {});
+    }
+    /**
+    * Get all registered Prosemirror plugins from the extensions.
+    * @returns An array of Prosemirror plugins
+    */
+    get plugins() {
+      const { editor } = this;
+      const allPlugins = sortExtensions([...this.extensions].reverse()).flatMap((extension) => {
+        const context = {
+          name: extension.name,
+          options: extension.options,
+          storage: this.editor.extensionStorage[extension.name],
+          editor,
+          type: getSchemaTypeByName(extension.name, this.schema)
+        };
+        const plugins = [];
+        const addKeyboardShortcuts = getExtensionField(extension, "addKeyboardShortcuts", context);
+        let defaultBindings = {};
+        if (extension.type === "mark" && getExtensionField(extension, "exitable", context)) defaultBindings.ArrowRight = () => Mark2.handleExit({
+          editor,
+          mark: extension
+        });
+        if (addKeyboardShortcuts) {
+          const bindings = Object.fromEntries(Object.entries(addKeyboardShortcuts()).map(([shortcut, method]) => {
+            return [shortcut, () => method({ editor })];
+          }));
+          defaultBindings = {
+            ...defaultBindings,
+            ...bindings
+          };
+        }
+        const keyMapPlugin = keymap(defaultBindings);
+        plugins.push(keyMapPlugin);
+        const addInputRules = getExtensionField(extension, "addInputRules", context);
+        if (isExtensionRulesEnabled(extension, editor.options.enableInputRules) && addInputRules) {
+          const rules = addInputRules();
+          if (rules && rules.length) {
+            const inputResult = inputRulesPlugin({
+              editor,
+              rules
+            });
+            const inputPlugins = Array.isArray(inputResult) ? inputResult : [inputResult];
+            plugins.push(...inputPlugins);
+          }
+        }
+        const addPasteRules = getExtensionField(extension, "addPasteRules", context);
+        if (isExtensionRulesEnabled(extension, editor.options.enablePasteRules) && addPasteRules) {
+          const rules = addPasteRules();
+          if (rules && rules.length) {
+            const pasteRules = pasteRulesPlugin({
+              editor,
+              rules
+            });
+            plugins.push(...pasteRules);
+          }
+        }
+        const addProseMirrorPlugins = getExtensionField(extension, "addProseMirrorPlugins", context);
+        if (addProseMirrorPlugins) {
+          const proseMirrorPlugins = addProseMirrorPlugins();
+          plugins.push(...proseMirrorPlugins);
+        }
+        return plugins;
+      });
+      const decorationPlugin = this.createDecorationPlugin();
+      if (decorationPlugin) allPlugins.push(decorationPlugin);
+      return allPlugins;
+    }
+    /**
+    * Aggregates decorations from extensions into a single plugin, or returns null
+    * if none exist. Destroys the previous manager to avoid orphaned listeners.
+    * @returns A ProseMirror plugin or `null`
+    * @example
+    * const plugin = editor.extensionManager.createDecorationPlugin()
+    */
+    createDecorationPlugin() {
+      var _this$decorationManag;
+      const { editor } = this;
+      (_this$decorationManag = this.decorationManager) === null || _this$decorationManag === void 0 || _this$decorationManag.destroy();
+      const entries = [];
+      this.extensions.forEach((extension) => {
+        const addDecorations = getExtensionField(extension, "addDecorations", {
+          name: extension.name,
+          options: extension.options,
+          storage: this.editor.extensionStorage[extension.name],
+          editor,
+          type: getSchemaTypeByName(extension.name, this.schema)
+        });
+        if (!addDecorations) return;
+        entries.push({
+          name: extension.name,
+          addDecorations
+        });
+      });
+      this.decorationManager = new DecorationManager({
+        editor,
+        entries
+      });
+      return this.decorationManager.plugin;
+    }
+    /**
+    * Get all attributes from the extensions.
+    * @returns An array of attributes
+    */
+    get attributes() {
+      const attributes = getAttributesFromExtensions(this.extensions);
+      return this.hasSchemaSpec ? getSchemaAttributes(attributes, this.schema) : attributes;
+    }
+    /**
+    * Get all node views from the extensions.
+    * @returns An object with all node views where the key is the node name and the value is the node view function
+    */
+    get nodeViews() {
+      const { editor } = this;
+      const { nodeExtensions } = splitExtensions(this.extensions);
+      return Object.fromEntries(nodeExtensions.filter((extension) => !!getExtensionField(extension, "addNodeView")).map((extension) => {
+        const extensionAttributes = this.attributes.filter((attribute) => attribute.type === extension.name);
+        const addNodeView = getExtensionField(extension, "addNodeView", {
+          name: extension.name,
+          options: extension.options,
+          storage: this.editor.extensionStorage[extension.name],
+          editor,
+          type: getNodeType(extension.name, this.schema)
+        });
+        if (!addNodeView) return [];
+        const nodeViewResult = addNodeView();
+        if (!nodeViewResult) return [];
+        const nodeview = (node, view, getPos, decorations, innerDecorations) => {
+          const HTMLAttributes = getRenderedAttributes(node, extensionAttributes);
+          return nodeViewResult({
+            node,
+            view,
+            getPos,
+            decorations,
+            innerDecorations,
+            editor,
+            extension,
+            HTMLAttributes
+          });
+        };
+        return [extension.name, nodeview];
+      }));
+    }
+    /**
+    * Get the composed dispatchTransaction function from all extensions.
+    * @param baseDispatch The base dispatch function (e.g. from the editor or user props)
+    * @returns A composed dispatch function
+    */
+    dispatchTransaction(baseDispatch) {
+      const { editor } = this;
+      return sortExtensions([...this.extensions].reverse()).reduceRight((next, extension) => {
+        const context = {
+          name: extension.name,
+          options: extension.options,
+          storage: this.editor.extensionStorage[extension.name],
+          editor,
+          type: getSchemaTypeByName(extension.name, this.schema)
+        };
+        const dispatchTransaction = getExtensionField(extension, "dispatchTransaction", context);
+        if (!dispatchTransaction) return next;
+        return (transaction) => {
+          dispatchTransaction.call(context, {
+            transaction,
+            next
+          });
+        };
+      }, baseDispatch);
+    }
+    /**
+    * Get the composed transformPastedHTML function from all extensions.
+    * @param baseTransform The base transform function (e.g. from the editor props)
+    * @returns A composed transform function that chains all extension transforms
+    */
+    transformPastedHTML(baseTransform) {
+      const { editor } = this;
+      return sortExtensions([...this.extensions]).reduce((transform, extension) => {
+        const context = {
+          name: extension.name,
+          options: extension.options,
+          storage: this.editor.extensionStorage[extension.name],
+          editor,
+          type: getSchemaTypeByName(extension.name, this.schema)
+        };
+        const extensionTransform = getExtensionField(extension, "transformPastedHTML", context);
+        if (!extensionTransform) return transform;
+        return (html, view) => {
+          const transformedHtml = transform(html, view);
+          return extensionTransform.call(context, transformedHtml);
+        };
+      }, baseTransform || ((html) => html));
+    }
+    get markViews() {
+      const { editor } = this;
+      const { markExtensions } = splitExtensions(this.extensions);
+      return Object.fromEntries(markExtensions.filter((extension) => !!getExtensionField(extension, "addMarkView")).map((extension) => {
+        const extensionAttributes = this.attributes.filter((attribute) => attribute.type === extension.name);
+        const addMarkView = getExtensionField(extension, "addMarkView", {
+          name: extension.name,
+          options: extension.options,
+          storage: this.editor.extensionStorage[extension.name],
+          editor,
+          type: getMarkType(extension.name, this.schema)
+        });
+        if (!addMarkView) return [];
+        const markView = (mark, view, inline) => {
+          const HTMLAttributes = getRenderedAttributes(mark, extensionAttributes);
+          return addMarkView()({
+            mark,
+            view,
+            inline,
+            editor,
+            extension,
+            HTMLAttributes,
+            updateAttributes: (attrs) => {
+              updateMarkViewAttributes(mark, editor, attrs);
+            }
+          });
+        };
+        return [extension.name, markView];
+      }));
+    }
+    /**
+    * Destroy the extension manager and clean up all extension references
+    * to prevent memory leaks through parent/child extension chains.
+    *
+    * Walks each extension's full parent chain and nulls every forward
+    * `parent.child → current` link where the parent still points to the
+    * current node. This breaks the retention path from module-scope
+    * singleton roots through deep extend() chains.
+    *
+    * Only ancestor `.child` links matching the current chain are cleared.
+    * The `.parent` pointer on ancestors is never touched — extensions
+    * may be shared across live editors, so their own backward references
+    * and non-matching forward links must remain intact.
+    */
+    destroy() {
+      var _this$decorationManag2;
+      (_this$decorationManag2 = this.decorationManager) === null || _this$decorationManag2 === void 0 || _this$decorationManag2.destroy();
+      this.extensions.forEach((extension) => {
+        let current = extension;
+        while (current.parent) {
+          const parent = current.parent;
+          if (parent.child === current) parent.child = null;
+          current = parent;
+        }
+      });
+      this.extensions = [];
+      this.baseExtensions = [];
+      this.decorationManager = null;
+      this.schema = null;
+      this.editor = null;
+    }
+    /**
+    * Go through all extensions, create extension storages & setup marks
+    * & bind editor event listener.
+    */
+    setupExtensions() {
+      const extensions = this.extensions;
+      this.editor.extensionStorage = Object.fromEntries(extensions.map((extension) => [extension.name, extension.storage]));
+      extensions.forEach((extension) => {
+        const context = {
+          name: extension.name,
+          options: extension.options,
+          storage: this.editor.extensionStorage[extension.name],
+          editor: this.editor,
+          type: getSchemaTypeByName(extension.name, this.schema)
+        };
+        if (extension.type === "mark") {
+          var _callOrReturn, _callOrReturn2;
+          if ((_callOrReturn = callOrReturn(getExtensionField(extension, "keepOnSplit", context))) !== null && _callOrReturn !== void 0 ? _callOrReturn : true) this.splittableMarks.push(extension.name);
+          if (!((_callOrReturn2 = callOrReturn(getExtensionField(extension, "clearable", context))) !== null && _callOrReturn2 !== void 0 ? _callOrReturn2 : true)) this.nonClearableMarks.push(extension.name);
+        }
+        const onBeforeCreate = getExtensionField(extension, "onBeforeCreate", context);
+        const onCreate = getExtensionField(extension, "onCreate", context);
+        const onUpdate = getExtensionField(extension, "onUpdate", context);
+        const onSelectionUpdate = getExtensionField(extension, "onSelectionUpdate", context);
+        const onTransaction = getExtensionField(extension, "onTransaction", context);
+        const onFocus = getExtensionField(extension, "onFocus", context);
+        const onBlur = getExtensionField(extension, "onBlur", context);
+        const onDestroy = getExtensionField(extension, "onDestroy", context);
+        if (onBeforeCreate) this.editor.on("beforeCreate", onBeforeCreate);
+        if (onCreate) this.editor.on("create", onCreate);
+        if (onUpdate) this.editor.on("update", onUpdate);
+        if (onSelectionUpdate) this.editor.on("selectionUpdate", onSelectionUpdate);
+        if (onTransaction) this.editor.on("transaction", onTransaction);
+        if (onFocus) this.editor.on("focus", onFocus);
+        if (onBlur) this.editor.on("blur", onBlur);
+        if (onDestroy) this.editor.on("destroy", onDestroy);
+      });
+    }
+  };
+  ExtensionManager.resolve = resolveExtensions;
+  ExtensionManager.sort = sortExtensions;
+  ExtensionManager.flatten = flattenExtensions;
+  var Extension = class Extension2 extends Extendable {
+    constructor(..._args) {
+      super(..._args);
+      this.type = "extension";
+    }
+    /**
+    * Create a new Extension instance
+    * @param config - Extension configuration object or a function that returns a configuration object
+    */
+    static create(config = {}) {
+      const resolvedConfig = typeof config === "function" ? config() : config;
+      return new Extension2(resolvedConfig);
+    }
+    configure(options) {
+      return super.configure(options);
+    }
+    extend(extendedConfig) {
+      const resolvedConfig = typeof extendedConfig === "function" ? extendedConfig() : extendedConfig;
+      return super.extend(resolvedConfig);
+    }
+  };
+  var ClipboardTextSerializer = Extension.create({
+    name: "clipboardTextSerializer",
+    addOptions() {
+      return { blockSeparator: void 0 };
+    },
+    addProseMirrorPlugins() {
+      return [new Plugin({
+        key: new PluginKey("clipboardTextSerializer"),
+        props: { clipboardTextSerializer: () => {
+          const { editor } = this;
+          const { state, schema } = editor;
+          const { doc: doc3, selection } = state;
+          const textSerializers = getTextSerializersFromSchema(schema);
+          const { blockSeparator } = this.options;
+          const options = {
+            ...blockSeparator !== void 0 ? { blockSeparator } : {},
+            textSerializers
+          };
+          return [...selection.ranges].sort((a, b) => a.$from.pos - b.$from.pos).map(({ $from, $to }) => getTextBetween(doc3, {
+            from: $from.pos,
+            to: $to.pos
+          }, options)).join(blockSeparator !== null && blockSeparator !== void 0 ? blockSeparator : "\n\n");
+        } }
+      })];
+    }
+  });
+  var Commands = Extension.create({
+    name: "commands",
+    addCommands() {
+      return { ...commands_exports };
+    }
+  });
+  var Delete = Extension.create({
+    name: "delete",
+    onUpdate({ transaction, appendedTransactions }) {
+      var _this$editor$options$4, _this$editor$options$5;
+      const callback = () => {
+        var _this$editor$options$, _this$editor$options$2, _this$editor$options$3;
+        if ((_this$editor$options$ = (_this$editor$options$2 = this.editor.options.coreExtensionOptions) === null || _this$editor$options$2 === void 0 || (_this$editor$options$2 = _this$editor$options$2.delete) === null || _this$editor$options$2 === void 0 || (_this$editor$options$3 = _this$editor$options$2.filterTransaction) === null || _this$editor$options$3 === void 0 ? void 0 : _this$editor$options$3.call(_this$editor$options$2, transaction)) !== null && _this$editor$options$ !== void 0 ? _this$editor$options$ : transaction.getMeta("y-sync$")) return;
+        const nextTransaction = combineTransactionSteps(transaction.before, [transaction, ...appendedTransactions]);
+        getChangedRanges(nextTransaction).forEach((change) => {
+          if (nextTransaction.mapping.mapResult(change.oldRange.from).deletedAfter && nextTransaction.mapping.mapResult(change.oldRange.to).deletedBefore) nextTransaction.before.nodesBetween(change.oldRange.from, change.oldRange.to, (node, from2) => {
+            const to = from2 + node.nodeSize - 2;
+            const isFullyWithinRange = change.oldRange.from <= from2 && to <= change.oldRange.to;
+            this.editor.emit("delete", {
+              type: "node",
+              node,
+              from: from2,
+              to,
+              newFrom: nextTransaction.mapping.map(from2),
+              newTo: nextTransaction.mapping.map(to),
+              deletedRange: change.oldRange,
+              newRange: change.newRange,
+              partial: !isFullyWithinRange,
+              editor: this.editor,
+              transaction,
+              combinedTransform: nextTransaction
+            });
+          });
+        });
+        const mapping = nextTransaction.mapping;
+        nextTransaction.steps.forEach((step, index) => {
+          if (step instanceof RemoveMarkStep) {
+            var _nextTransaction$doc$, _nextTransaction$doc$2;
+            const newStart = mapping.slice(index).map(step.from, -1);
+            const newEnd = mapping.slice(index).map(step.to);
+            const oldStart = mapping.invert().map(newStart, -1);
+            const oldEnd = mapping.invert().map(newEnd);
+            const foundBeforeMark = newStart > 0 ? (_nextTransaction$doc$ = nextTransaction.doc.nodeAt(newStart - 1)) === null || _nextTransaction$doc$ === void 0 ? void 0 : _nextTransaction$doc$.marks.some((mark) => mark.eq(step.mark)) : false;
+            const foundAfterMark = (_nextTransaction$doc$2 = nextTransaction.doc.nodeAt(newEnd)) === null || _nextTransaction$doc$2 === void 0 ? void 0 : _nextTransaction$doc$2.marks.some((mark) => mark.eq(step.mark));
+            this.editor.emit("delete", {
+              type: "mark",
+              mark: step.mark,
+              from: step.from,
+              to: step.to,
+              deletedRange: {
+                from: oldStart,
+                to: oldEnd
+              },
+              newRange: {
+                from: newStart,
+                to: newEnd
+              },
+              partial: Boolean(foundAfterMark || foundBeforeMark),
+              editor: this.editor,
+              transaction,
+              combinedTransform: nextTransaction
+            });
+          }
+        });
+      };
+      if ((_this$editor$options$4 = (_this$editor$options$5 = this.editor.options.coreExtensionOptions) === null || _this$editor$options$5 === void 0 || (_this$editor$options$5 = _this$editor$options$5.delete) === null || _this$editor$options$5 === void 0 ? void 0 : _this$editor$options$5.async) !== null && _this$editor$options$4 !== void 0 ? _this$editor$options$4 : true) setTimeout(callback, 0);
+      else callback();
+    }
+  });
+  var Drop = Extension.create({
+    name: "drop",
+    addProseMirrorPlugins() {
+      return [new Plugin({
+        key: new PluginKey("tiptapDrop"),
+        props: { handleDrop: (_, e, slice2, moved) => {
+          this.editor.emit("drop", {
+            editor: this.editor,
+            event: e,
+            slice: slice2,
+            moved
+          });
+        } }
+      })];
+    }
+  });
+  var Editable = Extension.create({
+    name: "editable",
+    addProseMirrorPlugins() {
+      return [new Plugin({
+        key: new PluginKey("editable"),
+        props: { editable: () => this.editor.options.editable }
+      })];
+    }
+  });
+  var focusEventsPluginKey = new PluginKey("focusEvents");
+  var FocusEvents = Extension.create({
+    name: "focusEvents",
+    addProseMirrorPlugins() {
+      const { editor } = this;
+      return [new Plugin({
+        key: focusEventsPluginKey,
+        props: { handleDOMEvents: {
+          focus: (view, event) => {
+            editor.isFocused = true;
+            const transaction = editor.state.tr.setMeta("focus", { event }).setMeta("addToHistory", false);
+            view.dispatch(transaction);
+            return false;
+          },
+          blur: (view, event) => {
+            editor.isFocused = false;
+            const transaction = editor.state.tr.setMeta("blur", { event }).setMeta("addToHistory", false);
+            view.dispatch(transaction);
+            return false;
+          }
+        } }
+      })];
+    }
+  });
+  var Keymap = Extension.create({
+    name: "keymap",
+    addKeyboardShortcuts() {
+      const handleBackspace3 = () => this.editor.commands.first(({ commands }) => [
+        () => commands.undoInputRule(),
+        () => commands.command(({ tr: tr2 }) => {
+          const { selection, doc: doc3 } = tr2;
+          const { empty: empty2, $anchor } = selection;
+          const { pos, parent } = $anchor;
+          const $parentPos = $anchor.parent.isTextblock && pos > 0 ? tr2.doc.resolve(pos - 1) : $anchor;
+          const parentIsIsolating = $parentPos.parent.type.spec.isolating;
+          const parentPos = $anchor.pos - $anchor.parentOffset;
+          const isAtStart = parentIsIsolating && $parentPos.parent.childCount === 1 ? parentPos === $anchor.pos : Selection.atStart(doc3).from === pos;
+          if (!empty2 || !parent.type.isTextblock || parent.textContent.length || !isAtStart || isAtStart && $anchor.parent.type.name === "paragraph") return false;
+          return commands.clearNodes();
+        }),
+        () => commands.deleteSelection(),
+        () => commands.joinBackward(),
+        () => commands.selectNodeBackward()
+      ]);
+      const handleDelete2 = () => this.editor.commands.first(({ commands }) => [
+        () => commands.deleteSelection(),
+        () => commands.deleteCurrentNode(),
+        () => commands.joinForward(),
+        () => commands.selectNodeForward()
+      ]);
+      const handleEnter = () => this.editor.commands.first(({ commands }) => [
+        () => commands.newlineInCode(),
+        () => commands.createParagraphNear(),
+        () => commands.liftEmptyBlock(),
+        () => commands.splitBlock()
+      ]);
+      const baseKeymap = {
+        Enter: handleEnter,
+        "Mod-Enter": () => this.editor.commands.exitCode(),
+        Backspace: handleBackspace3,
+        "Mod-Backspace": handleBackspace3,
+        "Shift-Backspace": handleBackspace3,
+        Delete: handleDelete2,
+        "Mod-Delete": handleDelete2,
+        "Mod-a": () => this.editor.commands.selectAll()
+      };
+      const pcKeymap = { ...baseKeymap };
+      const macKeymap = {
+        ...baseKeymap,
+        "Ctrl-h": handleBackspace3,
+        "Alt-Backspace": handleBackspace3,
+        "Ctrl-d": handleDelete2,
+        "Ctrl-Alt-Backspace": handleDelete2,
+        "Alt-Delete": handleDelete2,
+        "Alt-d": handleDelete2,
+        "Ctrl-a": () => this.editor.commands.selectTextblockStart(),
+        "Ctrl-e": () => this.editor.commands.selectTextblockEnd()
+      };
+      if (isiOS() || isMacOS()) return macKeymap;
+      return pcKeymap;
+    },
+    addProseMirrorPlugins() {
+      return [new Plugin({
+        key: new PluginKey("clearDocument"),
+        appendTransaction: (transactions, oldState, newState) => {
+          if (transactions.some((tr3) => tr3.getMeta("composition"))) return;
+          const docChanges = transactions.some((transaction) => transaction.docChanged) && !oldState.doc.eq(newState.doc);
+          const ignoreTr = transactions.some((transaction) => transaction.getMeta("preventClearDocument"));
+          if (!docChanges || ignoreTr) return;
+          const { empty: empty2, from: from2, to } = oldState.selection;
+          const allFrom = Selection.atStart(oldState.doc).from;
+          const allEnd = Selection.atEnd(oldState.doc).to;
+          if (empty2 || !(from2 === allFrom && to === allEnd)) return;
+          if (!isNodeEmpty(newState.doc)) return;
+          const tr2 = newState.tr;
+          const state = createChainableState({
+            state: newState,
+            transaction: tr2
+          });
+          const { commands } = new CommandManager({
+            editor: this.editor,
+            state
+          });
+          commands.clearNodes();
+          if (!tr2.steps.length) return;
+          return tr2;
+        }
+      })];
+    }
+  });
+  var Paste = Extension.create({
+    name: "paste",
+    addProseMirrorPlugins() {
+      return [new Plugin({
+        key: new PluginKey("tiptapPaste"),
+        props: { handlePaste: (_view, e, slice2) => {
+          this.editor.emit("paste", {
+            editor: this.editor,
+            event: e,
+            slice: slice2
+          });
+        } }
+      })];
+    }
+  });
+  var Tabindex = Extension.create({
+    name: "tabindex",
+    addOptions() {
+      return { value: void 0 };
+    },
+    addProseMirrorPlugins() {
+      return [new Plugin({
+        key: new PluginKey("tabindex"),
+        props: { attributes: () => {
+          var _this$options$value;
+          if (!this.editor.isEditable && this.options.value === void 0) return {};
+          return { tabindex: (_this$options$value = this.options.value) !== null && _this$options$value !== void 0 ? _this$options$value : "0" };
+        } }
+      })];
+    }
+  });
+  var TextDirection = Extension.create({
+    name: "textDirection",
+    addOptions() {
+      return { direction: void 0 };
+    },
+    addGlobalAttributes() {
+      if (!this.options.direction) return [];
+      const { nodeExtensions } = splitExtensions(this.extensions);
+      return [{
+        types: nodeExtensions.filter((extension) => extension.name !== "text").map((extension) => extension.name),
+        attributes: { dir: {
+          default: this.options.direction,
+          parseHTML: (element) => {
+            const dir = element.getAttribute("dir");
+            if (dir && (dir === "ltr" || dir === "rtl" || dir === "auto")) return dir;
+            return this.options.direction;
+          },
+          renderHTML: (attributes) => {
+            if (!attributes.dir) return {};
+            return { dir: attributes.dir };
+          }
+        } }
+      }];
+    },
+    addProseMirrorPlugins() {
+      return [new Plugin({
+        key: new PluginKey("textDirection"),
+        props: { attributes: () => {
+          const direction = this.options.direction;
+          if (!direction) return {};
+          return { dir: direction };
+        } }
+      })];
+    }
+  });
+  var hasChecked = false;
+  function warnOnDuplicatedProseMirrorModel(schema) {
+    if (hasChecked) return;
+    hasChecked = true;
+    let content;
+    try {
+      const step = ReplaceStep.fromJSON(schema, {
+        from: 0,
+        to: 0
+      });
+      if (!isProseMirrorReplaceStep(step)) return;
+      content = step.slice.content;
+    } catch {
+      return;
+    }
+    if (content instanceof Fragment) return;
+    console.warn("[tiptap warn]: prosemirror-model is loaded more than once. Wrapping and splitting nodes will fail. Deduplicate it in your lock file, or alias it to a single copy in your bundler.");
+  }
+  var NodePos = class NodePos2 {
+    get name() {
+      return this.node.type.name;
+    }
+    constructor(pos, editor, isBlock = false, node = null) {
+      this.currentNode = null;
+      this.actualDepth = null;
+      this.isBlock = isBlock;
+      this.resolvedPos = pos;
+      this.editor = editor;
+      this.currentNode = node;
+    }
+    get node() {
+      return this.currentNode || this.resolvedPos.node();
+    }
+    get element() {
+      return this.editor.view.domAtPos(this.pos).node;
+    }
+    get depth() {
+      var _this$actualDepth;
+      return (_this$actualDepth = this.actualDepth) !== null && _this$actualDepth !== void 0 ? _this$actualDepth : this.resolvedPos.depth;
+    }
+    get pos() {
+      return this.resolvedPos.pos;
+    }
+    get content() {
+      return this.node.content;
+    }
+    set content(content) {
+      let from2 = this.from;
+      let to = this.to;
+      if (this.isBlock) {
+        if (this.content.size === 0) {
+          console.error(`You can\u2019t set content on a block node. Tried to set content on ${this.name} at ${this.pos}`);
+          return;
+        }
+        from2 = this.from + 1;
+        to = this.to - 1;
+      }
+      this.editor.commands.insertContentAt({
+        from: from2,
+        to
+      }, content);
+    }
+    get attributes() {
+      return this.node.attrs;
+    }
+    get textContent() {
+      return this.node.textContent;
+    }
+    get size() {
+      return this.node.nodeSize;
+    }
+    get from() {
+      if (this.isBlock) return this.pos;
+      return this.resolvedPos.start(this.resolvedPos.depth);
+    }
+    get range() {
+      return {
+        from: this.from,
+        to: this.to
+      };
+    }
+    get to() {
+      if (this.isBlock) return this.pos + this.size;
+      return this.resolvedPos.end(this.resolvedPos.depth) + (this.node.isText ? 0 : 1);
+    }
+    get parent() {
+      if (this.depth === 0) return null;
+      const parentPos = this.resolvedPos.start(this.resolvedPos.depth - 1);
+      const $pos = this.resolvedPos.doc.resolve(parentPos);
+      return new NodePos2($pos, this.editor);
+    }
+    get before() {
+      let $pos = this.resolvedPos.doc.resolve(this.from - (this.isBlock ? 1 : 2));
+      if ($pos.depth !== this.depth) $pos = this.resolvedPos.doc.resolve(this.from - 3);
+      return new NodePos2($pos, this.editor);
+    }
+    get after() {
+      let $pos = this.resolvedPos.doc.resolve(this.to + (this.isBlock ? 2 : 1));
+      if ($pos.depth !== this.depth) $pos = this.resolvedPos.doc.resolve(this.to + 3);
+      return new NodePos2($pos, this.editor);
+    }
+    get children() {
+      const children = [];
+      this.node.content.forEach((node, offset) => {
+        const isBlock = node.isBlock && !node.isTextblock;
+        const isNonTextAtom = node.isAtom && !node.isText;
+        const isInline2 = node.isInline;
+        const targetPos = this.pos + offset + (isNonTextAtom ? 0 : 1);
+        if (targetPos < 0 || targetPos > this.resolvedPos.doc.nodeSize - 2) return;
+        const $pos = this.resolvedPos.doc.resolve(targetPos);
+        if (!isBlock && !isInline2 && $pos.depth <= this.depth) return;
+        const childNodePos = new NodePos2($pos, this.editor, isBlock, isBlock || isInline2 ? node : null);
+        if (isBlock) childNodePos.actualDepth = this.depth + 1;
+        children.push(childNodePos);
+      });
+      return children;
+    }
+    get firstChild() {
+      return this.children[0] || null;
+    }
+    get lastChild() {
+      const children = this.children;
+      return children[children.length - 1] || null;
+    }
+    closest(selector, attributes = {}) {
+      let node = null;
+      let currentNode = this.parent;
+      while (currentNode && !node) {
+        if (currentNode.node.type.name === selector) {
+          if (Object.keys(attributes).length > 0) {
+            const nodeAttributes = currentNode.node.attrs;
+            const attrKeys = Object.keys(attributes);
+            for (let index = 0; index < attrKeys.length; index += 1) {
+              const key = attrKeys[index];
+              if (nodeAttributes[key] !== attributes[key]) break;
+            }
+          } else node = currentNode;
+        }
+        currentNode = currentNode.parent;
+      }
+      return node;
+    }
+    querySelector(selector, attributes = {}) {
+      return this.querySelectorAll(selector, attributes, true)[0] || null;
+    }
+    querySelectorAll(selector, attributes = {}, firstItemOnly = false) {
+      let nodes = [];
+      if (!this.children || this.children.length === 0) return nodes;
+      const attrKeys = Object.keys(attributes);
+      this.children.forEach((childPos) => {
+        if (firstItemOnly && nodes.length > 0) return;
+        if (childPos.node.type.name === selector) {
+          if (attrKeys.every((key) => attributes[key] === childPos.node.attrs[key])) nodes.push(childPos);
+        }
+        if (firstItemOnly && nodes.length > 0) return;
+        nodes = nodes.concat(childPos.querySelectorAll(selector, attributes, firstItemOnly));
+      });
+      return nodes;
+    }
+    setAttribute(attributes) {
+      const { tr: tr2 } = this.editor.state;
+      tr2.setNodeMarkup(this.from, void 0, {
+        ...this.node.attrs,
+        ...attributes
+      });
+      this.editor.view.dispatch(tr2);
+    }
+  };
+  var style = `.ProseMirror {
+  position: relative;
+}
+
+.ProseMirror {
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  -webkit-font-variant-ligatures: none;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0; /* the above doesn't seem to work in Edge */
+}
+
+.ProseMirror [contenteditable="false"] {
+  white-space: normal;
+}
+
+.ProseMirror [contenteditable="false"] [contenteditable="true"] {
+  white-space: pre-wrap;
+}
+
+.ProseMirror pre {
+  white-space: pre-wrap;
+}
+
+img.ProseMirror-separator {
+  display: inline !important;
+  border: none !important;
+  margin: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.ProseMirror-gapcursor {
+  display: none;
+  pointer-events: none;
+  position: absolute;
+  margin: 0;
+}
+
+.ProseMirror-gapcursor:after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: -2px;
+  width: 20px;
+  border-top: 1px solid black;
+  animation: ProseMirror-cursor-blink 1.1s steps(2, start) infinite;
+}
+
+@keyframes ProseMirror-cursor-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+.ProseMirror-hideselection *::selection {
+  background: transparent;
+}
+
+.ProseMirror-hideselection *::-moz-selection {
+  background: transparent;
+}
+
+.ProseMirror-hideselection * {
+  caret-color: transparent;
+}
+
+.ProseMirror-focused .ProseMirror-gapcursor {
+  display: block;
+}`;
+  var Editor = class extends EventEmitter {
+    constructor(options = {}) {
+      super();
+      this.css = null;
+      this.className = "tiptap";
+      this.editorView = null;
+      this.isFocused = false;
+      this.destroyed = false;
+      this.isInitialized = false;
+      this.extensionStorage = {};
+      this.instanceId = Math.random().toString(36).slice(2, 9);
+      this.hasWarnedStaleDecorationRead = false;
+      this.options = {
+        element: typeof document !== "undefined" ? document.createElement("div") : null,
+        content: "",
+        injectCSS: true,
+        injectNonce: void 0,
+        extensions: [],
+        autofocus: false,
+        editable: true,
+        textDirection: void 0,
+        editorProps: {},
+        parseOptions: {},
+        coreExtensionOptions: {},
+        enableInputRules: true,
+        enablePasteRules: true,
+        enableCoreExtensions: true,
+        enableContentCheck: false,
+        emitContentError: false,
+        onBeforeCreate: () => null,
+        onCreate: () => null,
+        onMount: () => null,
+        onUnmount: () => null,
+        onUpdate: () => null,
+        onSelectionUpdate: () => null,
+        onTransaction: () => null,
+        onFocus: () => null,
+        onBlur: () => null,
+        onDestroy: () => null,
+        onContentError: ({ error }) => {
+          throw error;
+        },
+        onPaste: () => null,
+        onDrop: () => null,
+        onDelete: () => null,
+        enableExtensionDispatchTransaction: true
+      };
+      this.isCapturingTransaction = false;
+      this.capturedTransaction = null;
+      this.utils = {
+        getUpdatedPosition,
+        createMappablePosition
+      };
+      this.setOptions(options);
+      this.createExtensionManager();
+      this.createCommandManager();
+      this.createSchema();
+      this.on("beforeCreate", this.options.onBeforeCreate);
+      this.emit("beforeCreate", { editor: this });
+      this.on("mount", this.options.onMount);
+      this.on("unmount", this.options.onUnmount);
+      this.on("contentError", this.options.onContentError);
+      this.on("create", this.options.onCreate);
+      this.on("update", this.options.onUpdate);
+      this.on("selectionUpdate", this.options.onSelectionUpdate);
+      this.on("transaction", this.options.onTransaction);
+      this.on("focus", this.options.onFocus);
+      this.on("blur", this.options.onBlur);
+      this.on("destroy", this.options.onDestroy);
+      this.on("drop", ({ event, slice: slice2, moved }) => this.options.onDrop(event, slice2, moved));
+      this.on("paste", ({ event, slice: slice2 }) => this.options.onPaste(event, slice2));
+      this.on("delete", this.options.onDelete);
+      const initialDoc = this.createDoc();
+      if (!this.editorState) {
+        const selection = resolveFocusPosition(initialDoc, this.options.autofocus);
+        this.editorState = EditorState.create({
+          doc: initialDoc,
+          schema: this.schema,
+          selection: selection || void 0
+        });
+      }
+      warnOnDuplicatedProseMirrorModel(this.schema);
+      if (this.options.element) this.mount(this.options.element);
+    }
+    /**
+    * Attach the editor to the DOM, creating a new editor view.
+    */
+    mount(el) {
+      if (typeof document === "undefined") throw new Error(`[tiptap error]: The editor cannot be mounted because there is no 'document' defined in this environment.`);
+      this.createView(el);
+      this.emit("mount", { editor: this });
+      if (this.css && !document.head.contains(this.css)) document.head.appendChild(this.css);
+      window.setTimeout(() => {
+        if (this.isDestroyed) return;
+        if (this.options.autofocus !== false && this.options.autofocus !== null) this.commands.focus(this.options.autofocus);
+        this.emit("create", { editor: this });
+        this.isInitialized = true;
+      }, 0);
+    }
+    /**
+    * Remove the editor from the DOM, but still allow remounting at a different point in time
+    */
+    unmount() {
+      if (this.editorView) {
+        this.editorState = this.editorView.state;
+        const dom = this.editorView.dom;
+        if (dom === null || dom === void 0 ? void 0 : dom.editor) delete dom.editor;
+        this.editorView.destroy();
+      }
+      this.editorView = null;
+      this.isInitialized = false;
+      if (this.css && !document.querySelectorAll(`.${this.className}`).length) try {
+        if (typeof this.css.remove === "function") this.css.remove();
+        else if (this.css.parentNode) this.css.parentNode.removeChild(this.css);
+      } catch (error) {
+        console.warn("Failed to remove CSS element:", error);
+      }
+      this.css = null;
+      this.emit("unmount", { editor: this });
+    }
+    /**
+    * Returns the editor storage.
+    */
+    get storage() {
+      return this.extensionStorage;
+    }
+    /**
+    * An object of all registered commands.
+    */
+    get commands() {
+      return this.commandManager.commands;
+    }
+    /**
+    * Create a command chain to call multiple commands at once.
+    */
+    chain() {
+      if (!this.commandManager) return CommandManager.createFakeChain();
+      return this.commandManager.chain();
+    }
+    /**
+    * Check if a command or a command chain can be executed. Without executing it.
+    */
+    can() {
+      if (!this.commandManager) return CommandManager.createFallbackCan();
+      return this.commandManager.can();
+    }
+    /**
+    * Inject CSS styles.
+    */
+    injectCSS() {
+      if (this.options.injectCSS && typeof document !== "undefined") this.css = createStyleTag(style, this.options.injectNonce);
+    }
+    /**
+    * Update editor options.
+    *
+    * @param options A list of options
+    */
+    setOptions(options = {}) {
+      this.options = {
+        ...this.options,
+        ...options
+      };
+      if (!this.editorView || !this.state || this.isDestroyed) return;
+      if (this.options.editorProps) this.view.setProps({
+        ...this.options.editorProps,
+        attributes: this.getEditorViewAttributes()
+      });
+      this.view.updateState(this.state);
+    }
+    /**
+    * Update editable state of the editor.
+    */
+    setEditable(editable, emitUpdate = true) {
+      this.setOptions({ editable });
+      if (emitUpdate) this.emit("update", {
+        editor: this,
+        transaction: this.state.tr,
+        appendedTransactions: []
+      });
+    }
+    /**
+    * Returns whether the editor is editable.
+    */
+    get isEditable() {
+      return this.options.editable && this.view && this.view.editable;
+    }
+    /**
+    * Returns the editor view.
+    */
+    get view() {
+      if (this.editorView) return this.editorView;
+      return new Proxy({
+        state: this.editorState,
+        updateState: (state) => {
+          this.editorState = state;
+        },
+        dispatch: (tr2) => {
+          this.dispatchTransaction(tr2);
+        },
+        composing: false,
+        dragging: null,
+        editable: true,
+        isDestroyed: false
+      }, { get: (obj, key) => {
+        if (this.editorView) return this.editorView[key];
+        if (key === "state") return this.editorState;
+        if (key in obj) return Reflect.get(obj, key);
+        throw new Error(`[tiptap error]: The editor view is not available. Cannot access view['${key}']. The editor may not be mounted yet.`);
+      } });
+    }
+    /**
+    * Returns the editor state.
+    */
+    get state() {
+      if (isDev && !this.hasWarnedStaleDecorationRead && isInDecorationApplyScope(this)) {
+        this.hasWarnedStaleDecorationRead = true;
+        console.warn("[tiptap warn]: `editor.state` was read while decoration `create()` was running. It returns the pre-transaction document. Use the `state` argument passed to `create()` instead. Helpers like `editor.isActive()` read `editor.state` too, so pass `state` to their standalone versions instead of calling them on the editor.");
+      }
+      if (this.editorView) this.editorState = this.view.state;
+      return this.editorState;
+    }
+    /**
+    * Register a ProseMirror plugin.
+    *
+    * @param plugin A ProseMirror plugin
+    * @param handlePlugins Control how to merge the plugin into the existing plugins.
+    * @returns The new editor state
+    */
+    registerPlugin(plugin, handlePlugins) {
+      const plugins = isFunction(handlePlugins) ? handlePlugins(plugin, [...this.state.plugins]) : [...this.state.plugins, plugin];
+      const state = this.state.reconfigure({ plugins });
+      this.view.updateState(state);
+      return state;
+    }
+    /**
+    * Unregister a ProseMirror plugin.
+    *
+    * @param nameOrPluginKeyToRemove The plugins name
+    * @returns The new editor state or undefined if the editor is destroyed
+    */
+    unregisterPlugin(nameOrPluginKeyToRemove) {
+      if (this.isDestroyed) return;
+      const prevPlugins = this.state.plugins;
+      let plugins = prevPlugins;
+      [].concat(nameOrPluginKeyToRemove).forEach((nameOrPluginKey) => {
+        const name = typeof nameOrPluginKey === "string" ? `${nameOrPluginKey}$` : nameOrPluginKey.key;
+        plugins = plugins.filter((plugin) => !plugin.key.startsWith(name));
+      });
+      if (prevPlugins.length === plugins.length) return;
+      const state = this.state.reconfigure({ plugins });
+      this.view.updateState(state);
+      return state;
+    }
+    /**
+    * Creates an extension manager.
+    */
+    createExtensionManager() {
+      var _this$options$coreExt, _this$options$coreExt2;
+      const allExtensions = [...this.options.enableCoreExtensions ? [
+        Editable,
+        ClipboardTextSerializer.configure({ blockSeparator: (_this$options$coreExt = this.options.coreExtensionOptions) === null || _this$options$coreExt === void 0 || (_this$options$coreExt = _this$options$coreExt.clipboardTextSerializer) === null || _this$options$coreExt === void 0 ? void 0 : _this$options$coreExt.blockSeparator }),
+        Commands,
+        FocusEvents,
+        Keymap,
+        Tabindex.configure({ value: (_this$options$coreExt2 = this.options.coreExtensionOptions) === null || _this$options$coreExt2 === void 0 || (_this$options$coreExt2 = _this$options$coreExt2.tabindex) === null || _this$options$coreExt2 === void 0 ? void 0 : _this$options$coreExt2.value }),
+        Drop,
+        Paste,
+        Delete,
+        TextDirection.configure({ direction: this.options.textDirection })
+      ].filter((ext) => {
+        if (typeof this.options.enableCoreExtensions === "object") return this.options.enableCoreExtensions[ext.name] !== false;
+        return true;
+      }) : [], ...this.options.extensions].filter((extension) => {
+        return [
+          "extension",
+          "node",
+          "mark"
+        ].includes(extension === null || extension === void 0 ? void 0 : extension.type);
+      });
+      this.extensionManager = new ExtensionManager(allExtensions, this);
+    }
+    /**
+    * Creates an command manager.
+    */
+    createCommandManager() {
+      this.commandManager = new CommandManager({ editor: this });
+    }
+    /**
+    * Creates a ProseMirror schema.
+    */
+    createSchema() {
+      this.schema = this.extensionManager.schema;
+    }
+    /**
+    * Creates the initial document.
+    */
+    createDoc() {
+      let doc3;
+      try {
+        doc3 = createDocument(this.options.content, this.schema, this.options.parseOptions, { errorOnInvalidContent: this.options.enableContentCheck });
+      } catch (e) {
+        if (!(e instanceof Error) || !["[tiptap error]: Invalid JSON content", "[tiptap error]: Invalid HTML content"].includes(e.message)) throw e;
+        const fallbackDoc = createDocument(this.options.content, this.schema, this.options.parseOptions, { errorOnInvalidContent: false });
+        this.editorState = EditorState.create({
+          doc: fallbackDoc,
+          schema: this.schema,
+          selection: resolveFocusPosition(fallbackDoc, this.options.autofocus) || void 0
+        });
+        this.emit("contentError", {
+          editor: this,
+          error: e,
+          disableCollaboration: () => {
+            if ("collaboration" in this.storage && typeof this.storage.collaboration === "object" && this.storage.collaboration) this.storage.collaboration.isDisabled = true;
+            this.options.extensions = this.options.extensions.filter((extension) => extension.name !== "collaboration");
+            this.createExtensionManager();
+          }
+        });
+        return this.editorState.doc;
+      }
+      return doc3;
+    }
+    /**
+    * Returns the attributes for the editor element.
+    * Merges the default `role="textbox"` with the attributes from `editorProps`,
+    * so the role is kept no matter when the props are applied.
+    */
+    getEditorViewAttributes() {
+      var _this$options$editorP;
+      const attributes = (_this$options$editorP = this.options.editorProps) === null || _this$options$editorP === void 0 ? void 0 : _this$options$editorP.attributes;
+      if (isFunction(attributes)) return (state) => ({
+        role: "textbox",
+        ...attributes(state)
+      });
+      return {
+        role: "textbox",
+        ...attributes
+      };
+    }
+    /**
+    * Creates a ProseMirror view.
+    */
+    createView(element) {
+      const { editorProps, enableExtensionDispatchTransaction } = this.options;
+      const baseDispatch = editorProps.dispatchTransaction || this.dispatchTransaction.bind(this);
+      const dispatch = enableExtensionDispatchTransaction ? this.extensionManager.dispatchTransaction(baseDispatch) : baseDispatch;
+      const baseTransformPastedHTML = editorProps.transformPastedHTML;
+      const transformPastedHTML = this.extensionManager.transformPastedHTML(baseTransformPastedHTML);
+      this.editorView = new EditorView(element, {
+        ...editorProps,
+        attributes: this.getEditorViewAttributes(),
+        dispatchTransaction: dispatch,
+        transformPastedHTML,
+        state: this.editorState,
+        markViews: this.extensionManager.markViews,
+        nodeViews: this.extensionManager.nodeViews
+      });
+      const newState = this.state.reconfigure({ plugins: this.extensionManager.plugins });
+      this.view.updateState(newState);
+      this.prependClass();
+      this.injectCSS();
+      const dom = this.view.dom;
+      dom.editor = this;
+    }
+    /**
+    * Creates all node and mark views.
+    */
+    createNodeViews() {
+      if (this.view.isDestroyed) return;
+      this.view.setProps({
+        markViews: this.extensionManager.markViews,
+        nodeViews: this.extensionManager.nodeViews
+      });
+    }
+    /**
+    * Prepend class name to element.
+    */
+    prependClass() {
+      this.view.dom.className = `${this.className} ${this.view.dom.className}`;
+    }
+    captureTransaction(fn) {
+      this.isCapturingTransaction = true;
+      fn();
+      this.isCapturingTransaction = false;
+      const tr2 = this.capturedTransaction;
+      this.capturedTransaction = null;
+      return tr2;
+    }
+    /**
+    * The callback over which to send transactions (state updates) produced by the view.
+    *
+    * @param transaction An editor state transaction
+    */
+    dispatchTransaction(transaction) {
+      if (this.view.isDestroyed) return;
+      if (this.isCapturingTransaction) {
+        if (!this.capturedTransaction) {
+          this.capturedTransaction = transaction;
+          return;
+        }
+        transaction.steps.forEach((step) => {
+          var _this$capturedTransac;
+          return (_this$capturedTransac = this.capturedTransaction) === null || _this$capturedTransac === void 0 ? void 0 : _this$capturedTransac.step(step);
+        });
+        return;
+      }
+      const { state, transactions } = this.state.applyTransaction(transaction);
+      const selectionHasChanged = !this.state.selection.eq(state.selection);
+      const rootTrWasApplied = transactions.includes(transaction);
+      const prevState = this.state;
+      this.emit("beforeTransaction", {
+        editor: this,
+        transaction,
+        nextState: state
+      });
+      if (!rootTrWasApplied) return;
+      this.view.updateState(state);
+      this.emit("transaction", {
+        editor: this,
+        transaction,
+        appendedTransactions: transactions.slice(1)
+      });
+      if (selectionHasChanged) this.emit("selectionUpdate", {
+        editor: this,
+        transaction
+      });
+      const mostRecentFocusTr = transactions.findLast((tr2) => tr2.getMeta("focus") || tr2.getMeta("blur"));
+      const focus2 = mostRecentFocusTr === null || mostRecentFocusTr === void 0 ? void 0 : mostRecentFocusTr.getMeta("focus");
+      const blur2 = mostRecentFocusTr === null || mostRecentFocusTr === void 0 ? void 0 : mostRecentFocusTr.getMeta("blur");
+      if (focus2) this.emit("focus", {
+        editor: this,
+        event: focus2.event,
+        transaction: mostRecentFocusTr
+      });
+      if (blur2) this.emit("blur", {
+        editor: this,
+        event: blur2.event,
+        transaction: mostRecentFocusTr
+      });
+      if (transaction.getMeta("preventUpdate") || !transactions.some((tr2) => tr2.docChanged) || prevState.doc.eq(state.doc)) return;
+      this.emit("update", {
+        editor: this,
+        transaction,
+        appendedTransactions: transactions.slice(1)
+      });
+    }
+    /**
+    * Get attributes of the currently selected node or mark.
+    */
+    getAttributes(nameOrType) {
+      return getAttributes(this.state, nameOrType);
+    }
+    isActive(nameOrAttributes, attributesOrUndefined) {
+      const name = typeof nameOrAttributes === "string" ? nameOrAttributes : null;
+      const attributes = typeof nameOrAttributes === "string" ? attributesOrUndefined : nameOrAttributes;
+      return isActive(this.state, name, attributes);
+    }
+    /**
+    * Get the document as JSON.
+    */
+    getJSON() {
+      return this.state.doc.toJSON();
+    }
+    /**
+    * Get the document as HTML.
+    */
+    getHTML() {
+      return getHTMLFromFragment(this.state.doc.content, this.schema);
+    }
+    /**
+    * Get the document as text.
+    */
+    getText(options) {
+      const { blockSeparator = "\n\n", textSerializers = {} } = options || {};
+      return getText2(this.state.doc, {
+        blockSeparator,
+        textSerializers: {
+          ...getTextSerializersFromSchema(this.schema),
+          ...textSerializers
+        }
+      });
+    }
+    /**
+    * Check if there is no content.
+    */
+    get isEmpty() {
+      return isNodeEmpty(this.state.doc);
+    }
+    /**
+    * Destroy the editor.
+    */
+    destroy() {
+      if (this.destroyed) return;
+      this.destroyed = true;
+      this.emit("destroy");
+      this.unmount();
+      this.removeAllListeners();
+      this.extensionManager.destroy();
+      this.extensionManager = null;
+      this.schema = null;
+      this.commandManager = null;
+      this.extensionStorage = {};
+    }
+    /**
+    * Check if the editor is already destroyed.
+    */
+    get isDestroyed() {
+      var _this$editorView$isDe, _this$editorView;
+      return (_this$editorView$isDe = (_this$editorView = this.editorView) === null || _this$editorView === void 0 ? void 0 : _this$editorView.isDestroyed) !== null && _this$editorView$isDe !== void 0 ? _this$editorView$isDe : true;
+    }
+    $node(selector, attributes) {
+      var _this$$doc;
+      return ((_this$$doc = this.$doc) === null || _this$$doc === void 0 ? void 0 : _this$$doc.querySelector(selector, attributes)) || null;
+    }
+    $nodes(selector, attributes) {
+      var _this$$doc2;
+      return ((_this$$doc2 = this.$doc) === null || _this$$doc2 === void 0 ? void 0 : _this$$doc2.querySelectorAll(selector, attributes)) || null;
+    }
+    $pos(pos) {
+      const $pos = this.state.doc.resolve(pos);
+      const node = pos > 0 && $pos.nodeAfter && !$pos.nodeAfter.isText && $pos.nodeAfter.isAtom ? $pos.nodeAfter : null;
+      return new NodePos($pos, this, false, node);
+    }
+    get $doc() {
+      return this.$pos(0);
+    }
+  };
+  function markInputRule(config) {
+    return new InputRule({
+      find: config.find,
+      handler: ({ state, range, match }) => {
+        const attributes = callOrReturn(config.getAttributes, void 0, match);
+        if (attributes === false || attributes === null) return null;
+        const { tr: tr2 } = state;
+        const captureGroup = match[match.length - 1];
+        const fullMatch = match[0];
+        if (captureGroup) {
+          const startSpaces = fullMatch.search(/\S/);
+          const textStart = range.from + fullMatch.indexOf(captureGroup);
+          const textEnd = textStart + captureGroup.length;
+          if (getMarksBetween(range.from, range.to, state.doc).filter((item) => {
+            return item.mark.type.excluded.find((type) => type === config.type && type !== item.mark.type);
+          }).filter((item) => item.to > textStart).length) return null;
+          if (textEnd < range.to) tr2.delete(textEnd, range.to);
+          if (textStart > range.from) tr2.delete(range.from + startSpaces, textStart);
+          const markEnd = range.from + startSpaces + captureGroup.length;
+          tr2.addMark(range.from + startSpaces, markEnd, config.type.create(attributes || {}));
+          tr2.removeStoredMark(config.type);
+        }
+      },
+      undoable: config.undoable
+    });
+  }
+  function nodeInputRule(config) {
+    return new InputRule({
+      find: config.find,
+      handler: ({ state, range, match }) => {
+        const attributes = callOrReturn(config.getAttributes, void 0, match) || {};
+        const { tr: tr2 } = state;
+        const start = range.from;
+        let end = range.to;
+        const newNode = config.type.create(attributes);
+        if (match[1]) {
+          let matchStart = start + match[0].lastIndexOf(match[1]);
+          if (matchStart > end) matchStart = end;
+          else end = matchStart + match[1].length;
+          const lastChar = match[0][match[0].length - 1];
+          tr2.insertText(lastChar, start + match[0].length - 1);
+          tr2.replaceWith(matchStart, end, newNode);
+        } else if (match[0]) {
+          const insertionStart = config.type.isInline ? start : start - 1;
+          tr2.insert(insertionStart, config.type.create(attributes)).delete(tr2.mapping.map(start), tr2.mapping.map(end));
+        }
+        tr2.scrollIntoView();
+      },
+      undoable: config.undoable
+    });
+  }
+  function textblockTypeInputRule(config) {
+    return new InputRule({
+      find: config.find,
+      handler: ({ state, range, match }) => {
+        const $start = state.doc.resolve(range.from);
+        const attributes = callOrReturn(config.getAttributes, void 0, match) || {};
+        if (!$start.node(-1).canReplaceWith($start.index(-1), $start.indexAfter(-1), config.type)) return null;
+        state.tr.delete(range.from, range.to).setBlockType(range.from, range.from, config.type, attributes);
+      },
+      undoable: config.undoable
+    });
+  }
+  function wrappingInputRule(config) {
+    return new InputRule({
+      find: config.find,
+      handler: ({ state, range, match, chain }) => {
+        const attributes = callOrReturn(config.getAttributes, void 0, match) || {};
+        const tr2 = state.tr.delete(range.from, range.to);
+        const blockRange = tr2.doc.resolve(range.from).blockRange();
+        const wrapping = blockRange && findWrapping(blockRange, config.type, attributes);
+        if (!wrapping) return null;
+        tr2.wrap(blockRange, wrapping);
+        if (config.keepMarks && config.editor) {
+          const { selection, storedMarks } = state;
+          const { splittableMarks } = config.editor.extensionManager;
+          const marks = storedMarks || selection.$to.parentOffset && selection.$from.marks();
+          if (marks) {
+            const filteredMarks = marks.filter((mark) => splittableMarks.includes(mark.type.name));
+            tr2.ensureMarks(filteredMarks);
+          }
+        }
+        if (config.keepAttributes) {
+          const nodeType = config.type.name === "bulletList" || config.type.name === "orderedList" ? "listItem" : "taskList";
+          chain().updateAttributes(nodeType, attributes).run();
+        }
+        const before = tr2.doc.resolve(range.from - 1).nodeBefore;
+        if (before && before.type === config.type && canJoin(tr2.doc, range.from - 1) && (!config.joinPredicate || config.joinPredicate(match, before))) tr2.join(range.from - 1);
+      },
+      undoable: config.undoable
+    });
+  }
+  var Node2 = class Node3 extends Extendable {
+    constructor(..._args) {
+      super(..._args);
+      this.type = "node";
+    }
+    /**
+    * Create a new Node instance
+    * @param config - Node configuration object or a function that returns a configuration object
+    */
+    static create(config = {}) {
+      const resolvedConfig = typeof config === "function" ? config() : config;
+      return new Node3(resolvedConfig);
+    }
+    configure(options) {
+      return super.configure(options);
+    }
+    extend(extendedConfig) {
+      const resolvedConfig = typeof extendedConfig === "function" ? extendedConfig() : extendedConfig;
+      return super.extend(resolvedConfig);
+    }
+  };
+  function markPasteRule(config) {
+    return new PasteRule({
+      find: config.find,
+      handler: ({ state, range, match, pasteEvent }) => {
+        const attributes = callOrReturn(config.getAttributes, void 0, match, pasteEvent);
+        if (attributes === false || attributes === null) return null;
+        const { tr: tr2 } = state;
+        const captureGroup = match[match.length - 1];
+        const fullMatch = match[0];
+        let markEnd = range.to;
+        if (captureGroup) {
+          const startSpaces = fullMatch.search(/\S/);
+          const textStart = range.from + fullMatch.indexOf(captureGroup);
+          const textEnd = textStart + captureGroup.length;
+          if (getMarksBetween(range.from, range.to, state.doc).filter((item) => {
+            return item.mark.type.excluded.find((type) => type === config.type && type !== item.mark.type);
+          }).filter((item) => item.to > textStart).length) return null;
+          if (textEnd < range.to) tr2.delete(textEnd, range.to);
+          if (textStart > range.from) tr2.delete(range.from + startSpaces, textStart);
+          markEnd = range.from + startSpaces + captureGroup.length;
+          tr2.addMark(range.from + startSpaces, markEnd, config.type.create(attributes || {}));
+          if (!(match.index !== void 0 && match.input !== void 0 && match.index + match[0].length >= match.input.length)) tr2.removeStoredMark(config.type);
+        }
+      }
+    });
+  }
+
+  // node_modules/@tiptap/core/dist/jsx-runtime/jsx-runtime.js
+  var jsxElements = /* @__PURE__ */ new WeakSet();
+  var jsxFragments = /* @__PURE__ */ new WeakSet();
+  function createJSXElement(spec) {
+    const element = spec;
+    jsxElements.add(element);
+    return element;
+  }
+  function isJSXElement(value) {
+    return Array.isArray(value) && jsxElements.has(value);
+  }
+  function flattenFragmentChildren(children) {
+    return children.flatMap((child) => {
+      if (child == null) return [];
+      if (Array.isArray(child) && jsxFragments.has(child) && !isJSXElement(child)) return flattenFragmentChildren(child);
+      return [child];
+    });
+  }
+  function render(tag, attributes) {
+    if (tag === "slot") return 0;
+    if (tag instanceof Function) {
+      const result = tag(attributes);
+      if (Array.isArray(result) && !isJSXElement(result) && !jsxFragments.has(result)) return createJSXElement(result);
+      return result;
+    }
+    const { children, ...rest } = attributes !== null && attributes !== void 0 ? attributes : {};
+    if (tag === "svg") throw new Error("SVG elements are not supported in the JSX syntax, use the array syntax instead");
+    if (Array.isArray(children)) {
+      if (isJSXElement(children)) return createJSXElement([
+        tag,
+        rest,
+        children
+      ]);
+      if (children.length === 0) return createJSXElement([tag, rest]);
+      const flattenedChildren = flattenFragmentChildren(children);
+      if (flattenedChildren.length === 0) return createJSXElement([tag, rest]);
+      return createJSXElement([
+        tag,
+        rest,
+        ...flattenedChildren
+      ]);
+    }
+    if (children !== void 0 && children !== null) return createJSXElement([
+      tag,
+      rest,
+      children
+    ]);
+    return createJSXElement([tag, rest]);
+  }
+  var h = (tag, attributes) => render(tag, attributes);
+
+  // node_modules/@tiptap/extension-blockquote/dist/index.js
+  var handleBackspace = (editor, type) => {
+    var _previous$lastChild;
+    const { state } = editor;
+    const { selection } = state;
+    if (!selection.empty) return false;
+    const { $from } = selection;
+    if ($from.parentOffset !== 0) return false;
+    const parentDepth = $from.depth - 1;
+    if (parentDepth < 0) return false;
+    const parent = $from.node(parentDepth);
+    const index = $from.index(parentDepth);
+    if (index === 0) return false;
+    if (parent.type === type) return editor.commands.lift(type.name);
+    const previous = parent.child(index - 1);
+    if (previous.type !== type || !((_previous$lastChild = previous.lastChild) === null || _previous$lastChild === void 0 ? void 0 : _previous$lastChild.isTextblock)) return false;
+    const targetPos = $from.before() - 1 - 1;
+    return editor.commands.command(({ tr: tr2, dispatch }) => {
+      if (!dispatch) return true;
+      const content = $from.parent.content;
+      const slice2 = new Slice(content, 0, 0);
+      tr2.replace(targetPos, $from.after(), slice2);
+      tr2.setSelection(TextSelection.create(tr2.doc, targetPos + content.size));
+      tr2.scrollIntoView();
+      dispatch(tr2);
+      return true;
+    });
+  };
+  var inputRegex = /^\s*>\s$/;
+  var Blockquote = Node2.create({
+    name: "blockquote",
+    addOptions() {
+      return { HTMLAttributes: {} };
+    },
+    content: "block+",
+    group: "block",
+    defining: true,
+    parseHTML() {
+      return [{ tag: "blockquote" }];
+    },
+    renderHTML({ HTMLAttributes }) {
+      return /* @__PURE__ */ h("blockquote", {
+        ...mergeAttributes(this.options.HTMLAttributes, HTMLAttributes),
+        children: /* @__PURE__ */ h("slot", {})
+      });
+    },
+    parseMarkdown: (token, helpers) => {
+      var _helpers$parseBlockCh;
+      const parseBlockChildren = (_helpers$parseBlockCh = helpers.parseBlockChildren) !== null && _helpers$parseBlockCh !== void 0 ? _helpers$parseBlockCh : helpers.parseChildren;
+      return helpers.createNode("blockquote", void 0, parseBlockChildren(token.tokens || []));
+    },
+    renderMarkdown: (node, h2) => {
+      if (!node.content) return "";
+      const prefix = ">";
+      const result = [];
+      node.content.forEach((child, index) => {
+        var _h$renderChild, _h$renderChild2;
+        const linesWithPrefix = ((_h$renderChild = (_h$renderChild2 = h2.renderChild) === null || _h$renderChild2 === void 0 ? void 0 : _h$renderChild2.call(h2, child, index)) !== null && _h$renderChild !== void 0 ? _h$renderChild : h2.renderChildren([child])).split("\n").map((line) => {
+          if (line.trim() === "") return prefix;
+          return `${prefix} ${line}`;
+        });
+        result.push(linesWithPrefix.join("\n"));
+      });
+      return result.join(`
+${prefix}
+`);
     },
     addCommands() {
       return {
-        undo: () => ({ state, dispatch }) => {
-          return undo(state, dispatch);
+        setBlockquote: () => ({ commands }) => {
+          return commands.wrapIn(this.name);
         },
-        redo: () => ({ state, dispatch }) => {
-          return redo(state, dispatch);
+        toggleBlockquote: () => ({ commands }) => {
+          return commands.toggleWrap(this.name);
+        },
+        unsetBlockquote: () => ({ commands }) => {
+          return commands.lift(this.name);
         }
       };
     },
-    addProseMirrorPlugins() {
+    addKeyboardShortcuts() {
+      return {
+        "Mod-Shift-b": () => this.editor.commands.toggleBlockquote(),
+        Backspace: () => handleBackspace(this.editor, this.type)
+      };
+    },
+    addInputRules() {
+      return [wrappingInputRule({
+        find: inputRegex,
+        type: this.type
+      })];
+    }
+  });
+
+  // node_modules/@tiptap/extension-bold/dist/index.js
+  var starInputRegex = /(?:^|\s)(\*\*(?!\s+\*\*)((?:[^*]+))\*\*(?!\s+\*\*))$/;
+  var starPasteRegex = /(?:^|\s)(\*\*(?!\s+\*\*)((?:[^*]+))\*\*(?!\s+\*\*))/g;
+  var underscoreInputRegex = /(?:^|\s)(__(?!\s+__)((?:[^_]+))__(?!\s+__))$/;
+  var underscorePasteRegex = /(?:^|\s)(__(?!\s+__)((?:[^_]+))__(?!\s+__))/g;
+  var Bold = Mark2.create({
+    name: "bold",
+    addOptions() {
+      return { HTMLAttributes: {} };
+    },
+    parseHTML() {
       return [
-        history(this.options)
+        { tag: "strong" },
+        {
+          tag: "b",
+          getAttrs: (node) => node.style.fontWeight !== "normal" && null
+        },
+        {
+          style: "font-weight=400",
+          clearMark: (mark) => mark.type.name === this.name
+        },
+        {
+          style: "font-weight",
+          getAttrs: (value) => /^(bold(er)?|[5-9]\d{2,})$/.test(value) && null
+        }
       ];
+    },
+    renderHTML({ HTMLAttributes }) {
+      return /* @__PURE__ */ h("strong", {
+        ...mergeAttributes(this.options.HTMLAttributes, HTMLAttributes),
+        children: /* @__PURE__ */ h("slot", {})
+      });
+    },
+    markdownTokenName: "strong",
+    parseMarkdown: (token, helpers) => {
+      return helpers.applyMark("bold", helpers.parseInline(token.tokens || []));
+    },
+    markdownOptions: { htmlReopen: {
+      open: "<strong>",
+      close: "</strong>"
+    } },
+    renderMarkdown: (node, h2) => {
+      return `**${h2.renderChildren(node)}**`;
+    },
+    addCommands() {
+      return {
+        setBold: () => ({ commands }) => {
+          return commands.setMark(this.name);
+        },
+        toggleBold: () => ({ commands }) => {
+          return commands.toggleMark(this.name);
+        },
+        unsetBold: () => ({ commands }) => {
+          return commands.unsetMark(this.name);
+        }
+      };
     },
     addKeyboardShortcuts() {
       return {
-        "Mod-z": () => this.editor.commands.undo(),
-        "Shift-Mod-z": () => this.editor.commands.redo(),
-        "Mod-y": () => this.editor.commands.redo(),
-        // Russian keyboard layouts
-        "Mod-\u044F": () => this.editor.commands.undo(),
-        "Shift-Mod-\u044F": () => this.editor.commands.redo()
+        "Mod-b": () => this.editor.commands.toggleBold(),
+        "Mod-B": () => this.editor.commands.toggleBold()
       };
+    },
+    addInputRules() {
+      return [markInputRule({
+        find: starInputRegex,
+        type: this.type
+      }), markInputRule({
+        find: underscoreInputRegex,
+        type: this.type
+      })];
+    },
+    addPasteRules() {
+      return [markPasteRule({
+        find: starPasteRegex,
+        type: this.type
+      }), markPasteRule({
+        find: underscorePasteRegex,
+        type: this.type
+      })];
+    }
+  });
+
+  // node_modules/@tiptap/extension-code/dist/index.js
+  var inputRegexMatch = (text) => {
+    const match = /`([^`]+)`(?!`)$/.exec(text);
+    if (!match) return null;
+    if (match.index > 0 && text[match.index - 1] === "`") return null;
+    return {
+      index: match.index,
+      text: match[0],
+      replaceWith: match[1]
+    };
+  };
+  var pasteRegexMatch = (text) => {
+    const regex = /`([^`]+)`(?!`)/g;
+    const matches2 = [];
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > 0 && text[match.index - 1] === "`") continue;
+      matches2.push({
+        index: match.index,
+        text: match[0],
+        replaceWith: match[1]
+      });
+    }
+    return matches2;
+  };
+  function shortestUnusedBacktickRun(text) {
+    const runs = new Set((text.match(/`+/g) || []).map((run3) => run3.length));
+    let length = 1;
+    while (runs.has(length)) length += 1;
+    return length;
+  }
+  var Code = Mark2.create({
+    name: "code",
+    addOptions() {
+      return { HTMLAttributes: {} };
+    },
+    excludes: "_",
+    code: true,
+    exitable: true,
+    parseHTML() {
+      return [{ tag: "code" }];
+    },
+    renderHTML({ HTMLAttributes }) {
+      return [
+        "code",
+        mergeAttributes(this.options.HTMLAttributes, HTMLAttributes),
+        0
+      ];
+    },
+    markdownTokenName: "codespan",
+    parseMarkdown: (token, helpers) => {
+      return helpers.applyMark("code", [{
+        type: "text",
+        text: token.text || ""
+      }]);
+    },
+    renderMarkdown: (node, h2, context) => {
+      var _context$meta;
+      if (!node.content) return "";
+      const markText = typeof (context === null || context === void 0 || (_context$meta = context.meta) === null || _context$meta === void 0 ? void 0 : _context$meta.markText) === "string" ? context.meta.markText : "";
+      const fence = "`".repeat(shortestUnusedBacktickRun(markText));
+      const padding = markText.startsWith("`") || markText.endsWith("`") ? " " : "";
+      return `${fence}${padding}${h2.renderChildren(node.content)}${padding}${fence}`;
+    },
+    addCommands() {
+      return {
+        setCode: () => ({ commands }) => {
+          return commands.setMark(this.name);
+        },
+        toggleCode: () => ({ commands }) => {
+          return commands.toggleMark(this.name);
+        },
+        unsetCode: () => ({ commands }) => {
+          return commands.unsetMark(this.name);
+        }
+      };
+    },
+    addKeyboardShortcuts() {
+      return { "Mod-e": () => this.editor.commands.toggleCode() };
+    },
+    addInputRules() {
+      return [markInputRule({
+        find: inputRegexMatch,
+        type: this.type
+      })];
+    },
+    addPasteRules() {
+      return [markPasteRule({
+        find: pasteRegexMatch,
+        type: this.type
+      })];
+    }
+  });
+
+  // node_modules/@tiptap/extension-code-block/dist/index.js
+  var DEFAULT_TAB_SIZE = 4;
+  var backtickInputRegex = /^```([a-z]+)?[\s\n]$/;
+  var tildeInputRegex = /^~~~([a-z]+)?[\s\n]$/;
+  var CodeBlock = Node2.create({
+    name: "codeBlock",
+    addOptions() {
+      return {
+        languageClassPrefix: "language-",
+        exitOnTripleEnter: true,
+        exitOnArrowDown: true,
+        exitOnArrowUp: true,
+        defaultLanguage: null,
+        enableTabIndentation: false,
+        tabSize: DEFAULT_TAB_SIZE,
+        HTMLAttributes: {}
+      };
+    },
+    content: "text*",
+    marks: "",
+    group: "block",
+    code: true,
+    defining: true,
+    addAttributes() {
+      return { language: {
+        default: this.options.defaultLanguage,
+        parseHTML: (element) => {
+          var _element$firstElement;
+          const { languageClassPrefix } = this.options;
+          if (!languageClassPrefix) return null;
+          const language = [...((_element$firstElement = element.firstElementChild) === null || _element$firstElement === void 0 ? void 0 : _element$firstElement.classList) || []].filter((className) => className.startsWith(languageClassPrefix)).map((className) => className.replace(languageClassPrefix, ""))[0];
+          if (!language) return null;
+          return language;
+        },
+        rendered: false
+      } };
+    },
+    parseHTML() {
+      return [{
+        tag: "pre",
+        preserveWhitespace: "full"
+      }];
+    },
+    renderHTML({ node, HTMLAttributes }) {
+      return [
+        "pre",
+        mergeAttributes(this.options.HTMLAttributes, HTMLAttributes),
+        [
+          "code",
+          { class: node.attrs.language ? this.options.languageClassPrefix + node.attrs.language : null },
+          0
+        ]
+      ];
+    },
+    markdownTokenName: "code",
+    parseMarkdown: (token, helpers) => {
+      var _token$raw, _token$raw2;
+      if (((_token$raw = token.raw) === null || _token$raw === void 0 ? void 0 : _token$raw.startsWith("```")) === false && ((_token$raw2 = token.raw) === null || _token$raw2 === void 0 ? void 0 : _token$raw2.startsWith("~~~")) === false && token.codeBlockStyle !== "indented") return [];
+      return helpers.createNode("codeBlock", { language: token.lang || null }, token.text ? [helpers.createTextNode(token.text)] : []);
+    },
+    renderMarkdown: (node, h2) => {
+      var _node$attrs;
+      let output = "";
+      const language = ((_node$attrs = node.attrs) === null || _node$attrs === void 0 ? void 0 : _node$attrs.language) || "";
+      if (!node.content) output = `\`\`\`${language}
+
+\`\`\``;
+      else output = [
+        `\`\`\`${language}`,
+        h2.renderChildren(node.content),
+        "```"
+      ].join("\n");
+      return output;
+    },
+    addCommands() {
+      return {
+        setCodeBlock: (attributes) => ({ commands }) => {
+          return commands.setNode(this.name, attributes);
+        },
+        toggleCodeBlock: (attributes) => ({ commands }) => {
+          return commands.toggleNode(this.name, "paragraph", attributes);
+        }
+      };
+    },
+    addKeyboardShortcuts() {
+      return {
+        "Mod-Alt-c": () => this.editor.commands.toggleCodeBlock(),
+        Backspace: () => {
+          const { empty: empty2, $anchor } = this.editor.state.selection;
+          const isAtStart = $anchor.pos === 1;
+          if (!empty2 || $anchor.parent.type.name !== this.name) return false;
+          if (isAtStart || !$anchor.parent.textContent.length) return this.editor.commands.clearNodes();
+          return false;
+        },
+        Tab: ({ editor }) => {
+          var _this$options$tabSize;
+          if (!this.options.enableTabIndentation) return false;
+          const tabSize = (_this$options$tabSize = this.options.tabSize) !== null && _this$options$tabSize !== void 0 ? _this$options$tabSize : DEFAULT_TAB_SIZE;
+          const { state } = editor;
+          const { selection } = state;
+          const { $from, empty: empty2 } = selection;
+          if ($from.parent.type !== this.type) return false;
+          const indent = " ".repeat(tabSize);
+          if (empty2) return editor.commands.insertContent(indent);
+          return editor.commands.command(({ tr: tr2 }) => {
+            const { from: from2, to } = selection;
+            const indentedText = state.doc.textBetween(from2, to, "\n", "\n").split("\n").map((line) => indent + line).join("\n");
+            tr2.replaceWith(from2, to, state.schema.text(indentedText));
+            return true;
+          });
+        },
+        "Shift-Tab": ({ editor }) => {
+          var _this$options$tabSize2;
+          if (!this.options.enableTabIndentation) return false;
+          const tabSize = (_this$options$tabSize2 = this.options.tabSize) !== null && _this$options$tabSize2 !== void 0 ? _this$options$tabSize2 : DEFAULT_TAB_SIZE;
+          const { state } = editor;
+          const { selection } = state;
+          const { $from, empty: empty2 } = selection;
+          if ($from.parent.type !== this.type) return false;
+          if (empty2) return editor.commands.command(({ tr: tr2 }) => {
+            var _currentLine$match;
+            const { pos } = $from;
+            const codeBlockStart = $from.start();
+            const codeBlockEnd = $from.end();
+            const lines = state.doc.textBetween(codeBlockStart, codeBlockEnd, "\n", "\n").split("\n");
+            let currentLineIndex = 0;
+            let charCount = 0;
+            const relativeCursorPos = pos - codeBlockStart;
+            for (let i = 0; i < lines.length; i += 1) {
+              if (charCount + lines[i].length >= relativeCursorPos) {
+                currentLineIndex = i;
+                break;
+              }
+              charCount += lines[i].length + 1;
+            }
+            const leadingSpaces = ((_currentLine$match = lines[currentLineIndex].match(/^ */)) === null || _currentLine$match === void 0 ? void 0 : _currentLine$match[0]) || "";
+            const spacesToRemove = Math.min(leadingSpaces.length, tabSize);
+            if (spacesToRemove === 0) return true;
+            let lineStartPos = codeBlockStart;
+            for (let i = 0; i < currentLineIndex; i += 1) lineStartPos += lines[i].length + 1;
+            tr2.delete(lineStartPos, lineStartPos + spacesToRemove);
+            if (pos - lineStartPos <= spacesToRemove) tr2.setSelection(TextSelection.create(tr2.doc, lineStartPos));
+            return true;
+          });
+          return editor.commands.command(({ tr: tr2 }) => {
+            const { from: from2, to } = selection;
+            const reverseIndentText = state.doc.textBetween(from2, to, "\n", "\n").split("\n").map((line) => {
+              var _line$match;
+              const leadingSpaces = ((_line$match = line.match(/^ */)) === null || _line$match === void 0 ? void 0 : _line$match[0]) || "";
+              const spacesToRemove = Math.min(leadingSpaces.length, tabSize);
+              return line.slice(spacesToRemove);
+            }).join("\n");
+            tr2.replaceWith(from2, to, state.schema.text(reverseIndentText));
+            return true;
+          });
+        },
+        Enter: ({ editor }) => {
+          if (!this.options.exitOnTripleEnter) return false;
+          const { state } = editor;
+          const { selection } = state;
+          const { $from, empty: empty2 } = selection;
+          if (!empty2 || $from.parent.type !== this.type) return false;
+          const isAtEnd = $from.parentOffset === $from.parent.nodeSize - 2;
+          const endsWithDoubleNewline = $from.parent.textContent.endsWith("\n\n");
+          if (!isAtEnd || !endsWithDoubleNewline) return false;
+          return editor.chain().command(({ tr: tr2 }) => {
+            tr2.delete($from.pos - 2, $from.pos);
+            return true;
+          }).exitCode().run();
+        },
+        ArrowUp: ({ editor }) => {
+          if (!this.options.exitOnArrowUp) return false;
+          const { state } = editor;
+          const { selection } = state;
+          const { $from, empty: empty2 } = selection;
+          if (!empty2 || $from.parent.type !== this.type) return false;
+          if ($from.parentOffset !== 0) return false;
+          const before = $from.before();
+          if (before > 0) return false;
+          return editor.commands.insertDefaultBlock({ pos: before });
+        },
+        ArrowDown: ({ editor }) => {
+          if (!this.options.exitOnArrowDown) return false;
+          const { state } = editor;
+          const { selection, doc: doc3 } = state;
+          const { $from, empty: empty2 } = selection;
+          if (!empty2 || $from.parent.type !== this.type) return false;
+          if (!($from.parentOffset === $from.parent.nodeSize - 2)) return false;
+          const after = $from.after();
+          if (after === void 0) return false;
+          if (doc3.nodeAt(after)) return editor.commands.command(({ tr: tr2 }) => {
+            tr2.setSelection(Selection.near(doc3.resolve(after)));
+            return true;
+          });
+          return editor.commands.exitCode();
+        }
+      };
+    },
+    addInputRules() {
+      return [textblockTypeInputRule({
+        find: backtickInputRegex,
+        type: this.type,
+        getAttributes: (match) => ({ language: match[1] })
+      }), textblockTypeInputRule({
+        find: tildeInputRegex,
+        type: this.type,
+        getAttributes: (match) => ({ language: match[1] })
+      })];
+    },
+    addProseMirrorPlugins() {
+      return [new Plugin({
+        key: new PluginKey("codeBlockVSCodeHandler"),
+        props: { handlePaste: (view, event) => {
+          if (!event.clipboardData) return false;
+          if (this.editor.isActive(this.type.name)) return false;
+          const text = event.clipboardData.getData("text/plain");
+          const vscode = event.clipboardData.getData("vscode-editor-data");
+          const vscodeData = vscode ? JSON.parse(vscode) : void 0;
+          const language = vscodeData === null || vscodeData === void 0 ? void 0 : vscodeData.mode;
+          if (!text || !language) return false;
+          const { tr: tr2, schema } = view.state;
+          const textNode = schema.text(text.replace(/\r\n?/g, "\n"));
+          tr2.replaceSelectionWith(this.type.create({ language }, textNode));
+          if (tr2.selection.$from.parent.type !== this.type) tr2.setSelection(TextSelection.near(tr2.doc.resolve(Math.max(0, tr2.selection.from - 2))));
+          tr2.setMeta("paste", true);
+          view.dispatch(tr2);
+          return true;
+        } }
+      })];
+    }
+  });
+
+  // node_modules/@tiptap/extension-document/dist/index.js
+  var Document = Node2.create({
+    name: "doc",
+    topNode: true,
+    content: "block+",
+    renderMarkdown: (node, h2) => {
+      if (!node.content) return "";
+      return h2.renderChildren(node.content, "\n\n");
+    }
+  });
+
+  // node_modules/@tiptap/extension-hard-break/dist/index.js
+  var HardBreak = Node2.create({
+    name: "hardBreak",
+    markdownTokenName: "br",
+    addOptions() {
+      return {
+        keepMarks: true,
+        HTMLAttributes: {}
+      };
+    },
+    inline: true,
+    group: "inline",
+    selectable: false,
+    linebreakReplacement: true,
+    parseHTML() {
+      return [{ tag: "br" }];
+    },
+    renderHTML({ HTMLAttributes }) {
+      return ["br", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes)];
+    },
+    renderText() {
+      return "\n";
+    },
+    renderMarkdown: () => `  
+`,
+    parseMarkdown: () => {
+      return { type: "hardBreak" };
+    },
+    addCommands() {
+      return { setHardBreak: () => ({ commands, chain, state, editor }) => {
+        return commands.first([() => commands.exitCode(), () => commands.command(() => {
+          const { selection, storedMarks } = state;
+          if (selection.$from.parent.type.spec.isolating) return false;
+          const { keepMarks } = this.options;
+          const { splittableMarks } = editor.extensionManager;
+          const marks = storedMarks || selection.$to.parentOffset && selection.$from.marks();
+          return chain().insertContent({ type: this.name }).command(({ tr: tr2, dispatch }) => {
+            if (dispatch && marks && keepMarks) {
+              const filteredMarks = marks.filter((mark) => splittableMarks.includes(mark.type.name));
+              tr2.ensureMarks(filteredMarks);
+            }
+            return true;
+          }).scrollIntoView().run();
+        })]);
+      } };
+    },
+    addKeyboardShortcuts() {
+      return {
+        "Mod-Enter": () => this.editor.commands.setHardBreak(),
+        "Shift-Enter": () => this.editor.commands.setHardBreak()
+      };
+    }
+  });
+
+  // node_modules/@tiptap/extension-heading/dist/index.js
+  var Heading = Node2.create({
+    name: "heading",
+    addOptions() {
+      return {
+        levels: [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        HTMLAttributes: {}
+      };
+    },
+    content: "inline*",
+    group: "block",
+    defining: true,
+    addAttributes() {
+      return { level: {
+        default: 1,
+        rendered: false
+      } };
+    },
+    parseHTML() {
+      return this.options.levels.map((level) => ({
+        tag: `h${level}`,
+        attrs: { level }
+      }));
+    },
+    renderHTML({ node, HTMLAttributes }) {
+      return [
+        `h${this.options.levels.includes(node.attrs.level) ? node.attrs.level : this.options.levels[0]}`,
+        mergeAttributes(this.options.HTMLAttributes, HTMLAttributes),
+        0
+      ];
+    },
+    parseMarkdown: (token, helpers) => {
+      return helpers.createNode("heading", { level: token.depth || 1 }, helpers.parseInline(token.tokens || []));
+    },
+    renderMarkdown: (node, h2) => {
+      var _node$attrs;
+      const level = ((_node$attrs = node.attrs) === null || _node$attrs === void 0 ? void 0 : _node$attrs.level) ? parseInt(node.attrs.level, 10) : 1;
+      const headingChars = "#".repeat(level);
+      if (!node.content) return "";
+      return `${headingChars} ${h2.renderChildren(node.content)}`;
+    },
+    addCommands() {
+      return {
+        setHeading: (attributes) => ({ commands }) => {
+          if (!this.options.levels.includes(attributes.level)) return false;
+          return commands.setNode(this.name, attributes);
+        },
+        toggleHeading: (attributes) => ({ commands }) => {
+          if (!this.options.levels.includes(attributes.level)) return false;
+          return commands.toggleNode(this.name, "paragraph", attributes);
+        }
+      };
+    },
+    addKeyboardShortcuts() {
+      return this.options.levels.reduce((items, level) => ({
+        ...items,
+        [`Mod-Alt-${level}`]: () => this.editor.commands.toggleHeading({ level })
+      }), {});
+    },
+    addInputRules() {
+      return this.options.levels.map((level) => {
+        return textblockTypeInputRule({
+          find: new RegExp(`^(#{${Math.min(...this.options.levels)},${level}})\\s$`),
+          type: this.type,
+          getAttributes: { level }
+        });
+      });
     }
   });
 
@@ -18016,7 +18576,8 @@ img.ProseMirror-separator {
     name: "horizontalRule",
     addOptions() {
       return {
-        HTMLAttributes: {}
+        HTMLAttributes: {},
+        nextNodeType: "paragraph"
       };
     },
     group: "block",
@@ -18026,63 +18587,48 @@ img.ProseMirror-separator {
     renderHTML({ HTMLAttributes }) {
       return ["hr", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes)];
     },
+    markdownTokenName: "hr",
+    parseMarkdown: (token, helpers) => {
+      return helpers.createNode("horizontalRule");
+    },
+    renderMarkdown: () => {
+      return "---";
+    },
     addCommands() {
-      return {
-        setHorizontalRule: () => ({ chain, state }) => {
-          if (!canInsertNode(state, state.schema.nodes[this.name])) {
-            return false;
-          }
-          const { selection } = state;
-          const { $from: $originFrom, $to: $originTo } = selection;
-          const currentChain = chain();
-          if ($originFrom.parentOffset === 0) {
-            currentChain.insertContentAt({
-              from: Math.max($originFrom.pos - 1, 0),
-              to: $originTo.pos
-            }, {
-              type: this.name
-            });
-          } else if (isNodeSelection(selection)) {
-            currentChain.insertContentAt($originTo.pos, {
-              type: this.name
-            });
-          } else {
-            currentChain.insertContent({ type: this.name });
-          }
-          return currentChain.command(({ tr: tr2, dispatch }) => {
-            var _a;
-            if (dispatch) {
-              const { $to } = tr2.selection;
-              const posAfter = $to.end();
-              if ($to.nodeAfter) {
-                if ($to.nodeAfter.isTextblock) {
-                  tr2.setSelection(TextSelection.create(tr2.doc, $to.pos + 1));
-                } else if ($to.nodeAfter.isBlock) {
-                  tr2.setSelection(NodeSelection.create(tr2.doc, $to.pos));
-                } else {
-                  tr2.setSelection(TextSelection.create(tr2.doc, $to.pos));
-                }
-              } else {
-                const node = (_a = $to.parent.type.contentMatch.defaultType) === null || _a === void 0 ? void 0 : _a.create();
-                if (node) {
-                  tr2.insert(posAfter, node);
-                  tr2.setSelection(TextSelection.create(tr2.doc, posAfter + 1));
-                }
+      return { setHorizontalRule: () => ({ chain, state }) => {
+        if (!canInsertNode(state, state.schema.nodes[this.name])) return false;
+        const { selection } = state;
+        const { $to: $originTo } = selection;
+        const currentChain = chain();
+        if (isNodeSelection(selection)) currentChain.insertContentAt($originTo.pos, { type: this.name });
+        else currentChain.insertContent({ type: this.name });
+        return currentChain.command(({ state: chainState, tr: tr2, dispatch }) => {
+          if (dispatch) {
+            const { $to } = tr2.selection;
+            const posAfter = $to.end();
+            if ($to.nodeAfter) {
+              if ($to.nodeAfter.isTextblock) tr2.setSelection(TextSelection.create(tr2.doc, $to.pos + 1));
+              else if ($to.nodeAfter.isBlock) tr2.setSelection(NodeSelection.create(tr2.doc, $to.pos));
+              else tr2.setSelection(TextSelection.create(tr2.doc, $to.pos));
+            } else {
+              const nodeType = chainState.schema.nodes[this.options.nextNodeType] || $to.parent.type.contentMatch.defaultType;
+              const node = nodeType === null || nodeType === void 0 ? void 0 : nodeType.create();
+              if (node) {
+                tr2.insert(posAfter, node);
+                tr2.setSelection(TextSelection.create(tr2.doc, posAfter + 1));
               }
-              tr2.scrollIntoView();
             }
-            return true;
-          }).run();
-        }
-      };
+            tr2.scrollIntoView();
+          }
+          return true;
+        }).run();
+      } };
     },
     addInputRules() {
-      return [
-        nodeInputRule({
-          find: /^(?:---|—-|___\s|\*\*\*\s)$/,
-          type: this.type
-        })
-      ];
+      return [nodeInputRule({
+        find: /^(?:---|—-|___\s|\*\*\*\s)$/,
+        type: this.type
+      })];
     }
   });
 
@@ -18094,15 +18640,11 @@ img.ProseMirror-separator {
   var Italic = Mark2.create({
     name: "italic",
     addOptions() {
-      return {
-        HTMLAttributes: {}
-      };
+      return { HTMLAttributes: {} };
     },
     parseHTML() {
       return [
-        {
-          tag: "em"
-        },
+        { tag: "em" },
         {
           tag: "i",
           getAttrs: (node) => node.style.fontStyle !== "normal" && null
@@ -18111,26 +18653,39 @@ img.ProseMirror-separator {
           style: "font-style=normal",
           clearMark: (mark) => mark.type.name === this.name
         },
-        {
-          style: "font-style=italic"
-        }
+        { style: "font-style=italic" }
       ];
     },
     renderHTML({ HTMLAttributes }) {
-      return ["em", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
+      return [
+        "em",
+        mergeAttributes(this.options.HTMLAttributes, HTMLAttributes),
+        0
+      ];
     },
     addCommands() {
       return {
-        setItalic: () => ({ commands: commands2 }) => {
-          return commands2.setMark(this.name);
+        setItalic: () => ({ commands }) => {
+          return commands.setMark(this.name);
         },
-        toggleItalic: () => ({ commands: commands2 }) => {
-          return commands2.toggleMark(this.name);
+        toggleItalic: () => ({ commands }) => {
+          return commands.toggleMark(this.name);
         },
-        unsetItalic: () => ({ commands: commands2 }) => {
-          return commands2.unsetMark(this.name);
+        unsetItalic: () => ({ commands }) => {
+          return commands.unsetMark(this.name);
         }
       };
+    },
+    markdownTokenName: "em",
+    parseMarkdown: (token, helpers) => {
+      return helpers.applyMark("italic", helpers.parseInline(token.tokens || []));
+    },
+    markdownOptions: { htmlReopen: {
+      open: "<em>",
+      close: "</em>"
+    } },
+    renderMarkdown: (node, h2) => {
+      return `*${h2.renderChildren(node)}*`;
     },
     addKeyboardShortcuts() {
       return {
@@ -18139,310 +18694,22 @@ img.ProseMirror-separator {
       };
     },
     addInputRules() {
-      return [
-        markInputRule({
-          find: starInputRegex2,
-          type: this.type
-        }),
-        markInputRule({
-          find: underscoreInputRegex2,
-          type: this.type
-        })
-      ];
+      return [markInputRule({
+        find: starInputRegex2,
+        type: this.type
+      }), markInputRule({
+        find: underscoreInputRegex2,
+        type: this.type
+      })];
     },
     addPasteRules() {
-      return [
-        markPasteRule({
-          find: starPasteRegex2,
-          type: this.type
-        }),
-        markPasteRule({
-          find: underscorePasteRegex2,
-          type: this.type
-        })
-      ];
-    }
-  });
-
-  // node_modules/@tiptap/extension-list-item/dist/index.js
-  var ListItem = Node2.create({
-    name: "listItem",
-    addOptions() {
-      return {
-        HTMLAttributes: {},
-        bulletListTypeName: "bulletList",
-        orderedListTypeName: "orderedList"
-      };
-    },
-    content: "paragraph block*",
-    defining: true,
-    parseHTML() {
-      return [
-        {
-          tag: "li"
-        }
-      ];
-    },
-    renderHTML({ HTMLAttributes }) {
-      return ["li", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
-    },
-    addKeyboardShortcuts() {
-      return {
-        Enter: () => this.editor.commands.splitListItem(this.name),
-        Tab: () => this.editor.commands.sinkListItem(this.name),
-        "Shift-Tab": () => this.editor.commands.liftListItem(this.name)
-      };
-    }
-  });
-
-  // node_modules/@tiptap/extension-ordered-list/dist/index.js
-  var ListItemName2 = "listItem";
-  var TextStyleName2 = "textStyle";
-  var inputRegex4 = /^(\d+)\.\s$/;
-  var OrderedList = Node2.create({
-    name: "orderedList",
-    addOptions() {
-      return {
-        itemTypeName: "listItem",
-        HTMLAttributes: {},
-        keepMarks: false,
-        keepAttributes: false
-      };
-    },
-    group: "block list",
-    content() {
-      return `${this.options.itemTypeName}+`;
-    },
-    addAttributes() {
-      return {
-        start: {
-          default: 1,
-          parseHTML: (element) => {
-            return element.hasAttribute("start") ? parseInt(element.getAttribute("start") || "", 10) : 1;
-          }
-        },
-        type: {
-          default: null,
-          parseHTML: (element) => element.getAttribute("type")
-        }
-      };
-    },
-    parseHTML() {
-      return [
-        {
-          tag: "ol"
-        }
-      ];
-    },
-    renderHTML({ HTMLAttributes }) {
-      const { start, ...attributesWithoutStart } = HTMLAttributes;
-      return start === 1 ? ["ol", mergeAttributes(this.options.HTMLAttributes, attributesWithoutStart), 0] : ["ol", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
-    },
-    addCommands() {
-      return {
-        toggleOrderedList: () => ({ commands: commands2, chain }) => {
-          if (this.options.keepAttributes) {
-            return chain().toggleList(this.name, this.options.itemTypeName, this.options.keepMarks).updateAttributes(ListItemName2, this.editor.getAttributes(TextStyleName2)).run();
-          }
-          return commands2.toggleList(this.name, this.options.itemTypeName, this.options.keepMarks);
-        }
-      };
-    },
-    addKeyboardShortcuts() {
-      return {
-        "Mod-Shift-7": () => this.editor.commands.toggleOrderedList()
-      };
-    },
-    addInputRules() {
-      let inputRule = wrappingInputRule({
-        find: inputRegex4,
-        type: this.type,
-        getAttributes: (match) => ({ start: +match[1] }),
-        joinPredicate: (match, node) => node.childCount + node.attrs.start === +match[1]
-      });
-      if (this.options.keepMarks || this.options.keepAttributes) {
-        inputRule = wrappingInputRule({
-          find: inputRegex4,
-          type: this.type,
-          keepMarks: this.options.keepMarks,
-          keepAttributes: this.options.keepAttributes,
-          getAttributes: (match) => ({ start: +match[1], ...this.editor.getAttributes(TextStyleName2) }),
-          joinPredicate: (match, node) => node.childCount + node.attrs.start === +match[1],
-          editor: this.editor
-        });
-      }
-      return [
-        inputRule
-      ];
-    }
-  });
-
-  // node_modules/@tiptap/extension-paragraph/dist/index.js
-  var Paragraph = Node2.create({
-    name: "paragraph",
-    priority: 1e3,
-    addOptions() {
-      return {
-        HTMLAttributes: {}
-      };
-    },
-    group: "block",
-    content: "inline*",
-    parseHTML() {
-      return [
-        { tag: "p" }
-      ];
-    },
-    renderHTML({ HTMLAttributes }) {
-      return ["p", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
-    },
-    addCommands() {
-      return {
-        setParagraph: () => ({ commands: commands2 }) => {
-          return commands2.setNode(this.name);
-        }
-      };
-    },
-    addKeyboardShortcuts() {
-      return {
-        "Mod-Alt-0": () => this.editor.commands.setParagraph()
-      };
-    }
-  });
-
-  // node_modules/@tiptap/extension-strike/dist/index.js
-  var inputRegex5 = /(?:^|\s)(~~(?!\s+~~)((?:[^~]+))~~(?!\s+~~))$/;
-  var pasteRegex2 = /(?:^|\s)(~~(?!\s+~~)((?:[^~]+))~~(?!\s+~~))/g;
-  var Strike = Mark2.create({
-    name: "strike",
-    addOptions() {
-      return {
-        HTMLAttributes: {}
-      };
-    },
-    parseHTML() {
-      return [
-        {
-          tag: "s"
-        },
-        {
-          tag: "del"
-        },
-        {
-          tag: "strike"
-        },
-        {
-          style: "text-decoration",
-          consuming: false,
-          getAttrs: (style2) => style2.includes("line-through") ? {} : false
-        }
-      ];
-    },
-    renderHTML({ HTMLAttributes }) {
-      return ["s", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
-    },
-    addCommands() {
-      return {
-        setStrike: () => ({ commands: commands2 }) => {
-          return commands2.setMark(this.name);
-        },
-        toggleStrike: () => ({ commands: commands2 }) => {
-          return commands2.toggleMark(this.name);
-        },
-        unsetStrike: () => ({ commands: commands2 }) => {
-          return commands2.unsetMark(this.name);
-        }
-      };
-    },
-    addKeyboardShortcuts() {
-      return {
-        "Mod-Shift-s": () => this.editor.commands.toggleStrike()
-      };
-    },
-    addInputRules() {
-      return [
-        markInputRule({
-          find: inputRegex5,
-          type: this.type
-        })
-      ];
-    },
-    addPasteRules() {
-      return [
-        markPasteRule({
-          find: pasteRegex2,
-          type: this.type
-        })
-      ];
-    }
-  });
-
-  // node_modules/@tiptap/extension-text/dist/index.js
-  var Text = Node2.create({
-    name: "text",
-    group: "inline"
-  });
-
-  // node_modules/@tiptap/starter-kit/dist/index.js
-  var StarterKit = Extension.create({
-    name: "starterKit",
-    addExtensions() {
-      const extensions = [];
-      if (this.options.bold !== false) {
-        extensions.push(Bold.configure(this.options.bold));
-      }
-      if (this.options.blockquote !== false) {
-        extensions.push(Blockquote.configure(this.options.blockquote));
-      }
-      if (this.options.bulletList !== false) {
-        extensions.push(BulletList.configure(this.options.bulletList));
-      }
-      if (this.options.code !== false) {
-        extensions.push(Code.configure(this.options.code));
-      }
-      if (this.options.codeBlock !== false) {
-        extensions.push(CodeBlock.configure(this.options.codeBlock));
-      }
-      if (this.options.document !== false) {
-        extensions.push(Document.configure(this.options.document));
-      }
-      if (this.options.dropcursor !== false) {
-        extensions.push(Dropcursor.configure(this.options.dropcursor));
-      }
-      if (this.options.gapcursor !== false) {
-        extensions.push(Gapcursor.configure(this.options.gapcursor));
-      }
-      if (this.options.hardBreak !== false) {
-        extensions.push(HardBreak.configure(this.options.hardBreak));
-      }
-      if (this.options.heading !== false) {
-        extensions.push(Heading.configure(this.options.heading));
-      }
-      if (this.options.history !== false) {
-        extensions.push(History.configure(this.options.history));
-      }
-      if (this.options.horizontalRule !== false) {
-        extensions.push(HorizontalRule.configure(this.options.horizontalRule));
-      }
-      if (this.options.italic !== false) {
-        extensions.push(Italic.configure(this.options.italic));
-      }
-      if (this.options.listItem !== false) {
-        extensions.push(ListItem.configure(this.options.listItem));
-      }
-      if (this.options.orderedList !== false) {
-        extensions.push(OrderedList.configure(this.options.orderedList));
-      }
-      if (this.options.paragraph !== false) {
-        extensions.push(Paragraph.configure(this.options.paragraph));
-      }
-      if (this.options.strike !== false) {
-        extensions.push(Strike.configure(this.options.strike));
-      }
-      if (this.options.text !== false) {
-        extensions.push(Text.configure(this.options.text));
-      }
-      return extensions;
+      return [markPasteRule({
+        find: starPasteRegex2,
+        type: this.type
+      }), markPasteRule({
+        find: underscorePasteRegex2,
+        type: this.type
+      })];
     }
   });
 
@@ -19316,7 +19583,7 @@ img.ProseMirror-separator {
       return "mailto:" + this.toString();
     }
   });
-  var Text2 = createTokenClass("text");
+  var Text = createTokenClass("text");
   var Nl = createTokenClass("nl");
   var Url = createTokenClass("url", {
     isLink: true,
@@ -19495,7 +19762,7 @@ img.ProseMirror-separator {
         }
       } else {
         if (textTokens.length > 0) {
-          multis.push(initMultiToken(Text2, input, textTokens));
+          multis.push(initMultiToken(Text, input, textTokens));
           textTokens = [];
         }
         cursor -= sinceAccepts;
@@ -19506,7 +19773,7 @@ img.ProseMirror-separator {
       }
     }
     if (textTokens.length > 0) {
-      multis.push(initMultiToken(Text2, input, textTokens));
+      multis.push(initMultiToken(Text, input, textTokens));
     }
     return multis;
   }
@@ -19597,14 +19864,27 @@ img.ProseMirror-separator {
   var UNICODE_WHITESPACE_PATTERN = "[\0- \xA0\u1680\u180E\u2000-\u2029\u205F\u3000]";
   var UNICODE_WHITESPACE_REGEX = new RegExp(UNICODE_WHITESPACE_PATTERN);
   var UNICODE_WHITESPACE_REGEX_END = new RegExp(`${UNICODE_WHITESPACE_PATTERN}$`);
+  var UNICODE_WHITESPACE_REGEX_TRAILING = new RegExp(`${UNICODE_WHITESPACE_PATTERN}+$`);
   var UNICODE_WHITESPACE_REGEX_GLOBAL = new RegExp(UNICODE_WHITESPACE_PATTERN, "g");
+  function unlinkTrailingWhitespace(tr2, range, type) {
+    var _rangeEnd$nodeBefore, _insertedText$match;
+    const rangeEnd = tr2.doc.resolve(range.to);
+    if (!((_rangeEnd$nodeBefore = rangeEnd.nodeBefore) === null || _rangeEnd$nodeBefore === void 0 ? void 0 : _rangeEnd$nodeBefore.isText)) return;
+    const trailingWhitespace = (_insertedText$match = tr2.doc.textBetween(range.from, range.to, "\uFFFC", "\uFFFC").match(UNICODE_WHITESPACE_REGEX_TRAILING)) === null || _insertedText$match === void 0 ? void 0 : _insertedText$match[0];
+    if (!trailingWhitespace) return;
+    const whitespaceFrom = range.to - trailingWhitespace.length;
+    const linkMarks = getMarksBetween(whitespaceFrom, range.to, tr2.doc).filter((item) => item.mark.type === type);
+    if (!linkMarks.length) return;
+    const { nodeAfter } = rangeEnd;
+    if (!!nodeAfter && linkMarks.some((item) => item.mark.isInSet(nodeAfter.marks))) return;
+    const storedMarks = tr2.storedMarks;
+    tr2.removeMark(whitespaceFrom, range.to, type);
+    tr2.setStoredMarks(storedMarks);
+    if (tr2.selection.empty && tr2.selection.from === range.to) tr2.removeStoredMark(type);
+  }
   function isValidLinkStructure(tokens) {
-    if (tokens.length === 1) {
-      return tokens[0].isLink;
-    }
-    if (tokens.length === 3 && tokens[1].isLink) {
-      return ["()", "[]"].includes(tokens[0].value + tokens[2].value);
-    }
+    if (tokens.length === 1) return tokens[0].isLink;
+    if (tokens.length === 3 && tokens[1].isLink) return ["()", "[]"].includes(tokens[0].value + tokens[2].value);
     return false;
   }
   function autolink(options) {
@@ -19613,13 +19893,25 @@ img.ProseMirror-separator {
       appendTransaction: (transactions, oldState, newState) => {
         const docChanges = transactions.some((transaction) => transaction.docChanged) && !oldState.doc.eq(newState.doc);
         const preventAutolink = transactions.some((transaction) => transaction.getMeta("preventAutolink"));
-        if (!docChanges || preventAutolink) {
-          return;
-        }
+        if (!docChanges || preventAutolink) return;
         const { tr: tr2 } = newState;
         const transform = combineTransactionSteps(oldState.doc, [...transactions]);
-        const changes = getChangedRanges(transform);
-        changes.forEach(({ newRange }) => {
+        if (!transactions.some(isHistoryTransaction)) {
+          const insertedRanges = [];
+          transform.steps.forEach((step, index) => {
+            if (!(step instanceof ReplaceStep) || !step.slice.size) return;
+            const mapping = transform.mapping.slice(index + 1);
+            const from2 = mapping.map(step.from, 1);
+            const to = mapping.map(step.from + step.slice.size, -1);
+            if (from2 < to) insertedRanges.push({
+              from: from2,
+              to
+            });
+          });
+          insertedRanges.sort((left, right) => right.to - left.to);
+          insertedRanges.forEach((range) => unlinkTrailingWhitespace(tr2, range, options.type));
+        }
+        getChangedRanges(transform).forEach(({ newRange }) => {
           const nodesInChangedRanges = findChildrenInRange(newState.doc, newRange, (node) => node.isTextblock);
           let textBlock;
           let textBeforeWhitespace;
@@ -19628,48 +19920,32 @@ img.ProseMirror-separator {
             textBeforeWhitespace = newState.doc.textBetween(textBlock.pos, textBlock.pos + textBlock.node.nodeSize, void 0, " ");
           } else if (nodesInChangedRanges.length) {
             const endText = newState.doc.textBetween(newRange.from, newRange.to, " ", " ");
-            if (!UNICODE_WHITESPACE_REGEX_END.test(endText)) {
-              return;
-            }
+            if (!UNICODE_WHITESPACE_REGEX_END.test(endText)) return;
             textBlock = nodesInChangedRanges[0];
             textBeforeWhitespace = newState.doc.textBetween(textBlock.pos, newRange.to, void 0, " ");
           }
           if (textBlock && textBeforeWhitespace) {
             const wordsBeforeWhitespace = textBeforeWhitespace.split(UNICODE_WHITESPACE_REGEX).filter(Boolean);
-            if (wordsBeforeWhitespace.length <= 0) {
-              return false;
-            }
+            if (wordsBeforeWhitespace.length <= 0) return false;
             const lastWordBeforeSpace = wordsBeforeWhitespace[wordsBeforeWhitespace.length - 1];
             const lastWordAndBlockOffset = textBlock.pos + textBeforeWhitespace.lastIndexOf(lastWordBeforeSpace);
-            if (!lastWordBeforeSpace) {
-              return false;
-            }
+            if (!lastWordBeforeSpace) return false;
             const linksBeforeSpace = tokenize(lastWordBeforeSpace).map((t) => t.toObject(options.defaultProtocol));
-            if (!isValidLinkStructure(linksBeforeSpace)) {
-              return false;
-            }
+            if (!isValidLinkStructure(linksBeforeSpace)) return false;
             linksBeforeSpace.filter((link) => link.isLink).map((link) => ({
               ...link,
               from: lastWordAndBlockOffset + link.start + 1,
               to: lastWordAndBlockOffset + link.end + 1
             })).filter((link) => {
-              if (!newState.schema.marks.code) {
-                return true;
-              }
+              if (!newState.schema.marks.code) return true;
               return !newState.doc.rangeHasMark(link.from, link.to, newState.schema.marks.code);
             }).filter((link) => options.validate(link.value)).filter((link) => options.shouldAutoLink(link.value)).forEach((link) => {
-              if (getMarksBetween(link.from, link.to, newState.doc).some((item) => item.mark.type === options.type)) {
-                return;
-              }
-              tr2.addMark(link.from, link.to, options.type.create({
-                href: link.href
-              }));
+              if (getMarksBetween(link.from, link.to, newState.doc).some((item) => item.mark.type === options.type)) return;
+              tr2.addMark(link.from, link.to, options.type.create({ href: link.href }));
             });
           }
         });
-        if (!tr2.steps.length) {
-          return;
-        }
+        if (!tr2.steps.length) return;
         return tr2;
       }
     });
@@ -19677,61 +19953,154 @@ img.ProseMirror-separator {
   function clickHandler(options) {
     return new Plugin({
       key: new PluginKey("handleClickLink"),
-      props: {
-        handleClick: (view, pos, event) => {
-          var _a, _b;
-          if (event.button !== 0) {
-            return false;
-          }
-          if (!view.editable) {
-            return false;
-          }
-          let a = event.target;
-          const els = [];
-          while (a.nodeName !== "DIV") {
-            els.push(a);
-            a = a.parentNode;
-          }
-          if (!els.find((value) => value.nodeName === "A")) {
-            return false;
-          }
-          const attrs = getAttributes(view.state, options.type.name);
-          const link = event.target;
-          const href = (_a = link === null || link === void 0 ? void 0 : link.href) !== null && _a !== void 0 ? _a : attrs.href;
-          const target = (_b = link === null || link === void 0 ? void 0 : link.target) !== null && _b !== void 0 ? _b : attrs.target;
-          if (link && href) {
-            window.open(href, target);
-            return true;
-          }
-          return false;
+      props: { handleClick: (view, pos, event) => {
+        if (event.button !== 0) return false;
+        if (!view.editable) return false;
+        let link = null;
+        if (event.target instanceof HTMLAnchorElement) link = event.target;
+        else {
+          const target = event.target;
+          if (!target) return false;
+          const root = options.editor.view.dom;
+          link = target.closest("a");
+          if (link && !root.contains(link)) link = null;
         }
+        if (!link) return false;
+        let handled = false;
+        if (options.enableClickSelection) handled = options.editor.commands.extendMarkRange(options.type.name);
+        if (options.openOnClick) {
+          var _link$href, _link$target;
+          const attrs = getAttributes(view.state, options.type.name);
+          const href = (_link$href = link.href) !== null && _link$href !== void 0 ? _link$href : attrs.href;
+          const target = (_link$target = link.target) !== null && _link$target !== void 0 ? _link$target : attrs.target;
+          if (href) {
+            window.open(href, target);
+            handled = true;
+          }
+        }
+        return handled;
+      } }
+    });
+  }
+  var MARKDOWN_LINK_INPUT_REGEX = /\[([^[\]]+)\]\(((?:[^\s()]|\([^\s()]*\))+)(?:\s+(?:(["'])(.*?)\3|“(.*?)”|‘(.*?)’))?\)$/;
+  var MARKDOWN_LINK_PASTE_REGEX = /\[([^[\]]+)\]\(((?:[^\s()]|\([^\s()]*\))+)(?:\s+(?:(["'])(.*?)\3|“(.*?)”|‘(.*?)’))?\)/g;
+  function isEscaped(text, index) {
+    let backslashes = 0;
+    for (let position = index - 1; position >= 0 && text[position] === "\\"; position -= 1) backslashes += 1;
+    return backslashes % 2 === 1;
+  }
+  function isInsideCodeSpan(text, matchIndex) {
+    let openRunLength = 0;
+    let index = 0;
+    while (index < matchIndex) {
+      if (text[index] !== "`") {
+        index += 1;
+        continue;
+      }
+      if (openRunLength === 0 && isEscaped(text, index)) {
+        index += 1;
+        continue;
+      }
+      let runLength = 0;
+      while (index < matchIndex && text[index] === "`") {
+        runLength += 1;
+        index += 1;
+      }
+      if (openRunLength === 0) openRunLength = runLength;
+      else if (runLength === openRunLength) openRunLength = 0;
+    }
+    return openRunLength > 0;
+  }
+  function isConvertibleLink(text, match, isAllowedHref) {
+    var _match$index, _match$index2;
+    const [, linkText, href] = match;
+    if ((match.index ? text[match.index - 1] : void 0) === "!" || isEscaped(text, (_match$index = match.index) !== null && _match$index !== void 0 ? _match$index : 0)) return false;
+    if (isInsideCodeSpan(text, (_match$index2 = match.index) !== null && _match$index2 !== void 0 ? _match$index2 : 0)) return false;
+    return !!linkText.trim() && isAllowedHref(href);
+  }
+  function toRuleMatch(match) {
+    var _ref, _match$index3;
+    const [linkSyntax, linkText, href, , straightQuotedTitle, curlyDoubleTitle, curlySingleTitle] = match;
+    const title = (_ref = straightQuotedTitle !== null && straightQuotedTitle !== void 0 ? straightQuotedTitle : curlyDoubleTitle) !== null && _ref !== void 0 ? _ref : curlySingleTitle;
+    return {
+      index: (_match$index3 = match.index) !== null && _match$index3 !== void 0 ? _match$index3 : 0,
+      text: linkSyntax,
+      replaceWith: linkText,
+      data: {
+        href,
+        title: title || null,
+        markdown: true
+      }
+    };
+  }
+  function matchesOverlap(a, b) {
+    return a.index < b.index + b.text.length && b.index < a.index + a.text.length;
+  }
+  function getMarkdownLinkAttributes(match) {
+    var _match$data, _match$data$title, _match$data2;
+    return {
+      href: (_match$data = match.data) === null || _match$data === void 0 ? void 0 : _match$data.href,
+      title: (_match$data$title = (_match$data2 = match.data) === null || _match$data2 === void 0 ? void 0 : _match$data2.title) !== null && _match$data$title !== void 0 ? _match$data$title : null
+    };
+  }
+  function markdownLinkInputRule(config) {
+    const rule = markInputRule({
+      find: (text) => {
+        const match = MARKDOWN_LINK_INPUT_REGEX.exec(text);
+        if (!match || !isConvertibleLink(text, match, config.isAllowedHref)) return null;
+        return toRuleMatch(match);
+      },
+      type: config.type,
+      getAttributes: getMarkdownLinkAttributes
+    });
+    return new InputRule({
+      find: rule.find,
+      handler: (props) => {
+        const result = rule.handler(props);
+        if (result !== null && props.state.tr.steps.length) props.state.tr.setMeta("preventAutolink", true);
+        return result;
+      }
+    });
+  }
+  function markdownLinkPasteRule(config) {
+    const rule = markPasteRule({
+      find: (text) => {
+        var _config$findPlainUrls, _config$findPlainUrls2;
+        const markdownMatches = [];
+        for (const match of text.matchAll(MARKDOWN_LINK_PASTE_REGEX)) if (isConvertibleLink(text, match, config.isAllowedHref)) markdownMatches.push(toRuleMatch(match));
+        const plainUrlMatches = ((_config$findPlainUrls = (_config$findPlainUrls2 = config.findPlainUrls) === null || _config$findPlainUrls2 === void 0 ? void 0 : _config$findPlainUrls2.call(config, text)) !== null && _config$findPlainUrls !== void 0 ? _config$findPlainUrls : []).filter((urlMatch) => !markdownMatches.some((markdownMatch) => matchesOverlap(markdownMatch, urlMatch)));
+        return [...markdownMatches, ...plainUrlMatches];
+      },
+      type: config.type,
+      getAttributes: getMarkdownLinkAttributes
+    });
+    return new PasteRule({
+      find: rule.find,
+      handler: (props) => {
+        var _props$match$data;
+        const result = rule.handler(props);
+        if (result !== null && props.state.tr.steps.length && ((_props$match$data = props.match.data) === null || _props$match$data === void 0 ? void 0 : _props$match$data.markdown)) props.state.tr.setMeta("preventAutolink", true);
+        return result;
       }
     });
   }
   function pasteHandler(options) {
     return new Plugin({
       key: new PluginKey("handlePasteLink"),
-      props: {
-        handlePaste: (view, event, slice2) => {
-          const { state } = view;
-          const { selection } = state;
-          const { empty: empty2 } = selection;
-          if (empty2) {
-            return false;
-          }
-          let textContent = "";
-          slice2.content.forEach((node) => {
-            textContent += node.textContent;
-          });
-          const link = find(textContent, { defaultProtocol: options.defaultProtocol }).find((item) => item.isLink && item.value === textContent);
-          if (!textContent || !link) {
-            return false;
-          }
-          return options.editor.commands.setMark(options.type, {
-            href: link.href
-          });
-        }
-      }
+      props: { handlePaste: (view, _event, slice2) => {
+        const { shouldAutoLink } = options;
+        const { state } = view;
+        const { selection } = state;
+        const { empty: empty2 } = selection;
+        if (empty2) return false;
+        let textContent = "";
+        slice2.content.forEach((node) => {
+          textContent += node.textContent;
+        });
+        const link = find(textContent, { defaultProtocol: options.defaultProtocol }).find((item) => item.isLink && item.value === textContent);
+        if (!textContent || !link || shouldAutoLink !== void 0 && !shouldAutoLink(link.value)) return false;
+        return options.editor.commands.setMark(options.type, { href: link.href });
+      } }
     });
   }
   function isAllowedUri(uri, protocols) {
@@ -19747,19 +20116,11 @@ img.ProseMirror-separator {
       "cid",
       "xmpp"
     ];
-    if (protocols) {
-      protocols.forEach((protocol) => {
-        const nextProtocol = typeof protocol === "string" ? protocol : protocol.scheme;
-        if (nextProtocol) {
-          allowedProtocols.push(nextProtocol);
-        }
-      });
-    }
-    return !uri || uri.replace(UNICODE_WHITESPACE_REGEX_GLOBAL, "").match(new RegExp(
-      // eslint-disable-next-line no-useless-escape
-      `^(?:(?:${allowedProtocols.join("|")}):|[^a-z]|[a-z0-9+.-]+(?:[^a-z+.-:]|$))`,
-      "i"
-    ));
+    if (protocols) protocols.forEach((protocol) => {
+      const nextProtocol = typeof protocol === "string" ? protocol : protocol.scheme;
+      if (nextProtocol) allowedProtocols.push(nextProtocol);
+    });
+    return !uri || uri.replace(UNICODE_WHITESPACE_REGEX_GLOBAL, "").match(new RegExp(`^(?:(?:${allowedProtocols.map((protocol) => protocol.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")).join("|")}):|[^a-z]|[a-z0-9+.\\-]+(?:[^a-z+.\\-:]|$))`, "i"));
   }
   var Link = Mark2.create({
     name: "link",
@@ -19788,7 +20149,9 @@ img.ProseMirror-separator {
     addOptions() {
       return {
         openOnClick: true,
+        enableClickSelection: false,
         linkOnPaste: true,
+        markdownLinks: false,
         autolink: true,
         protocols: [],
         defaultProtocol: "http",
@@ -19799,10 +20162,19 @@ img.ProseMirror-separator {
         },
         isAllowedUri: (url, ctx) => !!isAllowedUri(url, ctx.protocols),
         validate: (url) => !!url,
-        shouldAutoLink: (url) => !!url
+        shouldAutoLink: (url) => {
+          const hasProtocol = /^[a-z][a-z0-9+.-]*:\/\//i.test(url);
+          const hasMaybeProtocol = /^[a-z][a-z0-9+.-]*:/i.test(url);
+          if (hasProtocol || hasMaybeProtocol && !url.includes("@")) return true;
+          const hostname = (url.includes("@") ? url.split("@").pop() : url).split(/[/?#:]/)[0];
+          if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)) return false;
+          if (!/\./.test(hostname)) return false;
+          return true;
+        }
       };
     },
     addAttributes() {
+      var _this$options$HTMLAtt, _this$options$HTMLAtt2, _this$options$HTMLAtt3;
       return {
         href: {
           default: null,
@@ -19810,48 +20182,58 @@ img.ProseMirror-separator {
             return element.getAttribute("href");
           }
         },
-        target: {
-          default: this.options.HTMLAttributes.target
-        },
-        rel: {
-          default: this.options.HTMLAttributes.rel
-        },
-        class: {
-          default: this.options.HTMLAttributes.class
-        }
+        target: { default: (_this$options$HTMLAtt = this.options.HTMLAttributes.target) !== null && _this$options$HTMLAtt !== void 0 ? _this$options$HTMLAtt : null },
+        rel: { default: (_this$options$HTMLAtt2 = this.options.HTMLAttributes.rel) !== null && _this$options$HTMLAtt2 !== void 0 ? _this$options$HTMLAtt2 : null },
+        class: { default: (_this$options$HTMLAtt3 = this.options.HTMLAttributes.class) !== null && _this$options$HTMLAtt3 !== void 0 ? _this$options$HTMLAtt3 : null },
+        title: { default: null }
       };
     },
     parseHTML() {
-      return [
-        {
-          tag: "a[href]",
-          getAttrs: (dom) => {
-            const href = dom.getAttribute("href");
-            if (!href || !this.options.isAllowedUri(href, {
-              defaultValidate: (url) => !!isAllowedUri(url, this.options.protocols),
-              protocols: this.options.protocols,
-              defaultProtocol: this.options.defaultProtocol
-            })) {
-              return false;
-            }
-            return null;
-          }
+      return [{
+        tag: "a[href]",
+        getAttrs: (dom) => {
+          const href = dom.getAttribute("href");
+          if (!href || !this.options.isAllowedUri(href, {
+            defaultValidate: (url) => !!isAllowedUri(url, this.options.protocols),
+            protocols: this.options.protocols,
+            defaultProtocol: this.options.defaultProtocol
+          })) return false;
+          return null;
         }
-      ];
+      }];
     },
     renderHTML({ HTMLAttributes }) {
       if (!this.options.isAllowedUri(HTMLAttributes.href, {
         defaultValidate: (href) => !!isAllowedUri(href, this.options.protocols),
         protocols: this.options.protocols,
         defaultProtocol: this.options.defaultProtocol
-      })) {
-        return [
-          "a",
-          mergeAttributes(this.options.HTMLAttributes, { ...HTMLAttributes, href: "" }),
-          0
-        ];
-      }
-      return ["a", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
+      })) return [
+        "a",
+        mergeAttributes(this.options.HTMLAttributes, {
+          ...HTMLAttributes,
+          href: ""
+        }),
+        0
+      ];
+      return [
+        "a",
+        mergeAttributes(this.options.HTMLAttributes, HTMLAttributes),
+        0
+      ];
+    },
+    markdownTokenName: "link",
+    parseMarkdown: (token, helpers) => {
+      return helpers.applyMark("link", helpers.parseInline(token.tokens || []), {
+        href: token.href,
+        title: token.title || null
+      });
+    },
+    renderMarkdown: (node, h2) => {
+      var _node$attrs$href, _node$attrs, _node$attrs$title, _node$attrs2;
+      const href = (_node$attrs$href = (_node$attrs = node.attrs) === null || _node$attrs === void 0 ? void 0 : _node$attrs.href) !== null && _node$attrs$href !== void 0 ? _node$attrs$href : "";
+      const title = (_node$attrs$title = (_node$attrs2 = node.attrs) === null || _node$attrs2 === void 0 ? void 0 : _node$attrs2.title) !== null && _node$attrs$title !== void 0 ? _node$attrs$title : "";
+      const text = h2.renderChildren(node);
+      return title ? `[${text}](${href} "${title}")` : `[${text}](${href})`;
     },
     addCommands() {
       return {
@@ -19861,20 +20243,16 @@ img.ProseMirror-separator {
             defaultValidate: (url) => !!isAllowedUri(url, this.options.protocols),
             protocols: this.options.protocols,
             defaultProtocol: this.options.defaultProtocol
-          })) {
-            return false;
-          }
+          })) return false;
           return chain().setMark(this.name, attributes).setMeta("preventAutolink", true).run();
         },
         toggleLink: (attributes) => ({ chain }) => {
-          const { href } = attributes;
-          if (!this.options.isAllowedUri(href, {
+          const { href } = attributes || {};
+          if (href && !this.options.isAllowedUri(href, {
             defaultValidate: (url) => !!isAllowedUri(url, this.options.protocols),
             protocols: this.options.protocols,
             defaultProtocol: this.options.defaultProtocol
-          })) {
-            return false;
-          }
+          })) return false;
           return chain().toggleMark(this.name, attributes, { extendEmptyMarkRange: true }).setMeta("preventAutolink", true).run();
         },
         unsetLink: () => ({ chain }) => {
@@ -19882,70 +20260,2446 @@ img.ProseMirror-separator {
         }
       };
     },
-    addPasteRules() {
-      return [
-        markPasteRule({
-          find: (text) => {
-            const foundLinks = [];
-            if (text) {
-              const { protocols, defaultProtocol } = this.options;
-              const links = find(text).filter((item) => item.isLink && this.options.isAllowedUri(item.value, {
-                defaultValidate: (href) => !!isAllowedUri(href, protocols),
-                protocols,
-                defaultProtocol
-              }));
-              if (links.length) {
-                links.forEach((link) => foundLinks.push({
-                  text: link.value,
-                  data: {
-                    href: link.href
-                  },
-                  index: link.start
-                }));
-              }
-            }
-            return foundLinks;
-          },
-          type: this.type,
-          getAttributes: (match) => {
-            var _a;
-            return {
-              href: (_a = match.data) === null || _a === void 0 ? void 0 : _a.href
-            };
-          }
+    addInputRules() {
+      if (!this.options.markdownLinks) return [];
+      return [markdownLinkInputRule({
+        type: this.type,
+        isAllowedHref: (href) => this.options.isAllowedUri(href, {
+          defaultValidate: (url) => !!isAllowedUri(url, this.options.protocols),
+          protocols: this.options.protocols,
+          defaultProtocol: this.options.defaultProtocol
         })
-      ];
+      })];
+    },
+    addPasteRules() {
+      const findPlainUrls = (text) => {
+        const foundLinks = [];
+        if (text) {
+          const { protocols, defaultProtocol } = this.options;
+          find(text).filter((item) => item.isLink && this.options.isAllowedUri(item.value, {
+            defaultValidate: (href) => !!isAllowedUri(href, protocols),
+            protocols,
+            defaultProtocol
+          })).forEach((link) => {
+            if (!this.options.shouldAutoLink(link.value)) return;
+            foundLinks.push({
+              text: link.value,
+              data: { href: link.href },
+              index: link.start
+            });
+          });
+        }
+        return foundLinks;
+      };
+      if (this.options.markdownLinks) return [markdownLinkPasteRule({
+        type: this.type,
+        isAllowedHref: (href) => this.options.isAllowedUri(href, {
+          defaultValidate: (url) => !!isAllowedUri(url, this.options.protocols),
+          protocols: this.options.protocols,
+          defaultProtocol: this.options.defaultProtocol
+        }),
+        findPlainUrls
+      })];
+      return [markPasteRule({
+        find: findPlainUrls,
+        type: this.type,
+        getAttributes: (match) => {
+          var _match$data;
+          return { href: (_match$data = match.data) === null || _match$data === void 0 ? void 0 : _match$data.href };
+        }
+      })];
     },
     addProseMirrorPlugins() {
       const plugins = [];
       const { protocols, defaultProtocol } = this.options;
-      if (this.options.autolink) {
-        plugins.push(autolink({
-          type: this.type,
-          defaultProtocol: this.options.defaultProtocol,
-          validate: (url) => this.options.isAllowedUri(url, {
-            defaultValidate: (href) => !!isAllowedUri(href, protocols),
-            protocols,
-            defaultProtocol
-          }),
-          shouldAutoLink: this.options.shouldAutoLink
-        }));
-      }
-      if (this.options.openOnClick === true) {
-        plugins.push(clickHandler({
-          type: this.type
-        }));
-      }
-      if (this.options.linkOnPaste) {
-        plugins.push(pasteHandler({
-          editor: this.editor,
-          defaultProtocol: this.options.defaultProtocol,
-          type: this.type
-        }));
-      }
+      if (this.options.autolink) plugins.push(autolink({
+        type: this.type,
+        defaultProtocol: this.options.defaultProtocol,
+        validate: (url) => this.options.isAllowedUri(url, {
+          defaultValidate: (href) => !!isAllowedUri(href, protocols),
+          protocols,
+          defaultProtocol
+        }),
+        shouldAutoLink: this.options.shouldAutoLink
+      }));
+      plugins.push(clickHandler({
+        type: this.type,
+        editor: this.editor,
+        openOnClick: this.options.openOnClick === "whenNotEditable" ? true : this.options.openOnClick,
+        enableClickSelection: this.options.enableClickSelection
+      }));
+      if (this.options.linkOnPaste) plugins.push(pasteHandler({
+        editor: this.editor,
+        defaultProtocol: this.options.defaultProtocol,
+        type: this.type,
+        shouldAutoLink: this.options.shouldAutoLink
+      }));
       return plugins;
     }
   });
+  var src_default = Link;
+
+  // node_modules/@tiptap/extension-list/dist/index.js
+  var ListItemName$1 = "listItem";
+  var TextStyleName$1 = "textStyle";
+  var bulletListInputRegex = /^\s*([-+*])\s$/;
+  var BulletList = Node2.create({
+    name: "bulletList",
+    addOptions() {
+      return {
+        itemTypeName: "listItem",
+        HTMLAttributes: {},
+        keepMarks: false,
+        keepAttributes: false
+      };
+    },
+    group: "block list",
+    content() {
+      return `${this.options.itemTypeName}+`;
+    },
+    parseHTML() {
+      return [{ tag: "ul" }];
+    },
+    renderHTML({ HTMLAttributes }) {
+      return [
+        "ul",
+        mergeAttributes(this.options.HTMLAttributes, HTMLAttributes),
+        0
+      ];
+    },
+    markdownTokenName: "list",
+    parseMarkdown: (token, helpers) => {
+      if (token.type !== "list" || token.ordered) return [];
+      return {
+        type: "bulletList",
+        content: token.items ? helpers.parseChildren(token.items) : []
+      };
+    },
+    renderMarkdown: (node, h2) => {
+      if (!node.content) return "";
+      return h2.renderChildren(node.content, "\n");
+    },
+    markdownOptions: { indentsContent: true },
+    addCommands() {
+      return { toggleBulletList: () => ({ commands, chain }) => {
+        if (this.options.keepAttributes) return chain().toggleList(this.name, this.options.itemTypeName, this.options.keepMarks).updateAttributes(ListItemName$1, this.editor.getAttributes(TextStyleName$1)).run();
+        return commands.toggleList(this.name, this.options.itemTypeName, this.options.keepMarks);
+      } };
+    },
+    addKeyboardShortcuts() {
+      return { "Mod-Shift-8": () => this.editor.commands.toggleBulletList() };
+    },
+    addInputRules() {
+      let inputRule = wrappingInputRule({
+        find: bulletListInputRegex,
+        type: this.type
+      });
+      if (this.options.keepMarks || this.options.keepAttributes) inputRule = wrappingInputRule({
+        find: bulletListInputRegex,
+        type: this.type,
+        keepMarks: this.options.keepMarks,
+        keepAttributes: this.options.keepAttributes,
+        getAttributes: () => {
+          return this.editor.getAttributes(TextStyleName$1);
+        },
+        editor: this.editor
+      });
+      return [inputRule];
+    }
+  });
+  var getBranchingNestedListAtCursor = (state, itemName, wrapperNames) => {
+    const { selection } = state;
+    if (!selection.empty) return null;
+    const { $from } = selection;
+    if (!$from.parent.isTextblock) return null;
+    if ($from.parentOffset !== $from.parent.content.size) return null;
+    let listItemDepth = -1;
+    for (let depth = $from.depth; depth > 0; depth -= 1) if ($from.node(depth).type.name === itemName) {
+      listItemDepth = depth;
+      break;
+    }
+    if (listItemDepth < 0) return null;
+    const listItem = $from.node(listItemDepth);
+    const indexInListItem = $from.index(listItemDepth);
+    if (indexInListItem + 1 >= listItem.childCount) return null;
+    const nextChild = listItem.child(indexInListItem + 1);
+    if (!wrapperNames.includes(nextChild.type.name)) return null;
+    const itemType = state.schema.nodes[itemName];
+    let hasBranching = false;
+    nextChild.forEach((child) => {
+      if (child.type === itemType && child.childCount > 1) hasBranching = true;
+    });
+    if (!hasBranching) return null;
+    const nodeAfter = state.doc.resolve($from.after()).nodeAfter;
+    if (!nodeAfter || !wrapperNames.includes(nodeAfter.type.name)) return null;
+    const items = [];
+    nodeAfter.forEach((child) => {
+      items.push(child);
+    });
+    if (items.length === 0) return null;
+    return {
+      listItemDepth,
+      nestedList: nodeAfter,
+      nestedListPos: $from.after(),
+      insertPos: $from.after(listItemDepth),
+      items
+    };
+  };
+  var hoistBranchingNestedList = (state, dispatch, itemName, wrapperNames) => {
+    const context = getBranchingNestedListAtCursor(state, itemName, wrapperNames);
+    if (!context) return false;
+    const { selection } = state;
+    const { nestedList, nestedListPos, insertPos, items } = context;
+    const tr2 = state.tr;
+    tr2.delete(nestedListPos, nestedListPos + nestedList.nodeSize);
+    const mappedInsertPos = tr2.mapping.map(insertPos);
+    tr2.insert(mappedInsertPos, Fragment.from(items));
+    tr2.setSelection(selection.map(tr2.doc, tr2.mapping));
+    if (dispatch) dispatch(tr2);
+    return true;
+  };
+  var handleDeleteBranchingNestedList = (editor, itemName, wrapperNames) => {
+    return hoistBranchingNestedList(editor.state, editor.view.dispatch, itemName, wrapperNames);
+  };
+  var createBranchingListDeleteKeymap = (itemName, wrapperNames) => {
+    return Extension.create({
+      name: `${itemName}BranchingDeleteKeymap`,
+      priority: 101,
+      addKeyboardShortcuts() {
+        const handleDelete2 = () => handleDeleteBranchingNestedList(this.editor, itemName, wrapperNames);
+        return {
+          Delete: handleDelete2,
+          "Mod-Delete": handleDelete2
+        };
+      }
+    });
+  };
+  var ROMAN_NUMERALS = [
+    [1e3, "m"],
+    [900, "cm"],
+    [500, "d"],
+    [400, "cd"],
+    [100, "c"],
+    [90, "xc"],
+    [50, "l"],
+    [40, "xl"],
+    [10, "x"],
+    [9, "ix"],
+    [5, "v"],
+    [4, "iv"],
+    [1, "i"]
+  ];
+  var ALPHA_NUMERALS = "abcdefghijklmnopqrstuvwxyz";
+  var ORDERED_LIST_MARKER_PATTERN = String.raw`\d+|[ivxlcdmIVXLCDM]+|${"[a-zA-Z]{1,2}"}`;
+  function toRoman(num) {
+    let remaining = num;
+    let result = "";
+    for (const [value, numeral] of ROMAN_NUMERALS) while (remaining >= value) {
+      result += numeral;
+      remaining -= value;
+    }
+    return result;
+  }
+  function toRomanUpper(num) {
+    return toRoman(num).toUpperCase();
+  }
+  function fromRoman(roman) {
+    const lower = roman.toLowerCase();
+    let index = 0;
+    let result = 0;
+    while (index < lower.length) {
+      let matched = false;
+      for (const [value, numeral] of ROMAN_NUMERALS) if (lower.startsWith(numeral, index)) {
+        result += value;
+        index += numeral.length;
+        matched = true;
+        break;
+      }
+      if (!matched) return 0;
+    }
+    return result;
+  }
+  function isValidRoman(marker) {
+    if (!/^[ivxlcdmIVXLCDM]+$/.test(marker)) return false;
+    const value = fromRoman(marker);
+    if (value <= 0) return false;
+    return (marker === marker.toLowerCase() ? toRoman(value) : toRomanUpper(value)) === marker;
+  }
+  function fromAlpha(marker) {
+    const lower = marker.toLowerCase();
+    if (lower.length === 1) return lower.charCodeAt(0) - "a".charCodeAt(0) + 1;
+    if (lower.length === 2) {
+      const first2 = lower.charCodeAt(0) - "a".charCodeAt(0);
+      const second = lower.charCodeAt(1) - "a".charCodeAt(0);
+      return (first2 + 1) * 26 + second + 1;
+    }
+    return 0;
+  }
+  function toRomanAlpha(num) {
+    if (num <= 26) return ALPHA_NUMERALS[num - 1];
+    const first2 = Math.floor((num - 1) / 26) - 1;
+    const second = (num - 1) % 26;
+    if (first2 < 0) return ALPHA_NUMERALS[second];
+    return ALPHA_NUMERALS[first2] + ALPHA_NUMERALS[second];
+  }
+  function detectMarkerType(marker) {
+    if (!marker || /^\d+$/.test(marker)) return;
+    if (isValidRoman(marker)) return marker === marker.toLowerCase() ? "i" : "I";
+    if (/^[a-z]{1,2}$/.test(marker)) return "a";
+    if (/^[A-Z]{1,2}$/.test(marker)) return "A";
+  }
+  function markerToStart(marker) {
+    if (/^\d+$/.test(marker)) return parseInt(marker, 10);
+    const type = detectMarkerType(marker);
+    if (type === "i" || type === "I") return fromRoman(marker);
+    if (type === "a" || type === "A") {
+      const start = fromAlpha(marker);
+      return start > 0 ? start : 1;
+    }
+    const parsed = parseInt(marker, 10);
+    return Number.isNaN(parsed) ? 1 : parsed;
+  }
+  function startToMarker(type, start) {
+    if (type === "numeric") return String(start);
+    switch (type) {
+      case "a":
+        return toRomanAlpha(start);
+      case "A":
+        return toRomanAlpha(start).toUpperCase();
+      case "i":
+        return toRoman(start);
+      case "I":
+        return toRomanUpper(start);
+      default:
+        return String(start);
+    }
+  }
+  function areOrderedListMarkersSequential(markers) {
+    var _detectMarkerType;
+    if (markers.length === 0) return false;
+    const firstType = (_detectMarkerType = detectMarkerType(markers[0])) !== null && _detectMarkerType !== void 0 ? _detectMarkerType : "numeric";
+    const firstStart = markerToStart(markers[0]);
+    if (firstStart < 1) return false;
+    for (let i = 0; i < markers.length; i++) {
+      const expected = startToMarker(firstType, firstStart + i);
+      if (markers[i] !== expected) return false;
+    }
+    return true;
+  }
+  function parseListMarker(marker) {
+    return {
+      type: detectMarkerType(marker),
+      start: markerToStart(marker)
+    };
+  }
+  function buildOrderedListAttrsFromMarker(marker) {
+    const { type, start } = parseListMarker(marker);
+    const attrs = {};
+    if (type) attrs.type = type;
+    if (start !== 1) attrs.start = start;
+    return attrs;
+  }
+  function getListMarker(type, index, separator = ". ") {
+    const position = index + 1;
+    if (!type || type === "1") return `${position}${separator}`;
+    switch (type) {
+      case "a":
+        return `${toRomanAlpha(position)}${separator}`;
+      case "A":
+        return `${toRomanAlpha(position).toUpperCase()}${separator}`;
+      case "i":
+        return `${toRoman(position)}${separator}`;
+      case "I":
+        return `${toRomanUpper(position)}${separator}`;
+      default:
+        return `${position}${separator}`;
+    }
+  }
+  function isSameLineOrderedListToken(token) {
+    var _token$tokens, _token$tokens2;
+    const nestedToken = (_token$tokens = token.tokens) === null || _token$tokens === void 0 ? void 0 : _token$tokens[0];
+    return Boolean(token.text && ((_token$tokens2 = token.tokens) === null || _token$tokens2 === void 0 ? void 0 : _token$tokens2.length) === 1 && (nestedToken === null || nestedToken === void 0 ? void 0 : nestedToken.type) === "list" && nestedToken.ordered && nestedToken.raw === token.text);
+  }
+  function parseSameLineOrderedListText(text, helpers) {
+    if (helpers.tokenizeInline) return helpers.parseInline(helpers.tokenizeInline(text));
+    return helpers.parseInline([{
+      type: "text",
+      raw: text,
+      text
+    }]);
+  }
+  var ListItem = Node2.create({
+    name: "listItem",
+    addOptions() {
+      return {
+        HTMLAttributes: {},
+        bulletListTypeName: "bulletList",
+        orderedListTypeName: "orderedList"
+      };
+    },
+    content: "paragraph block*",
+    defining: true,
+    parseHTML() {
+      return [{ tag: "li" }];
+    },
+    renderHTML({ HTMLAttributes }) {
+      return [
+        "li",
+        mergeAttributes(this.options.HTMLAttributes, HTMLAttributes),
+        0
+      ];
+    },
+    markdownTokenName: "list_item",
+    parseMarkdown: (token, helpers) => {
+      var _helpers$parseBlockCh;
+      if (token.type !== "list_item") return [];
+      const parseBlockChildren = (_helpers$parseBlockCh = helpers.parseBlockChildren) !== null && _helpers$parseBlockCh !== void 0 ? _helpers$parseBlockCh : helpers.parseChildren;
+      let content = [];
+      if (token.tokens && token.tokens.length > 0) {
+        if (isSameLineOrderedListToken(token)) return {
+          type: "listItem",
+          content: [{
+            type: "paragraph",
+            content: parseSameLineOrderedListText(token.text || "", helpers)
+          }]
+        };
+        if (token.tokens.some((t) => t.type === "paragraph")) content = parseBlockChildren(token.tokens);
+        else {
+          const firstToken = token.tokens[0];
+          if (firstToken && firstToken.type === "text" && firstToken.tokens && firstToken.tokens.length > 0) {
+            content = [{
+              type: "paragraph",
+              content: helpers.parseInline(firstToken.tokens)
+            }];
+            if (token.tokens.length > 1) {
+              const additionalContent = parseBlockChildren(token.tokens.slice(1));
+              content.push(...additionalContent);
+            }
+          } else content = parseBlockChildren(token.tokens);
+        }
+      }
+      if (content.length === 0) content = [{
+        type: "paragraph",
+        content: []
+      }];
+      return {
+        type: "listItem",
+        content
+      };
+    },
+    renderMarkdown: (node, h2, ctx) => {
+      return renderNestedMarkdownContent(node, h2, (context) => {
+        if (context.parentType === "bulletList") return "- ";
+        if (context.parentType === "orderedList") {
+          var _context$meta, _context$meta2;
+          const start = ((_context$meta = context.meta) === null || _context$meta === void 0 || (_context$meta = _context$meta.parentAttrs) === null || _context$meta === void 0 ? void 0 : _context$meta.start) || 1;
+          return getListMarker((_context$meta2 = context.meta) === null || _context$meta2 === void 0 || (_context$meta2 = _context$meta2.parentAttrs) === null || _context$meta2 === void 0 ? void 0 : _context$meta2.type, start - 1 + (context.index || 0), ". ");
+        }
+        return "- ";
+      }, ctx, { alignNestedToPrefix: (ctx === null || ctx === void 0 ? void 0 : ctx.parentType) === "orderedList" });
+    },
+    addExtensions() {
+      return [createBranchingListDeleteKeymap(this.name, [this.options.bulletListTypeName, this.options.orderedListTypeName])];
+    },
+    addKeyboardShortcuts() {
+      return {
+        Enter: () => this.editor.commands.splitListItem(this.name),
+        Tab: () => this.editor.commands.sinkListItem(this.name),
+        "Shift-Tab": () => this.editor.commands.liftListItem(this.name)
+      };
+    }
+  });
+  var findListItemPos = (typeOrName, state) => {
+    const { $from } = state.selection;
+    const nodeType = getNodeType(typeOrName, state.schema);
+    let currentNode = null;
+    let currentDepth = $from.depth;
+    let currentPos = $from.pos;
+    let targetDepth = null;
+    while (currentDepth > 0 && targetDepth === null) {
+      currentNode = $from.node(currentDepth);
+      if (currentNode.type === nodeType) targetDepth = currentDepth;
+      else {
+        currentDepth -= 1;
+        currentPos -= 1;
+      }
+    }
+    if (targetDepth === null) return null;
+    return {
+      $pos: state.doc.resolve(currentPos),
+      depth: targetDepth
+    };
+  };
+  var getNextListDepth = (typeOrName, state) => {
+    const listItemPos = findListItemPos(typeOrName, state);
+    if (!listItemPos) return false;
+    const [, depth] = getNodeAtPosition(state, typeOrName, listItemPos.$pos.pos + 4);
+    return depth;
+  };
+  var hasListBefore = (editorState, name, parentListTypes) => {
+    const { $anchor } = editorState.selection;
+    const previousNodePos = Math.max(0, $anchor.pos - 2);
+    const previousNode = editorState.doc.resolve(previousNodePos).node();
+    if (!previousNode || !parentListTypes.includes(previousNode.type.name)) return false;
+    return true;
+  };
+  var handleBackspace2 = (editor, name, parentListTypes) => {
+    if (editor.commands.undoInputRule()) return true;
+    if (editor.state.selection.from !== editor.state.selection.to) return false;
+    if (!isNodeActive(editor.state, name) && hasListBefore(editor.state, name, parentListTypes)) {
+      const { $anchor } = editor.state.selection;
+      const $listPos = editor.state.doc.resolve($anchor.before() - 1);
+      const listDescendants = [];
+      $listPos.node().descendants((node, pos) => {
+        if (node.type.name === name) listDescendants.push({
+          node,
+          pos
+        });
+      });
+      const lastItem = listDescendants.at(-1);
+      if (!lastItem) return false;
+      const $lastItemPos = editor.state.doc.resolve($listPos.start() + lastItem.pos + 1);
+      return editor.chain().cut({
+        from: $anchor.start() - 1,
+        to: $anchor.end() + 1
+      }, $lastItemPos.end()).joinForward().run();
+    }
+    if (!isNodeActive(editor.state, name)) return false;
+    if (!isAtStartOfNode(editor.state)) return false;
+    const { $from } = editor.state.selection;
+    const itemDepth = $from.depth - 1;
+    if ($from.node(itemDepth).type !== editor.schema.nodes[name] || $from.index(itemDepth) !== 0) return false;
+    return editor.chain().liftListItem(name).run();
+  };
+  var nextListIsDeeper = (typeOrName, state) => {
+    const listDepth = getNextListDepth(typeOrName, state);
+    const listItemPos = findListItemPos(typeOrName, state);
+    if (!listItemPos || !listDepth) return false;
+    if (listDepth > listItemPos.depth) return true;
+    return false;
+  };
+  var nextListIsHigher = (typeOrName, state) => {
+    const listDepth = getNextListDepth(typeOrName, state);
+    const listItemPos = findListItemPos(typeOrName, state);
+    if (!listItemPos || !listDepth) return false;
+    if (listDepth < listItemPos.depth) return true;
+    return false;
+  };
+  var handleDelete = (editor, name) => {
+    if (!isNodeActive(editor.state, name)) return false;
+    if (!isAtEndOfNode(editor.state, name)) return false;
+    const { selection } = editor.state;
+    const { $from, $to } = selection;
+    if (!selection.empty && $from.sameParent($to)) return false;
+    if (nextListIsDeeper(name, editor.state)) return editor.chain().focus(editor.state.selection.from + 4).lift(name).joinBackward().run();
+    if (nextListIsHigher(name, editor.state)) return editor.chain().joinForward().joinBackward().run();
+    return editor.commands.joinItemForward();
+  };
+  var handleTab = (editor, name, parentListTypes) => {
+    const { state } = editor;
+    const { selection } = state;
+    if (!selection.empty) return false;
+    const { $from } = selection;
+    if ($from.parentOffset !== 0) return false;
+    if (!$from.parent.isTextblock) return false;
+    if (isNodeActive(state, name)) return false;
+    const previous = getPreviousBlockSibling($from);
+    if (!previous || !parentListTypes.includes(previous.type.name)) return false;
+    const lastItem = previous.lastChild;
+    if (!lastItem || lastItem.type.name !== name) return false;
+    const block = $from.parent;
+    if (!lastItem.canReplace(lastItem.childCount, lastItem.childCount, Fragment.from(block))) return false;
+    const blockStart = $from.before();
+    const blockEnd = $from.after();
+    const insideLastItemEnd = blockStart - 2;
+    return editor.commands.command(({ tr: tr2, dispatch }) => {
+      if (dispatch) {
+        tr2.delete(blockStart, blockEnd).insert(insideLastItemEnd, Fragment.from(block));
+        tr2.setSelection(TextSelection.create(tr2.doc, insideLastItemEnd + 1));
+        tr2.scrollIntoView();
+      }
+      return true;
+    });
+  };
+  var ListKeymap = Extension.create({
+    name: "listKeymap",
+    addOptions() {
+      return { listTypes: [{
+        itemName: "listItem",
+        wrapperNames: ["bulletList", "orderedList"]
+      }, {
+        itemName: "taskItem",
+        wrapperNames: ["taskList"]
+      }] };
+    },
+    addKeyboardShortcuts() {
+      return {
+        Delete: ({ editor }) => {
+          let handled = false;
+          this.options.listTypes.forEach(({ itemName }) => {
+            if (editor.state.schema.nodes[itemName] === void 0) return;
+            if (handleDelete(editor, itemName)) handled = true;
+          });
+          return handled;
+        },
+        "Mod-Delete": ({ editor }) => {
+          let handled = false;
+          this.options.listTypes.forEach(({ itemName }) => {
+            if (editor.state.schema.nodes[itemName] === void 0) return;
+            if (handleDelete(editor, itemName)) handled = true;
+          });
+          return handled;
+        },
+        Backspace: ({ editor }) => {
+          let handled = false;
+          this.options.listTypes.forEach(({ itemName, wrapperNames }) => {
+            if (editor.state.schema.nodes[itemName] === void 0) return;
+            if (handleBackspace2(editor, itemName, wrapperNames)) handled = true;
+          });
+          return handled;
+        },
+        "Mod-Backspace": ({ editor }) => {
+          let handled = false;
+          this.options.listTypes.forEach(({ itemName, wrapperNames }) => {
+            if (editor.state.schema.nodes[itemName] === void 0) return;
+            if (handleBackspace2(editor, itemName, wrapperNames)) handled = true;
+          });
+          return handled;
+        },
+        Tab: ({ editor }) => {
+          for (const { itemName, wrapperNames } of this.options.listTypes) {
+            if (editor.state.schema.nodes[itemName] === void 0) continue;
+            if (handleTab(editor, itemName, wrapperNames)) return true;
+          }
+          return false;
+        }
+      };
+    }
+  });
+  var ORDERED_LIST_ITEM_REGEX = new RegExp(`^(\\s*)(${ORDERED_LIST_MARKER_PATTERN})([.)])\\s+(.*)$`);
+  var INDENTED_LINE_REGEX = /^\s/;
+  var PARAGRAPH_INTERRUPTERS = {
+    heading: /^#{1,6}(?:\s|$)/,
+    bulletItem: /^[-+*]\s+/,
+    codeFence: /^(?:```|~~~)/,
+    blockMath: /^\$\$/,
+    thematicBreak: /^(?:(?:-[ \t]*){3,}|(?:_[ \t]*){3,}|(?:\*[ \t]*){3,})$/
+  };
+  function isOrderedListMarkerLine(line) {
+    return ORDERED_LIST_ITEM_REGEX.test(line.trimStart());
+  }
+  function isBlockContentLine(line) {
+    const trimmedLine = line.trimStart();
+    return PARAGRAPH_INTERRUPTERS.bulletItem.test(trimmedLine) || isOrderedListMarkerLine(trimmedLine) || PARAGRAPH_INTERRUPTERS.heading.test(trimmedLine) || PARAGRAPH_INTERRUPTERS.thematicBreak.test(trimmedLine) && !trimmedLine.startsWith("-") || /^>\s?/.test(trimmedLine) || PARAGRAPH_INTERRUPTERS.codeFence.test(trimmedLine) || PARAGRAPH_INTERRUPTERS.blockMath.test(trimmedLine);
+  }
+  function interruptsLazyContinuation(line) {
+    return Object.values(PARAGRAPH_INTERRUPTERS).some((pattern) => pattern.test(line));
+  }
+  function splitItemContent(contentLines) {
+    const paragraphLines = [];
+    const blockLines = [];
+    let reachedBlockBoundary = false;
+    contentLines.forEach((line) => {
+      if (reachedBlockBoundary) {
+        blockLines.push(line);
+        return;
+      }
+      if (line.trim() === "") {
+        reachedBlockBoundary = true;
+        blockLines.push(line);
+        return;
+      }
+      if (paragraphLines.length > 0 && isBlockContentLine(line)) {
+        reachedBlockBoundary = true;
+        blockLines.push(line);
+        return;
+      }
+      paragraphLines.push(line);
+    });
+    return {
+      paragraphLines,
+      blockLines
+    };
+  }
+  function collectOrderedListItems(lines) {
+    const listItems = [];
+    let currentLineIndex = 0;
+    let consumed = 0;
+    while (currentLineIndex < lines.length) {
+      const line = lines[currentLineIndex];
+      const match = line.match(ORDERED_LIST_ITEM_REGEX);
+      if (!match) break;
+      const [, indent, marker, _separator, content] = match;
+      const indentLevel = indent.length;
+      const number = parseInt(marker, 10);
+      const markerType = isNaN(number) ? detectMarkerType(marker) : void 0;
+      const itemNumber = isNaN(number) ? markerToStart(marker) : number;
+      const itemContentLines = [content];
+      let nextLineIndex = currentLineIndex + 1;
+      const itemLines = [line];
+      let sawBlankLine = false;
+      while (nextLineIndex < lines.length) {
+        const nextLine = lines[nextLineIndex];
+        if (nextLine.match(ORDERED_LIST_ITEM_REGEX)) break;
+        if (nextLine.trim() === "") {
+          itemLines.push(nextLine);
+          itemContentLines.push("");
+          sawBlankLine = true;
+          nextLineIndex += 1;
+        } else if (nextLine.match(INDENTED_LINE_REGEX)) {
+          const leadingWhitespace = nextLine.length - nextLine.trimStart().length;
+          const contentIndent = indentLevel + marker.length + 1;
+          itemLines.push(nextLine);
+          itemContentLines.push(nextLine.slice(Math.min(leadingWhitespace, contentIndent)));
+          nextLineIndex += 1;
+        } else {
+          if (sawBlankLine || interruptsLazyContinuation(nextLine)) break;
+          itemLines.push(nextLine);
+          itemContentLines.push(nextLine);
+          nextLineIndex += 1;
+        }
+      }
+      listItems.push({
+        indent: indentLevel,
+        number: itemNumber,
+        type: markerType,
+        content: itemContentLines.join("\n").trim(),
+        contentLines: itemContentLines,
+        raw: itemLines.join("\n")
+      });
+      consumed = nextLineIndex;
+      currentLineIndex = nextLineIndex;
+    }
+    return [listItems, consumed];
+  }
+  var PLAIN_TEXT_ORDERED_LIST_LINE_REGEX = new RegExp(`^(${ORDERED_LIST_MARKER_PATTERN})([.)])\\s+(.+)$`);
+  function parsePlainTextOrderedListPaste(text) {
+    const lines = text.split("\n").filter((l) => l.trim().length > 0);
+    if (lines.length === 0) return null;
+    const parsedItems = [];
+    for (const line of lines) {
+      const match = line.trim().match(PLAIN_TEXT_ORDERED_LIST_LINE_REGEX);
+      if (!match) return null;
+      parsedItems.push({
+        marker: match[1],
+        content: match[3]
+      });
+    }
+    if (!areOrderedListMarkersSequential(parsedItems.map((item) => item.marker))) return null;
+    return {
+      type: "orderedList",
+      attrs: buildOrderedListAttrsFromMarker(parsedItems[0].marker),
+      content: parsedItems.map((item) => ({
+        type: "listItem",
+        content: [{
+          type: "paragraph",
+          content: [{
+            type: "text",
+            text: item.content
+          }]
+        }]
+      }))
+    };
+  }
+  function buildNestedStructure(items, baseIndent, lexer) {
+    const result = [];
+    let currentIndex = 0;
+    while (currentIndex < items.length) {
+      const item = items[currentIndex];
+      if (item.indent === baseIndent) {
+        const { paragraphLines, blockLines } = splitItemContent(item.contentLines);
+        const mainText = paragraphLines.join("\n").trim();
+        const tokens = [];
+        if (mainText) tokens.push({
+          type: "paragraph",
+          raw: mainText,
+          tokens: lexer.inlineTokens(mainText)
+        });
+        const additionalContent = blockLines.join("\n").trim();
+        if (additionalContent) {
+          const blockTokens = lexer.blockTokens(additionalContent);
+          tokens.push(...blockTokens);
+        }
+        let lookAheadIndex = currentIndex + 1;
+        const nestedItems = [];
+        while (lookAheadIndex < items.length && items[lookAheadIndex].indent > baseIndent) {
+          nestedItems.push(items[lookAheadIndex]);
+          lookAheadIndex += 1;
+        }
+        if (nestedItems.length > 0) {
+          const nestedListItems = buildNestedStructure(nestedItems, Math.min(...nestedItems.map((nestedItem) => nestedItem.indent)), lexer);
+          tokens.push({
+            type: "list",
+            ordered: true,
+            start: nestedItems[0].number,
+            typeMarker: nestedItems[0].type,
+            items: nestedListItems,
+            raw: nestedItems.map((nestedItem) => nestedItem.raw).join("\n")
+          });
+        }
+        result.push({
+          type: "list_item",
+          raw: item.raw,
+          tokens
+        });
+        currentIndex = lookAheadIndex;
+      } else currentIndex += 1;
+    }
+    return result;
+  }
+  function parseListItems(items, helpers) {
+    return items.map((item) => {
+      if (item.type !== "list_item") return helpers.parseChildren([item])[0];
+      const content = [];
+      if (item.tokens && item.tokens.length > 0) item.tokens.forEach((itemToken) => {
+        if (itemToken.type === "paragraph" || itemToken.type === "list" || itemToken.type === "blockquote" || itemToken.type === "code") content.push(...helpers.parseChildren([itemToken]));
+        else if (itemToken.type === "text" && itemToken.tokens) {
+          const inlineContent = helpers.parseChildren([itemToken]);
+          content.push({
+            type: "paragraph",
+            content: inlineContent
+          });
+        } else {
+          const parsed = helpers.parseChildren([itemToken]);
+          if (parsed.length > 0) content.push(...parsed);
+        }
+      });
+      return {
+        type: "listItem",
+        content
+      };
+    });
+  }
+  var ORDERED_LIST_SCAN_WINDOW = 64;
+  function takeLines(source, max) {
+    const lines = [];
+    let start = 0;
+    while (lines.length < max) {
+      const lineEnd = source.indexOf("\n", start);
+      if (lineEnd === -1) {
+        lines.push(source.slice(start));
+        return lines;
+      }
+      lines.push(source.slice(start, lineEnd));
+      start = lineEnd + 1;
+    }
+    return lines;
+  }
+  function collectOrderedListItemsFromSource(source) {
+    const firstLineEnd = source.indexOf("\n");
+    const firstLine = firstLineEnd === -1 ? source : source.slice(0, firstLineEnd);
+    if (!ORDERED_LIST_ITEM_REGEX.test(firstLine)) return [
+      [],
+      0,
+      []
+    ];
+    let windowSize = ORDERED_LIST_SCAN_WINDOW;
+    let lines = takeLines(source, windowSize);
+    let collected = collectOrderedListItems(lines);
+    while (collected[1] === lines.length && lines.length === windowSize) {
+      windowSize *= 2;
+      lines = takeLines(source, windowSize);
+      collected = collectOrderedListItems(lines);
+    }
+    return [
+      collected[0],
+      collected[1],
+      lines
+    ];
+  }
+  var ListItemName = "listItem";
+  var TextStyleName = "textStyle";
+  var orderedListInputRegex = /^(\d+)\.\s$/;
+  function cssListStyleTypeToHtmlType(style2) {
+    const match = style2.match(/list-style-type\s*:\s*([^;]+)/i);
+    if (!match) return null;
+    switch (match[1].trim().toLowerCase()) {
+      case "upper-roman":
+        return "I";
+      case "lower-roman":
+        return "i";
+      case "upper-alpha":
+      case "upper-latin":
+        return "A";
+      case "lower-alpha":
+      case "lower-latin":
+        return "a";
+      default:
+        return null;
+    }
+  }
+  var OrderedList = Node2.create({
+    name: "orderedList",
+    addOptions() {
+      return {
+        itemTypeName: "listItem",
+        HTMLAttributes: {},
+        keepMarks: false,
+        keepAttributes: false
+      };
+    },
+    group: "block list",
+    content() {
+      return `${this.options.itemTypeName}+`;
+    },
+    addAttributes() {
+      return {
+        start: {
+          default: 1,
+          parseHTML: (element) => {
+            return element.hasAttribute("start") ? parseInt(element.getAttribute("start") || "", 10) : 1;
+          }
+        },
+        type: {
+          default: null,
+          parseHTML: (element) => {
+            const htmlType = element.getAttribute("type");
+            if (htmlType) return htmlType;
+            const style2 = element.getAttribute("style");
+            if (style2) {
+              const mappedFromOl = cssListStyleTypeToHtmlType(style2);
+              if (mappedFromOl) return mappedFromOl;
+            }
+            const firstLi = element.querySelector("li");
+            if (firstLi) {
+              const liStyle = firstLi.getAttribute("style");
+              if (liStyle) {
+                const mappedFromLi = cssListStyleTypeToHtmlType(liStyle);
+                if (mappedFromLi) return mappedFromLi;
+              }
+            }
+            return null;
+          }
+        }
+      };
+    },
+    parseHTML() {
+      return [{ tag: "ol" }];
+    },
+    renderHTML({ HTMLAttributes }) {
+      const { start, type, ...attributesWithoutType } = HTMLAttributes;
+      const attrs = mergeAttributes(this.options.HTMLAttributes, attributesWithoutType);
+      if (start !== 1) attrs.start = start;
+      if (type && type !== "1") attrs.type = type;
+      return [
+        "ol",
+        attrs,
+        0
+      ];
+    },
+    markdownTokenName: "list",
+    parseMarkdown: (token, helpers) => {
+      if (token.type !== "list" || !token.ordered) return [];
+      const startValue = token.start || 1;
+      const typeValue = token.typeMarker;
+      const content = token.items ? parseListItems(token.items, helpers) : [];
+      const attrs = {};
+      if (startValue !== 1) attrs.start = startValue;
+      if (typeValue) attrs.type = typeValue;
+      if (Object.keys(attrs).length > 0) return {
+        type: "orderedList",
+        attrs,
+        content
+      };
+      return {
+        type: "orderedList",
+        content
+      };
+    },
+    renderMarkdown: (node, h2) => {
+      if (!node.content) return "";
+      return h2.renderChildren(node.content, "\n");
+    },
+    markdownTokenizer: {
+      name: "orderedList",
+      level: "block",
+      start: () => -1,
+      tokenize: (src, _tokens, lexer) => {
+        var _listItems$, _listItems$2;
+        const [listItems, consumed, lines] = collectOrderedListItemsFromSource(src);
+        if (listItems.length === 0) return;
+        const items = buildNestedStructure(listItems, listItems[0].indent, lexer);
+        if (items.length === 0) return;
+        return {
+          type: "list",
+          ordered: true,
+          start: ((_listItems$ = listItems[0]) === null || _listItems$ === void 0 ? void 0 : _listItems$.number) || 1,
+          typeMarker: (_listItems$2 = listItems[0]) === null || _listItems$2 === void 0 ? void 0 : _listItems$2.type,
+          items,
+          raw: lines.slice(0, consumed).join("\n")
+        };
+      }
+    },
+    markdownOptions: { indentsContent: true },
+    addCommands() {
+      return { toggleOrderedList: () => ({ commands, chain }) => {
+        if (this.options.keepAttributes) return chain().toggleList(this.name, this.options.itemTypeName, this.options.keepMarks).updateAttributes(ListItemName, this.editor.getAttributes(TextStyleName)).run();
+        return commands.toggleList(this.name, this.options.itemTypeName, this.options.keepMarks);
+      } };
+    },
+    addKeyboardShortcuts() {
+      return { "Mod-Shift-7": () => this.editor.commands.toggleOrderedList() };
+    },
+    addProseMirrorPlugins() {
+      return [new Plugin({ props: { handlePaste: (view, event) => {
+        var _event$clipboardData, _event$clipboardData2;
+        const html = (_event$clipboardData = event.clipboardData) === null || _event$clipboardData === void 0 ? void 0 : _event$clipboardData.getData("text/html");
+        if (html === null || html === void 0 ? void 0 : html.trim()) return false;
+        const text = (_event$clipboardData2 = event.clipboardData) === null || _event$clipboardData2 === void 0 ? void 0 : _event$clipboardData2.getData("text/plain");
+        if (!text) return false;
+        const orderedListContent = parsePlainTextOrderedListPaste(text);
+        if (!orderedListContent) return false;
+        try {
+          const orderedListNode = view.state.schema.nodeFromJSON(orderedListContent);
+          const tr2 = view.state.tr.replaceSelectionWith(orderedListNode);
+          view.dispatch(tr2);
+          return true;
+        } catch {
+          return false;
+        }
+      } } })];
+    },
+    addInputRules() {
+      const joinPredicate = (match, node) => {
+        return (!node.attrs.type || node.attrs.type === "1") && node.childCount + node.attrs.start === +match[1];
+      };
+      let inputRule = wrappingInputRule({
+        find: orderedListInputRegex,
+        type: this.type,
+        getAttributes: (match) => ({ start: +match[1] }),
+        joinPredicate
+      });
+      if (this.options.keepMarks || this.options.keepAttributes) inputRule = wrappingInputRule({
+        find: orderedListInputRegex,
+        type: this.type,
+        keepMarks: this.options.keepMarks,
+        keepAttributes: this.options.keepAttributes,
+        getAttributes: (match) => ({
+          start: +match[1],
+          ...this.editor.getAttributes(TextStyleName)
+        }),
+        joinPredicate,
+        editor: this.editor
+      });
+      return [inputRule];
+    }
+  });
+  var inputRegex2 = /^\s*(\[([( |x])?\])\s$/;
+  var visuallyHiddenStyle = "position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0";
+  var getCheckboxLabel = (node, checked, a11y) => {
+    var _a11y$checkboxLabel;
+    return (a11y === null || a11y === void 0 || (_a11y$checkboxLabel = a11y.checkboxLabel) === null || _a11y$checkboxLabel === void 0 ? void 0 : _a11y$checkboxLabel.call(a11y, node, checked)) || `Task item checkbox for ${node.textContent || "empty task item"}`;
+  };
+  var TaskItem = Node2.create({
+    name: "taskItem",
+    addOptions() {
+      return {
+        nested: false,
+        HTMLAttributes: {},
+        taskListTypeName: "taskList",
+        a11y: void 0
+      };
+    },
+    content() {
+      return this.options.nested ? "paragraph block*" : "paragraph+";
+    },
+    defining: true,
+    addAttributes() {
+      return { checked: {
+        default: false,
+        keepOnSplit: false,
+        parseHTML: (element) => {
+          const dataChecked = element.getAttribute("data-checked");
+          return dataChecked === "" || dataChecked === "true";
+        },
+        renderHTML: (attributes) => ({ "data-checked": attributes.checked })
+      } };
+    },
+    parseHTML() {
+      return [{
+        tag: `li[data-type="${this.name}"]`,
+        priority: 51,
+        contentElement: (element) => {
+          var _element$querySelecto;
+          return (_element$querySelecto = element.querySelector("div")) !== null && _element$querySelecto !== void 0 ? _element$querySelecto : element;
+        }
+      }];
+    },
+    renderHTML({ node, HTMLAttributes }) {
+      return [
+        "li",
+        mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, { "data-type": this.name }),
+        [
+          "label",
+          ["input", {
+            type: "checkbox",
+            checked: node.attrs.checked ? "checked" : null
+          }],
+          ["span"]
+        ],
+        ["div", 0]
+      ];
+    },
+    parseMarkdown: (token, h2) => {
+      const content = [];
+      if (token.tokens && token.tokens.length > 0) content.push(h2.createNode("paragraph", {}, h2.parseInline(token.tokens)));
+      else if (token.text) content.push(h2.createNode("paragraph", {}, [h2.createNode("text", { text: token.text })]));
+      else content.push(h2.createNode("paragraph", {}, []));
+      if (token.nestedTokens && token.nestedTokens.length > 0) {
+        const nestedContent = h2.parseChildren(token.nestedTokens);
+        content.push(...nestedContent);
+      }
+      return h2.createNode("taskItem", { checked: token.checked || false }, content);
+    },
+    renderMarkdown: (node, h2) => {
+      var _node$attrs;
+      const prefix = `- [${((_node$attrs = node.attrs) === null || _node$attrs === void 0 ? void 0 : _node$attrs.checked) ? "x" : " "}] `;
+      return renderNestedMarkdownContent(node, h2, prefix);
+    },
+    addExtensions() {
+      if (!this.options.nested) return [];
+      return [createBranchingListDeleteKeymap(this.name, [this.options.taskListTypeName])];
+    },
+    addKeyboardShortcuts() {
+      const shortcuts = {
+        Enter: () => this.editor.commands.splitListItem(this.name),
+        "Shift-Tab": () => this.editor.commands.liftListItem(this.name)
+      };
+      if (!this.options.nested) return shortcuts;
+      return {
+        ...shortcuts,
+        Tab: () => this.editor.commands.sinkListItem(this.name)
+      };
+    },
+    addNodeView() {
+      return ({ node, HTMLAttributes, getPos, editor }) => {
+        const listItem = document.createElement("li");
+        const checkboxWrapper = document.createElement("label");
+        const checkboxStyler = document.createElement("span");
+        const checkbox = document.createElement("input");
+        const content = document.createElement("div");
+        checkboxStyler.style.cssText = visuallyHiddenStyle;
+        const updateA11Y = (currentNode) => {
+          const label = getCheckboxLabel(currentNode, currentNode.attrs.checked, this.options.a11y);
+          checkbox.setAttribute("aria-label", label);
+          checkboxStyler.textContent = label;
+        };
+        updateA11Y(node);
+        checkboxWrapper.contentEditable = "false";
+        checkbox.type = "checkbox";
+        checkbox.addEventListener("mousedown", (event) => event.preventDefault());
+        checkbox.addEventListener("change", (event) => {
+          if (!editor.isEditable && !this.options.onReadOnlyChecked) {
+            checkbox.checked = !checkbox.checked;
+            return;
+          }
+          const { checked } = event.target;
+          if (editor.isEditable && typeof getPos === "function") editor.chain().focus(void 0, { scrollIntoView: false }).command(({ tr: tr2 }) => {
+            const position = getPos();
+            if (typeof position !== "number") return false;
+            const currentNode = tr2.doc.nodeAt(position);
+            tr2.setNodeMarkup(position, void 0, {
+              ...currentNode === null || currentNode === void 0 ? void 0 : currentNode.attrs,
+              checked
+            });
+            return true;
+          }).run();
+          if (!editor.isEditable && this.options.onReadOnlyChecked) {
+            if (!this.options.onReadOnlyChecked(node, checked)) checkbox.checked = !checkbox.checked;
+          }
+        });
+        Object.entries(this.options.HTMLAttributes).forEach(([key, value]) => {
+          listItem.setAttribute(key, value);
+        });
+        listItem.dataset.checked = node.attrs.checked;
+        checkbox.checked = node.attrs.checked;
+        checkboxWrapper.append(checkbox, checkboxStyler);
+        listItem.append(checkboxWrapper, content);
+        Object.entries(HTMLAttributes).forEach(([key, value]) => {
+          listItem.setAttribute(key, value);
+        });
+        let prevRenderedAttributeKeys = new Set(Object.keys(HTMLAttributes));
+        return {
+          dom: listItem,
+          contentDOM: content,
+          update: (updatedNode) => {
+            if (updatedNode.type !== this.type) return false;
+            listItem.dataset.checked = updatedNode.attrs.checked;
+            checkbox.checked = updatedNode.attrs.checked;
+            updateA11Y(updatedNode);
+            const extensionAttributes = editor.extensionManager.attributes;
+            const newHTMLAttributes = getRenderedAttributes(updatedNode, extensionAttributes);
+            const newKeys = new Set(Object.keys(newHTMLAttributes));
+            const staticAttrs = this.options.HTMLAttributes;
+            prevRenderedAttributeKeys.forEach((key) => {
+              if (!newKeys.has(key)) {
+                if (key in staticAttrs) listItem.setAttribute(key, staticAttrs[key]);
+                else listItem.removeAttribute(key);
+              }
+            });
+            Object.entries(newHTMLAttributes).forEach(([key, value]) => {
+              if (value === null || value === void 0) {
+                if (key in staticAttrs) listItem.setAttribute(key, staticAttrs[key]);
+                else listItem.removeAttribute(key);
+              } else listItem.setAttribute(key, value);
+            });
+            prevRenderedAttributeKeys = newKeys;
+            return true;
+          }
+        };
+      };
+    },
+    addInputRules() {
+      return [wrappingInputRule({
+        find: inputRegex2,
+        type: this.type,
+        getAttributes: (match) => ({ checked: match[match.length - 1] === "x" })
+      })];
+    }
+  });
+  var TaskList = Node2.create({
+    name: "taskList",
+    addOptions() {
+      return {
+        itemTypeName: "taskItem",
+        HTMLAttributes: {}
+      };
+    },
+    group: "block list",
+    content() {
+      return `${this.options.itemTypeName}+`;
+    },
+    parseHTML() {
+      return [{
+        tag: `ul[data-type="${this.name}"]`,
+        priority: 51
+      }];
+    },
+    renderHTML({ HTMLAttributes }) {
+      return [
+        "ul",
+        mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, { "data-type": this.name }),
+        0
+      ];
+    },
+    parseMarkdown: (token, h2) => {
+      return h2.createNode("taskList", {}, h2.parseChildren(token.items || []));
+    },
+    renderMarkdown: (node, h2) => {
+      if (!node.content) return "";
+      return h2.renderChildren(node.content, "\n");
+    },
+    markdownTokenizer: {
+      name: "taskList",
+      level: "block",
+      start(src) {
+        var _src$match;
+        const index = (_src$match = src.match(/^\s*[-+*]\s+\[([ xX])\]\s+/)) === null || _src$match === void 0 ? void 0 : _src$match.index;
+        return index !== void 0 ? index : -1;
+      },
+      tokenize(src, tokens, lexer) {
+        const parseTaskListContent = (content) => {
+          const nestedResult = parseIndentedBlocks(content, {
+            itemPattern: /^(\s*)([-+*])\s+\[([ xX])\]\s+(.*)$/,
+            extractItemData: (match) => ({
+              indentLevel: match[1].length,
+              mainContent: match[4],
+              checked: match[3].toLowerCase() === "x"
+            }),
+            createToken: (data, nestedTokens) => ({
+              type: "taskItem",
+              raw: "",
+              mainContent: data.mainContent,
+              indentLevel: data.indentLevel,
+              checked: data.checked,
+              text: data.mainContent,
+              tokens: lexer.inlineTokens(data.mainContent),
+              nestedTokens
+            }),
+            customNestedParser: parseTaskListContent
+          }, lexer);
+          if (nestedResult) {
+            const taskListToken = {
+              type: "taskList",
+              raw: nestedResult.raw,
+              items: nestedResult.items
+            };
+            const remainder = content.slice(nestedResult.raw.length);
+            if (remainder.trim()) return [taskListToken, ...lexer.blockTokens(remainder)];
+            return [taskListToken];
+          }
+          return lexer.blockTokens(content);
+        };
+        const result = parseIndentedBlocks(src, {
+          itemPattern: /^(\s*)([-+*])\s+\[([ xX])\]\s+(.*)$/,
+          extractItemData: (match) => ({
+            indentLevel: match[1].length,
+            mainContent: match[4],
+            checked: match[3].toLowerCase() === "x"
+          }),
+          createToken: (data, nestedTokens) => ({
+            type: "taskItem",
+            raw: "",
+            mainContent: data.mainContent,
+            indentLevel: data.indentLevel,
+            checked: data.checked,
+            text: data.mainContent,
+            tokens: lexer.inlineTokens(data.mainContent),
+            nestedTokens
+          }),
+          customNestedParser: parseTaskListContent
+        }, lexer);
+        if (!result) return;
+        return {
+          type: "taskList",
+          raw: result.raw,
+          items: result.items
+        };
+      }
+    },
+    markdownOptions: { indentsContent: true },
+    addCommands() {
+      return { toggleTaskList: () => ({ commands }) => {
+        return commands.toggleList(this.name, this.options.itemTypeName);
+      } };
+    },
+    addKeyboardShortcuts() {
+      return { "Mod-Shift-9": () => this.editor.commands.toggleTaskList() };
+    }
+  });
+  var ListKit = Extension.create({
+    name: "listKit",
+    addExtensions() {
+      const extensions = [];
+      if (this.options.bulletList !== false) extensions.push(BulletList.configure(this.options.bulletList));
+      if (this.options.listItem !== false) extensions.push(ListItem.configure(this.options.listItem));
+      if (this.options.listKeymap !== false) extensions.push(ListKeymap.configure(this.options.listKeymap));
+      if (this.options.orderedList !== false) extensions.push(OrderedList.configure(this.options.orderedList));
+      if (this.options.taskItem !== false) extensions.push(TaskItem.configure(this.options.taskItem));
+      if (this.options.taskList !== false) extensions.push(TaskList.configure(this.options.taskList));
+      return extensions;
+    }
+  });
+
+  // node_modules/@tiptap/extension-paragraph/dist/index.js
+  var EMPTY_PARAGRAPH_MARKDOWN = "&nbsp;";
+  var NBSP_CHAR = "\xA0";
+  var Paragraph = Node2.create({
+    name: "paragraph",
+    priority: 1e3,
+    addOptions() {
+      return { HTMLAttributes: {} };
+    },
+    group: "block",
+    content: "inline*",
+    parseHTML() {
+      return [{ tag: "p" }];
+    },
+    renderHTML({ HTMLAttributes }) {
+      return [
+        "p",
+        mergeAttributes(this.options.HTMLAttributes, HTMLAttributes),
+        0
+      ];
+    },
+    parseMarkdown: (token, helpers) => {
+      const tokens = token.tokens || [];
+      if (tokens.length === 1 && tokens[0].type === "image") return helpers.parseChildren([tokens[0]]);
+      const content = helpers.parseInline(tokens);
+      if (tokens.length === 1 && tokens[0].type === "text" && (tokens[0].raw === EMPTY_PARAGRAPH_MARKDOWN || tokens[0].text === EMPTY_PARAGRAPH_MARKDOWN || tokens[0].raw === NBSP_CHAR || tokens[0].text === NBSP_CHAR) && content.length === 1 && content[0].type === "text" && (content[0].text === EMPTY_PARAGRAPH_MARKDOWN || content[0].text === NBSP_CHAR)) return helpers.createNode("paragraph", void 0, []);
+      return helpers.createNode("paragraph", void 0, content);
+    },
+    renderMarkdown: (node, h2, ctx) => {
+      if (!node) return "";
+      const content = Array.isArray(node.content) ? node.content : [];
+      if (content.length === 0) {
+        var _ctx$previousNode, _ctx$previousNode2;
+        const previousContent = Array.isArray(ctx === null || ctx === void 0 || (_ctx$previousNode = ctx.previousNode) === null || _ctx$previousNode === void 0 ? void 0 : _ctx$previousNode.content) ? ctx.previousNode.content : [];
+        return (ctx === null || ctx === void 0 || (_ctx$previousNode2 = ctx.previousNode) === null || _ctx$previousNode2 === void 0 ? void 0 : _ctx$previousNode2.type) === "paragraph" && previousContent.length === 0 ? EMPTY_PARAGRAPH_MARKDOWN : "";
+      }
+      return h2.renderChildren(content);
+    },
+    addCommands() {
+      return { setParagraph: () => ({ commands }) => {
+        return commands.setNode(this.name);
+      } };
+    },
+    addKeyboardShortcuts() {
+      return { "Mod-Alt-0": () => this.editor.commands.setParagraph() };
+    }
+  });
+
+  // node_modules/@tiptap/extension-strike/dist/index.js
+  var inputRegex3 = /(?:^|\s)(~~(?!\s+~~)((?:[^~]+))~~(?!\s+~~))$/;
+  var pasteRegex = /(?:^|\s)(~~(?!\s+~~)((?:[^~]+))~~(?!\s+~~))/g;
+  var Strike = Mark2.create({
+    name: "strike",
+    addOptions() {
+      return { HTMLAttributes: {} };
+    },
+    parseHTML() {
+      return [
+        { tag: "s" },
+        { tag: "del" },
+        { tag: "strike" },
+        {
+          style: "text-decoration",
+          consuming: false,
+          getAttrs: (style2) => style2.includes("line-through") ? {} : false
+        }
+      ];
+    },
+    renderHTML({ HTMLAttributes }) {
+      return [
+        "s",
+        mergeAttributes(this.options.HTMLAttributes, HTMLAttributes),
+        0
+      ];
+    },
+    markdownTokenName: "del",
+    parseMarkdown: (token, helpers) => {
+      return helpers.applyMark("strike", helpers.parseInline(token.tokens || []));
+    },
+    renderMarkdown: (node, h2) => {
+      return `~~${h2.renderChildren(node)}~~`;
+    },
+    addCommands() {
+      return {
+        setStrike: () => ({ commands }) => {
+          return commands.setMark(this.name);
+        },
+        toggleStrike: () => ({ commands }) => {
+          return commands.toggleMark(this.name);
+        },
+        unsetStrike: () => ({ commands }) => {
+          return commands.unsetMark(this.name);
+        }
+      };
+    },
+    addKeyboardShortcuts() {
+      return { "Mod-Shift-s": () => this.editor.commands.toggleStrike() };
+    },
+    addInputRules() {
+      return [markInputRule({
+        find: inputRegex3,
+        type: this.type
+      })];
+    },
+    addPasteRules() {
+      return [markPasteRule({
+        find: pasteRegex,
+        type: this.type
+      })];
+    }
+  });
+
+  // node_modules/@tiptap/extension-text/dist/index.js
+  var Text2 = Node2.create({
+    name: "text",
+    group: "inline",
+    parseMarkdown: (token) => {
+      return {
+        type: "text",
+        text: token.text || ""
+      };
+    },
+    renderMarkdown: (node) => node.text || ""
+  });
+
+  // node_modules/@tiptap/extension-underline/dist/index.js
+  var Underline = Mark2.create({
+    name: "underline",
+    addOptions() {
+      return { HTMLAttributes: {} };
+    },
+    parseHTML() {
+      return [{ tag: "u" }, {
+        style: "text-decoration",
+        consuming: false,
+        getAttrs: (style2) => style2.includes("underline") ? {} : false
+      }];
+    },
+    renderHTML({ HTMLAttributes }) {
+      return [
+        "u",
+        mergeAttributes(this.options.HTMLAttributes, HTMLAttributes),
+        0
+      ];
+    },
+    parseMarkdown(token, helpers) {
+      return helpers.applyMark(this.name || "underline", helpers.parseInline(token.tokens || []));
+    },
+    renderMarkdown(node, helpers) {
+      return `++${helpers.renderChildren(node)}++`;
+    },
+    markdownTokenizer: {
+      name: "underline",
+      level: "inline",
+      start(src) {
+        return src.indexOf("++");
+      },
+      tokenize(src, _tokens, lexer) {
+        const match = /^(\+\+)([\s\S]+?)(\+\+)/.exec(src);
+        if (!match) return;
+        const innerContent = match[2].trim();
+        return {
+          type: "underline",
+          raw: match[0],
+          text: innerContent,
+          tokens: lexer.inlineTokens(innerContent)
+        };
+      }
+    },
+    addCommands() {
+      return {
+        setUnderline: () => ({ commands }) => {
+          return commands.setMark(this.name);
+        },
+        toggleUnderline: () => ({ commands }) => {
+          return commands.toggleMark(this.name);
+        },
+        unsetUnderline: () => ({ commands }) => {
+          return commands.unsetMark(this.name);
+        }
+      };
+    },
+    addKeyboardShortcuts() {
+      return {
+        "Mod-u": () => this.editor.commands.toggleUnderline(),
+        "Mod-U": () => this.editor.commands.toggleUnderline()
+      };
+    }
+  });
+  var src_default2 = Underline;
+
+  // node_modules/prosemirror-dropcursor/dist/index.js
+  function dropCursor(options = {}) {
+    return new Plugin({
+      view(editorView) {
+        return new DropCursorView(editorView, options);
+      }
+    });
+  }
+  var DropCursorView = class {
+    constructor(editorView, options) {
+      var _a;
+      this.editorView = editorView;
+      this.cursorPos = null;
+      this.element = null;
+      this.timeout = -1;
+      this.lastDragEvent = null;
+      this.width = (_a = options.width) !== null && _a !== void 0 ? _a : 1;
+      this.color = options.color === false ? void 0 : options.color || "black";
+      this.class = options.class;
+      this.handlers = ["dragover", "dragend", "drop", "dragleave"].map((name) => {
+        let handler = (e) => {
+          this[name](e);
+        };
+        editorView.dom.addEventListener(name, handler);
+        return { name, handler };
+      });
+    }
+    destroy() {
+      this.setCursor(null);
+      this.handlers.forEach(({ name, handler }) => this.editorView.dom.removeEventListener(name, handler));
+    }
+    update(editorView, prevState) {
+      if (this.cursorPos != null && prevState.doc != editorView.state.doc) {
+        if (this.lastDragEvent) {
+          let target = this.computeTarget(this.lastDragEvent);
+          if (target == this.cursorPos)
+            this.updateOverlay();
+          else
+            this.setCursor(target);
+        } else {
+          this.updateOverlay();
+        }
+      }
+    }
+    setCursor(pos) {
+      if (pos == this.cursorPos)
+        return;
+      this.cursorPos = pos;
+      if (pos == null) {
+        this.element.parentNode.removeChild(this.element);
+        this.element = null;
+      } else {
+        this.updateOverlay();
+      }
+    }
+    updateOverlay() {
+      let $pos = this.editorView.state.doc.resolve(this.cursorPos);
+      let isBlock = !$pos.parent.inlineContent, rect;
+      let editorDOM = this.editorView.dom, editorRect = editorDOM.getBoundingClientRect();
+      let scaleX = editorRect.width / editorDOM.offsetWidth, scaleY = editorRect.height / editorDOM.offsetHeight;
+      if (isBlock) {
+        let before = $pos.nodeBefore, after = $pos.nodeAfter;
+        if (before || after) {
+          let node = this.editorView.nodeDOM(this.cursorPos - (before ? before.nodeSize : 0));
+          if (node) {
+            let nodeRect = node.getBoundingClientRect();
+            let top = before ? nodeRect.bottom : nodeRect.top;
+            if (before && after)
+              top = (top + this.editorView.nodeDOM(this.cursorPos).getBoundingClientRect().top) / 2;
+            let halfWidth = this.width / 2 * scaleY;
+            rect = { left: nodeRect.left, right: nodeRect.right, top: top - halfWidth, bottom: top + halfWidth };
+          }
+        }
+      }
+      if (!rect) {
+        let coords = this.editorView.coordsAtPos(this.cursorPos);
+        let halfWidth = this.width / 2 * scaleX;
+        rect = { left: coords.left - halfWidth, right: coords.left + halfWidth, top: coords.top, bottom: coords.bottom };
+      }
+      let parent = this.editorView.dom.offsetParent;
+      if (!this.element) {
+        this.element = parent.appendChild(document.createElement("div"));
+        if (this.class)
+          this.element.className = this.class;
+        this.element.style.cssText = "position: absolute; z-index: 50; pointer-events: none;";
+        if (this.color) {
+          this.element.style.backgroundColor = this.color;
+        }
+      }
+      this.element.classList.toggle("prosemirror-dropcursor-block", isBlock);
+      this.element.classList.toggle("prosemirror-dropcursor-inline", !isBlock);
+      let parentLeft, parentTop;
+      if (!parent || parent == document.body && getComputedStyle(parent).position == "static") {
+        parentLeft = -pageXOffset;
+        parentTop = -pageYOffset;
+      } else {
+        let rect2 = parent.getBoundingClientRect();
+        let parentScaleX = rect2.width / parent.offsetWidth, parentScaleY = rect2.height / parent.offsetHeight;
+        parentLeft = rect2.left - parent.scrollLeft * parentScaleX;
+        parentTop = rect2.top - parent.scrollTop * parentScaleY;
+      }
+      this.element.style.left = (rect.left - parentLeft) / scaleX + "px";
+      this.element.style.top = (rect.top - parentTop) / scaleY + "px";
+      this.element.style.width = (rect.right - rect.left) / scaleX + "px";
+      this.element.style.height = (rect.bottom - rect.top) / scaleY + "px";
+    }
+    scheduleRemoval(timeout) {
+      clearTimeout(this.timeout);
+      this.timeout = setTimeout(() => this.setCursor(null), timeout);
+    }
+    computeTarget(event) {
+      let pos = this.editorView.posAtCoords({ left: event.clientX, top: event.clientY });
+      let node = pos && pos.inside >= 0 && this.editorView.state.doc.nodeAt(pos.inside);
+      let disableDropCursor = node && node.type.spec.disableDropCursor;
+      let disabled = typeof disableDropCursor == "function" ? disableDropCursor(this.editorView, pos, event) : disableDropCursor;
+      if (!pos || disabled)
+        return null;
+      let target = pos.pos;
+      if (this.editorView.dragging && this.editorView.dragging.slice) {
+        let point = dropPoint(this.editorView.state.doc, target, this.editorView.dragging.slice);
+        if (point != null)
+          target = point;
+      }
+      return target;
+    }
+    dragover(event) {
+      if (!this.editorView.editable)
+        return;
+      this.lastDragEvent = event;
+      let target = this.computeTarget(event);
+      if (target != null) {
+        this.setCursor(target);
+        this.scheduleRemoval(5e3);
+      }
+    }
+    dragend() {
+      this.scheduleRemoval(20);
+    }
+    drop() {
+      this.scheduleRemoval(20);
+    }
+    dragleave(event) {
+      if (!this.editorView.dom.contains(event.relatedTarget))
+        this.setCursor(null);
+    }
+  };
+
+  // node_modules/prosemirror-gapcursor/dist/index.js
+  var GapCursor = class _GapCursor extends Selection {
+    /**
+    Create a gap cursor.
+    */
+    constructor($pos) {
+      super($pos, $pos);
+    }
+    map(doc3, mapping) {
+      let $pos = doc3.resolve(mapping.map(this.head));
+      return _GapCursor.valid($pos) ? new _GapCursor($pos) : Selection.near($pos);
+    }
+    content() {
+      return Slice.empty;
+    }
+    eq(other) {
+      return other instanceof _GapCursor && other.head == this.head;
+    }
+    toJSON() {
+      return { type: "gapcursor", pos: this.head };
+    }
+    /**
+    @internal
+    */
+    static fromJSON(doc3, json) {
+      if (typeof json.pos != "number")
+        throw new RangeError("Invalid input for GapCursor.fromJSON");
+      return new _GapCursor(doc3.resolve(json.pos));
+    }
+    /**
+    @internal
+    */
+    getBookmark() {
+      return new GapBookmark(this.anchor);
+    }
+    /**
+    @internal
+    */
+    static valid($pos) {
+      let parent = $pos.parent;
+      if (parent.inlineContent || !closedBefore($pos) || !closedAfter($pos))
+        return false;
+      let override = parent.type.spec.allowGapCursor;
+      if (override != null)
+        return override;
+      let deflt = parent.contentMatchAt($pos.index()).defaultType;
+      return deflt && deflt.isTextblock;
+    }
+    /**
+    @internal
+    */
+    static findGapCursorFrom($pos, dir, mustMove = false) {
+      search: for (; ; ) {
+        if (!mustMove && _GapCursor.valid($pos))
+          return $pos;
+        let pos = $pos.pos, next = null;
+        for (let d = $pos.depth; ; d--) {
+          let parent = $pos.node(d);
+          if (dir > 0 ? $pos.indexAfter(d) < parent.childCount : $pos.index(d) > 0) {
+            next = parent.child(dir > 0 ? $pos.indexAfter(d) : $pos.index(d) - 1);
+            break;
+          } else if (d == 0) {
+            return null;
+          }
+          pos += dir;
+          let $cur = $pos.doc.resolve(pos);
+          if (_GapCursor.valid($cur))
+            return $cur;
+        }
+        for (; ; ) {
+          let inside = dir > 0 ? next.firstChild : next.lastChild;
+          if (!inside) {
+            if (next.isAtom && !next.isText && !NodeSelection.isSelectable(next)) {
+              $pos = $pos.doc.resolve(pos + next.nodeSize * dir);
+              mustMove = false;
+              continue search;
+            }
+            break;
+          }
+          next = inside;
+          pos += dir;
+          let $cur = $pos.doc.resolve(pos);
+          if (_GapCursor.valid($cur))
+            return $cur;
+        }
+        return null;
+      }
+    }
+  };
+  GapCursor.prototype.visible = false;
+  GapCursor.findFrom = GapCursor.findGapCursorFrom;
+  Selection.jsonID("gapcursor", GapCursor);
+  var GapBookmark = class _GapBookmark {
+    constructor(pos) {
+      this.pos = pos;
+    }
+    map(mapping) {
+      return new _GapBookmark(mapping.map(this.pos));
+    }
+    resolve(doc3) {
+      let $pos = doc3.resolve(this.pos);
+      return GapCursor.valid($pos) ? new GapCursor($pos) : Selection.near($pos);
+    }
+  };
+  function needsGap(type) {
+    return type.isAtom || type.spec.isolating || type.spec.createGapCursor;
+  }
+  function closedBefore($pos) {
+    for (let d = $pos.depth; d >= 0; d--) {
+      let index = $pos.index(d), parent = $pos.node(d);
+      if (index == 0) {
+        if (parent.type.spec.isolating)
+          return true;
+        continue;
+      }
+      for (let before = parent.child(index - 1); ; before = before.lastChild) {
+        if (before.childCount == 0 && !before.inlineContent || needsGap(before.type))
+          return true;
+        if (before.inlineContent)
+          return false;
+      }
+    }
+    return true;
+  }
+  function closedAfter($pos) {
+    for (let d = $pos.depth; d >= 0; d--) {
+      let index = $pos.indexAfter(d), parent = $pos.node(d);
+      if (index == parent.childCount) {
+        if (parent.type.spec.isolating)
+          return true;
+        continue;
+      }
+      for (let after = parent.child(index); ; after = after.firstChild) {
+        if (after.childCount == 0 && !after.inlineContent || needsGap(after.type))
+          return true;
+        if (after.inlineContent)
+          return false;
+      }
+    }
+    return true;
+  }
+  function gapCursor() {
+    return new Plugin({
+      props: {
+        decorations: drawGapCursor,
+        createSelectionBetween(_view, $anchor, $head) {
+          return $anchor.pos == $head.pos && GapCursor.valid($head) ? new GapCursor($head) : null;
+        },
+        handleClick,
+        handleKeyDown,
+        handleDOMEvents: { beforeinput }
+      }
+    });
+  }
+  var handleKeyDown = keydownHandler({
+    "ArrowLeft": arrow("horiz", -1),
+    "ArrowRight": arrow("horiz", 1),
+    "ArrowUp": arrow("vert", -1),
+    "ArrowDown": arrow("vert", 1)
+  });
+  function arrow(axis, dir) {
+    const dirStr = axis == "vert" ? dir > 0 ? "down" : "up" : dir > 0 ? "right" : "left";
+    return function(state, dispatch, view) {
+      let sel = state.selection;
+      let $start = dir > 0 ? sel.$to : sel.$from, mustMove = sel.empty;
+      if (sel instanceof TextSelection) {
+        if (!view.endOfTextblock(dirStr) || $start.depth == 0)
+          return false;
+        mustMove = false;
+        $start = state.doc.resolve(dir > 0 ? $start.after() : $start.before());
+      }
+      let $found = GapCursor.findGapCursorFrom($start, dir, mustMove);
+      if (!$found)
+        return false;
+      if (dispatch)
+        dispatch(state.tr.setSelection(new GapCursor($found)));
+      return true;
+    };
+  }
+  function handleClick(view, pos, event) {
+    if (!view || !view.editable)
+      return false;
+    let $pos = view.state.doc.resolve(pos);
+    if (!GapCursor.valid($pos))
+      return false;
+    let clickPos = view.posAtCoords({ left: event.clientX, top: event.clientY });
+    if (clickPos && clickPos.inside > -1 && NodeSelection.isSelectable(view.state.doc.nodeAt(clickPos.inside)))
+      return false;
+    view.dispatch(view.state.tr.setSelection(new GapCursor($pos)));
+    return true;
+  }
+  function beforeinput(view, event) {
+    if (event.inputType != "insertCompositionText" || !(view.state.selection instanceof GapCursor))
+      return false;
+    let { $from } = view.state.selection;
+    let insert = $from.parent.contentMatchAt($from.index()).findWrapping(view.state.schema.nodes.text);
+    if (!insert)
+      return false;
+    let frag = Fragment.empty;
+    for (let i = insert.length - 1; i >= 0; i--)
+      frag = Fragment.from(insert[i].createAndFill(null, frag));
+    let tr2 = view.state.tr.replace($from.pos, $from.pos, new Slice(frag, 0, 0));
+    tr2.setSelection(TextSelection.near(tr2.doc.resolve($from.pos + 1)));
+    view.dispatch(tr2);
+    return false;
+  }
+  function drawGapCursor(state) {
+    if (!(state.selection instanceof GapCursor))
+      return null;
+    let node = document.createElement("div");
+    node.className = "ProseMirror-gapcursor";
+    return DecorationSet.create(state.doc, [Decoration.widget(state.selection.head, node, { key: "gapcursor" })]);
+  }
+
+  // node_modules/@tiptap/extensions/dist/index.js
+  var CharacterCount = Extension.create({
+    name: "characterCount",
+    addOptions() {
+      return {
+        limit: null,
+        autoTrim: true,
+        mode: "textSize",
+        textCounter: (text) => text.length,
+        wordCounter: (text) => text.split(" ").filter((word) => word !== "").length
+      };
+    },
+    addStorage() {
+      return {
+        characters: () => 0,
+        words: () => 0
+      };
+    },
+    onBeforeCreate() {
+      this.storage.characters = (options) => {
+        const node = (options === null || options === void 0 ? void 0 : options.node) || this.editor.state.doc;
+        if (((options === null || options === void 0 ? void 0 : options.mode) || this.options.mode) === "textSize") {
+          const text = node.textBetween(0, node.content.size, void 0, " ");
+          return this.options.textCounter(text);
+        }
+        return node.nodeSize;
+      };
+      this.storage.words = (options) => {
+        const node = (options === null || options === void 0 ? void 0 : options.node) || this.editor.state.doc;
+        const text = node.textBetween(0, node.content.size, " ", " ");
+        return this.options.wordCounter(text);
+      };
+    },
+    addProseMirrorPlugins() {
+      let initialEvaluationDone = false;
+      return [new Plugin({
+        key: new PluginKey("characterCount"),
+        appendTransaction: (transactions, oldState, newState) => {
+          if (initialEvaluationDone) return;
+          const limit = this.options.limit;
+          const autoTrim = this.options.autoTrim;
+          if (limit === null || limit === void 0 || limit === 0 || autoTrim === false) {
+            initialEvaluationDone = true;
+            return;
+          }
+          const initialContentSize = this.storage.characters({ node: newState.doc });
+          if (initialContentSize > limit) {
+            const over = initialContentSize - limit;
+            const from2 = 0;
+            const to = over;
+            console.warn(`[CharacterCount] Initial content exceeded limit of ${limit} characters. Content was automatically trimmed.`);
+            const tr2 = newState.tr.deleteRange(from2, to);
+            initialEvaluationDone = true;
+            return tr2;
+          }
+          initialEvaluationDone = true;
+        },
+        filterTransaction: (transaction, state) => {
+          const limit = this.options.limit;
+          if (!transaction.docChanged || limit === 0 || limit === null || limit === void 0) return true;
+          const oldSize = this.storage.characters({ node: state.doc });
+          const newSize = this.storage.characters({ node: transaction.doc });
+          if (newSize <= limit) return true;
+          if (oldSize > limit && newSize > limit && newSize <= oldSize) return true;
+          if (oldSize > limit && newSize > limit && newSize > oldSize) return false;
+          if (!transaction.getMeta("paste")) return false;
+          const pos = transaction.selection.$head.pos;
+          const from2 = pos - (newSize - limit);
+          const to = pos;
+          transaction.deleteRange(from2, to);
+          if (this.storage.characters({ node: transaction.doc }) > limit) return false;
+          return true;
+        }
+      })];
+    }
+  });
+  var Dropcursor = Extension.create({
+    name: "dropCursor",
+    addOptions() {
+      return {
+        color: "currentColor",
+        width: 1,
+        class: void 0
+      };
+    },
+    addProseMirrorPlugins() {
+      return [dropCursor(this.options)];
+    }
+  });
+  var Focus = Extension.create({
+    name: "focus",
+    addOptions() {
+      return {
+        className: "has-focus",
+        mode: "all"
+      };
+    },
+    addProseMirrorPlugins() {
+      return [new Plugin({
+        key: new PluginKey("focus"),
+        props: { decorations: ({ doc: doc3, selection }) => {
+          const { isEditable, isFocused } = this.editor;
+          const { anchor } = selection;
+          const decorations = [];
+          if (!isEditable || !isFocused) return DecorationSet.create(doc3, []);
+          let maxLevels = 0;
+          if (this.options.mode === "deepest") doc3.descendants((node, pos) => {
+            if (node.isText) return;
+            if (!(anchor >= pos && anchor <= pos + node.nodeSize - 1)) return false;
+            maxLevels += 1;
+          });
+          let currentLevel = 0;
+          doc3.descendants((node, pos) => {
+            if (node.isText) return false;
+            if (!(anchor >= pos && anchor <= pos + node.nodeSize - 1)) return false;
+            currentLevel += 1;
+            if (this.options.mode === "deepest" && maxLevels - currentLevel > 0 || this.options.mode === "shallowest" && currentLevel > 1) return this.options.mode === "deepest";
+            decorations.push(Decoration.node(pos, pos + node.nodeSize, { class: this.options.className }));
+          });
+          return DecorationSet.create(doc3, decorations);
+        } }
+      })];
+    }
+  });
+  var Gapcursor = Extension.create({
+    name: "gapCursor",
+    addProseMirrorPlugins() {
+      return [gapCursor()];
+    },
+    extendNodeSchema(extension) {
+      var _callOrReturn;
+      const context = {
+        name: extension.name,
+        options: extension.options,
+        storage: extension.storage
+      };
+      return { allowGapCursor: (_callOrReturn = callOrReturn(getExtensionField(extension, "allowGapCursor", context))) !== null && _callOrReturn !== void 0 ? _callOrReturn : null };
+    }
+  });
+  var DEFAULT_DATA_ATTRIBUTE = "placeholder";
+  var PLUGIN_KEY = new PluginKey("tiptap__placeholder");
+  function createPlaceholderDecoration(options) {
+    const { editor, placeholder, dataAttribute, pos, node, isEmptyDoc, hasAnchor, classes: { emptyNode, emptyEditor } } = options;
+    const classes = [emptyNode];
+    if (isEmptyDoc) classes.push(emptyEditor);
+    return Decoration.node(pos, pos + node.nodeSize, {
+      class: classes.join(" "),
+      [dataAttribute]: typeof placeholder === "function" ? placeholder({
+        editor,
+        node,
+        pos,
+        hasAnchor
+      }) : placeholder
+    });
+  }
+  function resolveEmptyNodeClass(emptyNodeClass, props) {
+    return typeof emptyNodeClass === "function" ? emptyNodeClass(props) : emptyNodeClass;
+  }
+  function scanRangeForDecorations({ editor, options, dataAttribute, doc: doc3, selection, from: from2, to }) {
+    const { anchor } = selection;
+    const decorations = [];
+    const isEmptyDoc = editor.isEmpty;
+    doc3.nodesBetween(from2, to, (node, pos) => {
+      const hasAnchor = anchor >= pos && anchor <= pos + node.nodeSize;
+      const isEmpty = !node.isLeaf && isNodeEmpty(node);
+      if (!node.type.isTextblock) return options.includeChildren;
+      if ((hasAnchor || !options.showOnlyCurrent) && isEmpty) decorations.push(createPlaceholderDecoration({
+        editor,
+        isEmptyDoc,
+        dataAttribute,
+        hasAnchor,
+        placeholder: options.placeholder,
+        classes: {
+          emptyEditor: options.emptyEditorClass,
+          emptyNode: resolveEmptyNodeClass(options.emptyNodeClass, {
+            editor,
+            node,
+            pos,
+            hasAnchor
+          })
+        },
+        node,
+        pos
+      }));
+      return options.includeChildren;
+    });
+    return decorations;
+  }
+  function buildPlaceholderDecorations({ editor, options, dataAttribute, doc: doc3, selection }) {
+    if (!(editor.isEditable || !options.showOnlyWhenEditable)) return null;
+    const { anchor } = selection;
+    const decorations = [];
+    const isEmptyDoc = editor.isEmpty;
+    if (options.showOnlyCurrent && !options.includeChildren) {
+      const resolved = doc3.resolve(anchor);
+      const node = resolved.depth > 0 ? resolved.node(1) : resolved.nodeAfter;
+      const nodeStart = resolved.depth > 0 ? resolved.before(1) : anchor;
+      if (node && node.type.isTextblock && isNodeEmpty(node)) {
+        const hasAnchor = anchor >= nodeStart && anchor <= nodeStart + node.nodeSize;
+        decorations.push(createPlaceholderDecoration({
+          editor,
+          isEmptyDoc,
+          dataAttribute,
+          hasAnchor,
+          placeholder: options.placeholder,
+          classes: {
+            emptyEditor: options.emptyEditorClass,
+            emptyNode: resolveEmptyNodeClass(options.emptyNodeClass, {
+              editor,
+              node,
+              pos: nodeStart,
+              hasAnchor
+            })
+          },
+          node,
+          pos: nodeStart
+        }));
+      }
+    } else decorations.push(...scanRangeForDecorations({
+      editor,
+      options,
+      dataAttribute,
+      doc: doc3,
+      selection,
+      from: 0,
+      to: doc3.content.size
+    }));
+    return DecorationSet.create(doc3, decorations);
+  }
+  function resolveTopLevelRange(doc3, pos) {
+    const resolved = doc3.resolve(pos);
+    if (resolved.depth === 0) {
+      var _resolved$nodeAfter;
+      const node = (_resolved$nodeAfter = resolved.nodeAfter) !== null && _resolved$nodeAfter !== void 0 ? _resolved$nodeAfter : resolved.nodeBefore;
+      if (!node) return {
+        from: pos,
+        to: pos
+      };
+      const nodePos = resolved.nodeAfter ? pos : pos - node.nodeSize;
+      return {
+        from: nodePos,
+        to: nodePos + node.nodeSize
+      };
+    }
+    const topLevelPos = resolved.before(1);
+    return {
+      from: topLevelPos,
+      to: topLevelPos + resolved.node(1).nodeSize
+    };
+  }
+  function toContentRelativeRange(doc3, range) {
+    return {
+      from: Math.max(0, range.from - 1),
+      to: Math.min(doc3.content.size, range.to - 1)
+    };
+  }
+  function getTopLevelBlocksInRange(doc3, from2, to) {
+    const ranges = [];
+    doc3.forEach((node, offset) => {
+      const nodeStart = offset;
+      const nodeEnd = nodeStart + node.nodeSize;
+      const absNodeStart = nodeStart + 1;
+      const absNodeEnd = nodeEnd + 1;
+      if (absNodeStart < to && absNodeEnd > from2) ranges.push({
+        from: nodeStart,
+        to: nodeEnd
+      });
+    });
+    return ranges;
+  }
+  function mergeRanges(ranges) {
+    if (ranges.length === 0) return [];
+    const sorted = [...ranges].sort((a, b) => a.from - b.from);
+    const merged = [{ ...sorted[0] }];
+    for (let i = 1; i < sorted.length; i += 1) {
+      const last = merged[merged.length - 1];
+      const current = sorted[i];
+      if (current.from <= last.to) last.to = Math.max(last.to, current.to);
+      else merged.push({ ...current });
+    }
+    return merged;
+  }
+  function collectBlocksForChange(doc3, change) {
+    const ranges = getTopLevelBlocksInRange(doc3, change.from, change.to);
+    ranges.push(toContentRelativeRange(doc3, resolveTopLevelRange(doc3, change.from)));
+    if (change.to > change.from) ranges.push(toContentRelativeRange(doc3, resolveTopLevelRange(doc3, Math.min(change.to, doc3.content.size + 1) - 1)));
+    else if (change.from < doc3.content.size + 1) ranges.push(toContentRelativeRange(doc3, resolveTopLevelRange(doc3, Math.min(change.from + 1, doc3.content.size))));
+    return ranges;
+  }
+  function collectRescanRanges(tr2, oldState, newState) {
+    const ranges = [];
+    if (tr2.docChanged) {
+      const changes = getChangedRanges(tr2);
+      for (const change of changes) ranges.push(...collectBlocksForChange(newState.doc, change.newRange));
+    }
+    if (tr2.selectionSet) {
+      ranges.push(toContentRelativeRange(newState.doc, resolveTopLevelRange(newState.doc, tr2.mapping.map(oldState.selection.anchor))));
+      ranges.push(toContentRelativeRange(newState.doc, resolveTopLevelRange(newState.doc, newState.selection.anchor)));
+    }
+    return mergeRanges(ranges);
+  }
+  function clampRange(from2, to, doc3) {
+    const clampedFrom = Math.max(0, Math.min(from2, doc3.content.size));
+    return {
+      from: clampedFrom,
+      to: Math.max(clampedFrom, Math.min(to, doc3.content.size))
+    };
+  }
+  function updateDecorationsInRanges({ decorations, ranges, editor, options, dataAttribute, doc: doc3, selection }) {
+    let next = decorations;
+    for (const range of ranges) {
+      const { from: from2, to } = clampRange(range.from, range.to, doc3);
+      const existing = next.find(from2, to).filter((decoration) => decoration.from >= from2 && decoration.to <= to);
+      if (existing.length) next = next.remove(existing);
+      const newDecos = scanRangeForDecorations({
+        editor,
+        options,
+        dataAttribute,
+        doc: doc3,
+        selection,
+        from: from2,
+        to
+      });
+      if (newDecos.length) next = next.add(doc3, newDecos);
+    }
+    return next;
+  }
+  function createPlaceholderStateField({ editor, options, dataAttribute }) {
+    return {
+      init(_config, state) {
+        const decorations = buildPlaceholderDecorations({
+          editor,
+          options,
+          dataAttribute,
+          doc: state.doc,
+          selection: state.selection
+        });
+        return decorations !== null && decorations !== void 0 ? decorations : DecorationSet.empty;
+      },
+      apply(tr2, prev, oldState, newState) {
+        if (!tr2.docChanged && !tr2.selectionSet) return prev;
+        return updateDecorationsInRanges({
+          decorations: prev.map(tr2.mapping, tr2.doc),
+          ranges: collectRescanRanges(tr2, oldState, newState),
+          editor,
+          options,
+          dataAttribute,
+          doc: newState.doc,
+          selection: newState.selection
+        });
+      }
+    };
+  }
+  function preparePlaceholderAttribute(attr) {
+    return attr.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9-]/g, "").replace(/^[0-9-]+/, "").replace(/^-+/, "").toLowerCase();
+  }
+  function createPlaceholderPlugin({ editor, options }) {
+    const dataAttribute = options.dataAttribute ? `data-${preparePlaceholderAttribute(options.dataAttribute)}` : `data-${DEFAULT_DATA_ATTRIBUTE}`;
+    const useResolvedPath = options.showOnlyCurrent && !options.includeChildren;
+    return new Plugin({
+      key: PLUGIN_KEY,
+      ...useResolvedPath ? {} : { state: createPlaceholderStateField({
+        editor,
+        options,
+        dataAttribute
+      }) },
+      props: { decorations: useResolvedPath ? ({ doc: doc3, selection }) => buildPlaceholderDecorations({
+        editor,
+        options,
+        dataAttribute,
+        doc: doc3,
+        selection
+      }) : (state) => {
+        var _PLUGIN_KEY$getState;
+        if (options.showOnlyWhenEditable && !editor.isEditable) return DecorationSet.empty;
+        return (_PLUGIN_KEY$getState = PLUGIN_KEY.getState(state)) !== null && _PLUGIN_KEY$getState !== void 0 ? _PLUGIN_KEY$getState : DecorationSet.empty;
+      } }
+    });
+  }
+  var Placeholder = Extension.create({
+    name: "placeholder",
+    addOptions() {
+      return {
+        emptyEditorClass: "is-editor-empty",
+        emptyNodeClass: "is-empty",
+        dataAttribute: DEFAULT_DATA_ATTRIBUTE,
+        placeholder: "Write something \u2026",
+        showOnlyWhenEditable: true,
+        showOnlyCurrent: true,
+        includeChildren: false
+      };
+    },
+    addProseMirrorPlugins() {
+      return [createPlaceholderPlugin({
+        editor: this.editor,
+        options: this.options
+      })];
+    }
+  });
+  function shouldSyncDomSelection(state, editor) {
+    return !state.selection.empty && !isNodeSelection(state.selection) && editor.isEditable;
+  }
+  function shouldPreserveSelection(state, editor) {
+    return shouldSyncDomSelection(state, editor) && !editor.isFocused && !editor.view.dragging;
+  }
+  function clearDomSelection() {
+    var _window$getSelection;
+    (_window$getSelection = window.getSelection()) === null || _window$getSelection === void 0 || _window$getSelection.removeAllRanges();
+  }
+  function restoreDomSelection(view) {
+    view.focus();
+  }
+  var Selection2 = Extension.create({
+    name: "selection",
+    addOptions() {
+      return { className: "selection" };
+    },
+    addProseMirrorPlugins() {
+      const { editor, options } = this;
+      return [new Plugin({
+        key: new PluginKey("selection"),
+        props: {
+          decorations(state) {
+            if (!shouldPreserveSelection(state, editor)) return null;
+            return DecorationSet.create(state.doc, [Decoration.inline(state.selection.from, state.selection.to, { class: options.className })]);
+          },
+          handleDOMEvents: {
+            blur(view) {
+              if (!shouldSyncDomSelection(view.state, editor)) return false;
+              clearDomSelection();
+              return false;
+            },
+            focus(view) {
+              if (!shouldSyncDomSelection(view.state, editor)) return false;
+              requestAnimationFrame(() => {
+                if (!editor.isDestroyed && view.hasFocus()) restoreDomSelection(view);
+              });
+              return false;
+            }
+          }
+        }
+      })];
+    }
+  });
+  function nodeEqualsType({ types, node }) {
+    return node && Array.isArray(types) && types.includes(node.type) || (node === null || node === void 0 ? void 0 : node.type) === types;
+  }
+  var TrailingNode = Extension.create({
+    name: "trailingNode",
+    addOptions() {
+      return {
+        node: void 0,
+        notAfter: []
+      };
+    },
+    addProseMirrorPlugins() {
+      var _this$editor$schema$t;
+      const plugin = new PluginKey(this.name);
+      const defaultNode = this.options.node || ((_this$editor$schema$t = this.editor.schema.topNodeType.contentMatch.defaultType) === null || _this$editor$schema$t === void 0 ? void 0 : _this$editor$schema$t.name) || "paragraph";
+      const disabledNodes = Object.entries(this.editor.schema.nodes).map(([, value]) => value).filter((node) => (this.options.notAfter || []).concat(defaultNode).includes(node.name));
+      return [new Plugin({
+        key: plugin,
+        appendTransaction: (transactions, __, state) => {
+          const { doc: doc3, tr: tr2, schema } = state;
+          const shouldInsertNodeAtEnd = plugin.getState(state);
+          const endPosition = doc3.content.size;
+          const type = schema.nodes[defaultNode];
+          if (transactions.some((transaction) => transaction.getMeta("skipTrailingNode"))) return;
+          if (!shouldInsertNodeAtEnd) return;
+          return tr2.insert(endPosition, type.create());
+        },
+        state: {
+          init: (_, state) => {
+            const lastNode = state.tr.doc.lastChild;
+            return !nodeEqualsType({
+              node: lastNode,
+              types: disabledNodes
+            });
+          },
+          apply: (tr2, value) => {
+            if (!tr2.docChanged) return value;
+            if (tr2.getMeta("__uniqueIDTransaction")) return value;
+            const lastNode = tr2.doc.lastChild;
+            return !nodeEqualsType({
+              node: lastNode,
+              types: disabledNodes
+            });
+          }
+        }
+      })];
+    }
+  });
+  var UndoRedo = Extension.create({
+    name: "undoRedo",
+    addOptions() {
+      return {
+        depth: 100,
+        newGroupDelay: 500
+      };
+    },
+    addCommands() {
+      return {
+        undo: () => ({ state, dispatch }) => {
+          return undo(state, dispatch);
+        },
+        redo: () => ({ state, dispatch }) => {
+          return redo(state, dispatch);
+        }
+      };
+    },
+    addProseMirrorPlugins() {
+      return [history(this.options)];
+    },
+    addKeyboardShortcuts() {
+      return {
+        "Mod-z": () => this.editor.commands.undo(),
+        "Shift-Mod-z": () => this.editor.commands.redo(),
+        "Mod-y": () => this.editor.commands.redo(),
+        "Mod-\u044F": () => this.editor.commands.undo(),
+        "Shift-Mod-\u044F": () => this.editor.commands.redo()
+      };
+    }
+  });
+
+  // node_modules/@tiptap/starter-kit/dist/index.js
+  var StarterKit = Extension.create({
+    name: "starterKit",
+    addExtensions() {
+      const extensions = [];
+      if (this.options.bold !== false) extensions.push(Bold.configure(this.options.bold));
+      if (this.options.blockquote !== false) extensions.push(Blockquote.configure(this.options.blockquote));
+      if (this.options.bulletList !== false) extensions.push(BulletList.configure(this.options.bulletList));
+      if (this.options.code !== false) extensions.push(Code.configure(this.options.code));
+      if (this.options.codeBlock !== false) extensions.push(CodeBlock.configure(this.options.codeBlock));
+      if (this.options.document !== false) extensions.push(Document.configure(this.options.document));
+      if (this.options.dropcursor !== false) extensions.push(Dropcursor.configure(this.options.dropcursor));
+      if (this.options.gapcursor !== false) extensions.push(Gapcursor.configure(this.options.gapcursor));
+      if (this.options.hardBreak !== false) extensions.push(HardBreak.configure(this.options.hardBreak));
+      if (this.options.heading !== false) extensions.push(Heading.configure(this.options.heading));
+      if (this.options.undoRedo !== false) extensions.push(UndoRedo.configure(this.options.undoRedo));
+      if (this.options.horizontalRule !== false) extensions.push(HorizontalRule.configure(this.options.horizontalRule));
+      if (this.options.italic !== false) extensions.push(Italic.configure(this.options.italic));
+      if (this.options.listItem !== false) extensions.push(ListItem.configure(this.options.listItem));
+      if (this.options.listKeymap !== false) {
+        var _this$options;
+        extensions.push(ListKeymap.configure((_this$options = this.options) === null || _this$options === void 0 ? void 0 : _this$options.listKeymap));
+      }
+      if (this.options.link !== false) {
+        var _this$options2;
+        extensions.push(Link.configure((_this$options2 = this.options) === null || _this$options2 === void 0 ? void 0 : _this$options2.link));
+      }
+      if (this.options.orderedList !== false) extensions.push(OrderedList.configure(this.options.orderedList));
+      if (this.options.paragraph !== false) extensions.push(Paragraph.configure(this.options.paragraph));
+      if (this.options.strike !== false) extensions.push(Strike.configure(this.options.strike));
+      if (this.options.text !== false) extensions.push(Text2.configure(this.options.text));
+      if (this.options.underline !== false) {
+        var _this$options3;
+        extensions.push(Underline.configure((_this$options3 = this.options) === null || _this$options3 === void 0 ? void 0 : _this$options3.underline));
+      }
+      if (this.options.trailingNode !== false) {
+        var _this$options4;
+        extensions.push(TrailingNode.configure((_this$options4 = this.options) === null || _this$options4 === void 0 ? void 0 : _this$options4.trailingNode));
+      }
+      return extensions;
+    }
+  });
+  var src_default3 = StarterKit;
 
   // node_modules/@tiptap/extension-text-align/dist/index.js
   var TextAlign = Extension.create({
@@ -19953,51 +22707,44 @@ img.ProseMirror-separator {
     addOptions() {
       return {
         types: [],
-        alignments: ["left", "center", "right", "justify"],
+        alignments: [
+          "left",
+          "center",
+          "right",
+          "justify"
+        ],
         defaultAlignment: null
       };
     },
     addGlobalAttributes() {
-      return [
-        {
-          types: this.options.types,
-          attributes: {
-            textAlign: {
-              default: this.options.defaultAlignment,
-              parseHTML: (element) => {
-                const alignment = element.style.textAlign;
-                return this.options.alignments.includes(alignment) ? alignment : this.options.defaultAlignment;
-              },
-              renderHTML: (attributes) => {
-                if (!attributes.textAlign) {
-                  return {};
-                }
-                return { style: `text-align: ${attributes.textAlign}` };
-              }
-            }
+      return [{
+        types: this.options.types,
+        attributes: { textAlign: {
+          default: this.options.defaultAlignment,
+          parseHTML: (element) => {
+            const alignment = element.style.textAlign;
+            return this.options.alignments.includes(alignment) ? alignment : this.options.defaultAlignment;
+          },
+          renderHTML: (attributes) => {
+            if (!isValidCSSStyleValue(attributes.textAlign) || !this.options.alignments.includes(attributes.textAlign)) return {};
+            return { style: `text-align: ${attributes.textAlign}` };
           }
-        }
-      ];
+        } }
+      }];
     },
     addCommands() {
       return {
-        setTextAlign: (alignment) => ({ commands: commands2 }) => {
-          if (!this.options.alignments.includes(alignment)) {
-            return false;
-          }
-          return this.options.types.map((type) => commands2.updateAttributes(type, { textAlign: alignment })).every((response) => response);
+        setTextAlign: (alignment) => ({ commands }) => {
+          if (!this.options.alignments.includes(alignment)) return false;
+          return this.options.types.map((type) => commands.updateAttributes(type, { textAlign: alignment })).some((response) => response);
         },
-        unsetTextAlign: () => ({ commands: commands2 }) => {
-          return this.options.types.map((type) => commands2.resetAttributes(type, "textAlign")).every((response) => response);
+        unsetTextAlign: () => ({ commands }) => {
+          return this.options.types.map((type) => commands.resetAttributes(type, "textAlign")).some((response) => response);
         },
-        toggleTextAlign: (alignment) => ({ editor, commands: commands2 }) => {
-          if (!this.options.alignments.includes(alignment)) {
-            return false;
-          }
-          if (editor.isActive({ textAlign: alignment })) {
-            return commands2.unsetTextAlign();
-          }
-          return commands2.setTextAlign(alignment);
+        toggleTextAlign: (alignment) => ({ editor, commands }) => {
+          if (!this.options.alignments.includes(alignment)) return false;
+          if (editor.isActive({ textAlign: alignment })) return commands.unsetTextAlign();
+          return commands.setTextAlign(alignment);
         }
       };
     },
@@ -20010,50 +22757,7 @@ img.ProseMirror-separator {
       };
     }
   });
-
-  // node_modules/@tiptap/extension-underline/dist/index.js
-  var Underline = Mark2.create({
-    name: "underline",
-    addOptions() {
-      return {
-        HTMLAttributes: {}
-      };
-    },
-    parseHTML() {
-      return [
-        {
-          tag: "u"
-        },
-        {
-          style: "text-decoration",
-          consuming: false,
-          getAttrs: (style2) => style2.includes("underline") ? {} : false
-        }
-      ];
-    },
-    renderHTML({ HTMLAttributes }) {
-      return ["u", mergeAttributes(this.options.HTMLAttributes, HTMLAttributes), 0];
-    },
-    addCommands() {
-      return {
-        setUnderline: () => ({ commands: commands2 }) => {
-          return commands2.setMark(this.name);
-        },
-        toggleUnderline: () => ({ commands: commands2 }) => {
-          return commands2.toggleMark(this.name);
-        },
-        unsetUnderline: () => ({ commands: commands2 }) => {
-          return commands2.unsetMark(this.name);
-        }
-      };
-    },
-    addKeyboardShortcuts() {
-      return {
-        "Mod-u": () => this.editor.commands.toggleUnderline(),
-        "Mod-U": () => this.editor.commands.toggleUnderline()
-      };
-    }
-  });
+  var src_default4 = TextAlign;
 
   // editor-src/rich-editor.js
   var renderer = window.ScaleRichRenderer;
@@ -20255,15 +22959,15 @@ img.ProseMirror-separator {
       this.editor = new Editor({
         element: options.element,
         extensions: [
-          StarterKit.configure({ heading: { levels: [2, 3] } }),
-          Underline,
+          src_default3.configure({ heading: { levels: [2, 3] }, link: false, underline: false, trailingNode: false }),
+          src_default2,
           TextPreset,
           MediaImage,
-          TextAlign.configure({ types: ["heading", "paragraph"] }),
-          Link.configure({
+          src_default4.configure({ types: ["heading", "paragraph"] }),
+          src_default.configure({
             openOnClick: false,
             protocols: ["http", "https"],
-            validate: (href) => Boolean(safeHref(href))
+            isAllowedUri: (href) => Boolean(safeHref(href))
           })
         ],
         content: options.value || legacyDocument(options.body),
@@ -20282,7 +22986,7 @@ img.ProseMirror-separator {
       return this.editor.getText({ blockSeparator: "\n\n" });
     }
     setJSON(value, fallbackBody = "") {
-      this.editor.commands.setContent(value || legacyDocument(fallbackBody), false);
+      this.editor.commands.setContent(value || legacyDocument(fallbackBody), { emitUpdate: false });
       this.render();
     }
     render() {

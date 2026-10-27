@@ -2,6 +2,8 @@
 
 日期：2026-10-27。
 
+后续工程化已将 `frontend/server` 移为 `backend`、正式公开站移为 `frontend/public`。下文旧路径是首次部署记录；现在从 `backend` 执行相同脚本，输出为 `backend/storage/pages-preview`，导出已兼容公开接口分页与静态筛选。
+
 ## 访问地址与范围
 
 https://tangfgjk.github.io/SCALE-Lab/

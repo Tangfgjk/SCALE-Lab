@@ -6,11 +6,12 @@
     "build": "node build-editor.mjs"
   },
   "dependencies": {
-    "@tiptap/core": "^2.11.5",
-    "@tiptap/extension-link": "^2.11.5",
-    "@tiptap/extension-text-align": "^2.11.5",
-    "@tiptap/extension-underline": "^2.11.5",
-    "@tiptap/starter-kit": "^2.11.5",
+    "@tiptap/core": "^3.32.0",
+    "@tiptap/extension-link": "^3.32.0",
+    "@tiptap/extension-text-align": "^3.32.0",
+    "@tiptap/extension-underline": "^3.32.0",
+    "@tiptap/pm": "^3.32.0",
+    "@tiptap/starter-kit": "^3.32.0",
     "esbuild": "^0.25.9"
   }
 }
