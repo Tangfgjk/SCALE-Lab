@@ -1,0 +1,12 @@
+/* The mask exists only while a first-visit claim is being resolved. */
+html.intro-pending::before { content: ""; position: fixed; inset: 0; z-index: 9998; background: #fff; }
+.campus-intro { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; background: #fff; color: #294754; padding: 32px; opacity: 1; transition: opacity 280ms ease; }
+.campus-intro.is-leaving { opacity: 0; pointer-events: none; }
+.campus-intro-stage { width: min(960px,88vw); text-align: center; }
+.campus-intro video { display: block; width: 100%; height: auto; aspect-ratio: 1026 / 328; object-fit: contain; background: #fff; }
+.campus-intro-caption { margin: 24px 0 0; color: #526b74; font: 13px/1.7 system-ui,"Microsoft YaHei",sans-serif; letter-spacing: .12em; }
+.campus-intro-skip { position: absolute; right: max(24px,env(safe-area-inset-right)); top: max(24px,env(safe-area-inset-top)); min-height: 44px; padding: 10px 17px; border: 1px solid #ccdcd8; border-radius: 24px; background: #f7faf8; color: #315c65; cursor: pointer; font: 14px/1.5 system-ui,"Microsoft YaHei",sans-serif; }
+.campus-intro-skip:hover { background: #eaf3ee; }
+.campus-intro-skip:focus-visible { outline: 3px solid #4c9295; outline-offset: 4px; }
+@media(max-width:700px) { .campus-intro { padding: 16px; } .campus-intro-stage { width: 100%; } .campus-intro-skip { right: 16px; top: max(16px,env(safe-area-inset-top)); } .campus-intro-caption { font-size: 12px; letter-spacing: .06em; } }
+@media(prefers-reduced-motion:reduce) { .campus-intro { transition: none; } }
