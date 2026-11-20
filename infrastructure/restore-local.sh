@@ -16,11 +16,11 @@ for attempt in $(seq 1 60); do
   sleep 1
 done
 [[ "$ready" = true ]] || { echo 'Database not ready'; exit 1; }
-runner=("${compose[@]}" run --rm --no-deps -T --pull never --user 0:0 -v "$source:/migration:ro" app node backend/scripts/backup-restore.js)
+runner=("${compose[@]}" run --rm --no-deps -T --pull never --user 0:0 --cap-add DAC_OVERRIDE -v "$source:/migration:ro" app node backend/scripts/backup-restore.js)
 "${runner[@]}" prepare-restore --directory /migration
 "${compose[@]}" exec -T db pg_restore -U scale_lab -d scale_lab --exit-on-error --single-transaction --no-owner --no-acl < "$source/database.dump"
 "${runner[@]}" restore-media --directory /migration
 # Migration media is written by a temporary root container; hand ownership to the app.
-"${compose[@]}" run --rm --no-deps -T --pull never --user 0:0 --entrypoint chown app -R node:node /app/backend/storage/media
+"${compose[@]}" run --rm --no-deps -T --pull never --user 0:0 --cap-add CHOWN --cap-add DAC_OVERRIDE --entrypoint chown app -R node:node /app/backend/storage/media
 "${runner[@]}" verify --directory /migration
 echo 'Import verified. Apply migrations and provision production accounts before starting app/proxy.'

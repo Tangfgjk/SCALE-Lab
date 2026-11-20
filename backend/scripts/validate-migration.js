@@ -5,7 +5,7 @@ const {spawnSync}=require('node:child_process');
 const {Client}=require('pg');
 const root=path.resolve(__dirname,'..'),id='scale-migration-'+Date.now();
 const directory=fs.mkdtempSync(path.join(os.tmpdir(),'scale-migration-'));
-const source=id+'-source',target=id+'-target',password=crypto.randomBytes(24).toString('hex');
+const source=id+'-source',target=id+'-target',mediaVolume=id+'-media',password=crypto.randomBytes(24).toString('hex');
 function docker(args){const r=spawnSync('docker',args,{encoding:'utf8'});if(r.status!==0)throw Error('Docker migration check failed: '+String(r.stderr).slice(0,300));return r.stdout.trim()}
 function run(file,env,args=[],success=true){
   const r=spawnSync(process.execPath,[file,...args],{cwd:root,env:{...process.env,...env},encoding:'utf8'});
@@ -38,6 +38,12 @@ async function main(){
     run('scripts/backup-restore.js',dst,['verify','--directory',backup],false);
     fs.copyFileSync(path.join(sourceMedia,'migration-fixture.txt'),path.join(targetMedia,'migration-fixture.txt'));
     run('scripts/backup-restore.js',dst,['verify','--directory',backup]);
+    // Exercise the same read-only, capability-restricted migration helper as production.
+    const helper=['run','--rm','--network','container:'+target,'--read-only','--tmpfs','/tmp','--cap-drop','ALL','--cap-add','DAC_OVERRIDE','--user','0:0','-e','DATABASE_URL=postgres://scale_lab:'+password+'@127.0.0.1:5432/scale_lab','-v',backup+':/migration:ro','-v',mediaVolume+':/app/backend/storage/media','scale-lab:1.0.0'];
+    docker([...helper,'node','backend/scripts/backup-restore.js','restore-media','--directory','/migration']);
+    docker([...helper,'node','backend/scripts/backup-restore.js','verify','--directory','/migration']);
+    docker(['run','--rm','--cap-drop','ALL','--cap-add','CHOWN','--cap-add','DAC_OVERRIDE','--user','0:0','-v',mediaVolume+':/app/backend/storage/media','scale-lab:1.0.0','chown','-R','node:node','/app/backend/storage/media']);
+    docker(['run','--rm','--cap-drop','ALL','-v',mediaVolume+':/app/backend/storage/media','scale-lab:1.0.0','node','-e',"require('fs').writeFileSync('/app/backend/storage/media/app-write-check.txt','ok')"]);
     const strong=crypto.randomBytes(24).toString('hex');
     run('scripts/provision-production-accounts.js',{...dst,NODE_ENV:'production',ADMIN_PASSWORD:strong,AUDIT_PASSWORD:crypto.randomBytes(24).toString('hex')},['--apply']);
     const c=new Client({connectionString:urls[target]});await c.connect();
@@ -45,9 +51,10 @@ async function main(){
       const users=(await c.query("SELECT i.provider_subject AS login,u.role FROM admin_users u JOIN admin_identities i ON i.user_id=u.id ORDER BY login")).rows;
       if(JSON.stringify(users)!==JSON.stringify([{login:'admin',role:'admin'},{login:'scale_audit',role:'content_manager'}]))throw Error('Production account setup differs');
     }finally{await c.end()}
-    console.log(JSON.stringify({passed:true,checks:['same-name cross-cluster restore','source database refused','nonempty target refused','paired data/media checksums','tampered media detected','production admin rotation','restricted audit account']}));
+    console.log(JSON.stringify({passed:true,checks:['same-name cross-cluster restore','source database refused','nonempty target refused','paired data/media checksums','tampered media detected','read-only restore helper permissions','unprivileged media write after import','production admin rotation','restricted audit account']}));
   }finally{
     for(const name of [source,target])spawnSync('docker',['rm','-f','-v',name],{stdio:'ignore'});
+    spawnSync('docker',['volume','rm',mediaVolume],{stdio:'ignore'});
     if(!directory.startsWith(path.join(os.tmpdir(),'scale-migration-')))throw Error('Unexpected temporary directory');
     fs.rmSync(directory,{recursive:true,force:true});
   }
