@@ -17,12 +17,14 @@
     const item=(await snapshot)[url.pathname+'?locale='+locale];
     if(!item)return new Response(JSON.stringify({error:{message:'内容尚未发布'}}),{status:404});
     let body=localize(item.body);
-    if(/^\/api\/v1\/(news|activities)$/.test(url.pathname)&&item.status===200){
+    if(/^\/api\/v1\/(news|activities|publications|projects|research-directions)$/.test(url.pathname)&&item.status===200){
       const all=body.data,page=Number(url.searchParams.get('page')||1),pageSize=Number(url.searchParams.get('pageSize')||10);
       const q=(url.searchParams.get('q')||'').trim().toLowerCase(),year=url.searchParams.get('year')||'';
       if(!Number.isSafeInteger(page)||page<1||!Number.isSafeInteger(pageSize)||pageSize<1||pageSize>100||(year&&!/^\d{4}$/.test(year))||q.length>200)return new Response('{}',{status:400});
-      const date=x=>x.happenedAt||x.activityDate||'';
-      const filtered=all.filter(x=>(!year||date(x).startsWith(year))&&(!q||(x.title+' '+x.summary).toLowerCase().includes(q)));
+      const date=x=>x.happenedAt||x.activityDate||String(x.year||'');
+      const type=url.searchParams.get('type')||'all',direction=url.searchParams.get('direction')||'';
+      if(!['all','paper','patent','software'].includes(type)||direction.length>100)return new Response('{}',{status:400});
+      const filtered=all.filter(x=>(type==='all'||x.achievementType===type)&&(!direction||x.links?.some(l=>l.type==='direction'&&l.slug===direction))&&(!year||date(x).startsWith(year))&&(!q||[x.title,x.summary,x.authors,...(x.metadata?.keywords||[])].join(' ').toLowerCase().includes(q)));
       body={data:filtered.slice((page-1)*pageSize,page*pageSize),meta:{total:filtered.length,page,pageSize,pages:Math.ceil(filtered.length/pageSize),years:[...new Set(all.map(x=>date(x).slice(0,4)).filter(Boolean))].sort().reverse()}};
       if(url.searchParams.get('view')==='overview')body.data=body.data.map(({images,...rest})=>rest);
     }

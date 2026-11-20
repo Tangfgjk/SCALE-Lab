@@ -2,7 +2,7 @@
   "use strict";
   const labels = { all: "全部", draft: "草稿待核", ready: "待发布", published: "已发布", changes: "有新草稿" };
   window.ScaleContentList = {
-    create({ cardId, listId, searchId, endpoint, open, news = false }) {
+    create({ cardId, listId, searchId, endpoint, open, news = false, achievements = false }) {
       const card = document.getElementById(cardId), list = document.getElementById(listId), search = document.getElementById(searchId);
       let page = 1, state = "all", sequence = 0, previousKey = "";
       const tools = document.createElement("div"); tools.className = "content-list-controls";
@@ -21,6 +21,7 @@
       const category = document.createElement("select"); category.setAttribute("aria-label","发布位置筛选");
       category.append(new Option("全部类型","all"),new Option("新闻动态","news"),new Option("实验室活动","activity"));
       if(news){const label=document.createElement("label");label.textContent="发布位置 "; label.append(category); tools.append(label);}
+      const achievement = document.createElement("select"); achievement.setAttribute("aria-label","成果类型筛选"); achievement.append(new Option("全部成果","all"),new Option("论文","paper"),new Option("专利","patent"),new Option("软件著作权","software")); tools.append(achievement);
       const note = document.createElement("p"); note.className = "field-help"; note.textContent = "按中文最新修订分区；“有新草稿”表示旧版仍公开。测试分区识别约定的测试标识，不删除任何内容。";
       tools.append(tabs, scopeLabel, sortLabel, note); list.before(tools);
       const pages = document.createElement("div"); pages.className = "news-pagination";
@@ -28,13 +29,14 @@
       prev.type = next.type = "button"; prev.textContent = "上一页"; next.textContent = "下一页"; count.setAttribute("role", "status");
       pages.append(prev, count, next); list.after(pages);
       async function load() {
-        const url = endpoint(), key = [url, search.value, scope.value, sort.value, category.value].join("|");
+        achievement.hidden = !(typeof achievements === "function" ? achievements() : achievements);
+        const url = endpoint(), key = [url, search.value, scope.value, sort.value, category.value,achievement.value].join("|");
         if (key !== previousKey) { page = 1; previousKey = key; }
         const request = ++sequence;
         prev.disabled = next.disabled = true; count.textContent = "正在加载…";
         list.textContent = "正在加载内容…";
         try {
-          const result = await window.scaleAdmin.api(url + "?" + new URLSearchParams({ category: news ? category.value : "all", q: search.value, scope: scope.value, state, sort: sort.value, page, pageSize: 10 }), {}, true);
+          const result = await window.scaleAdmin.api(url + "?" + new URLSearchParams({ achievementType: achievement.hidden ? "all" : achievement.value, category: news ? category.value : "all", q: search.value, scope: scope.value, state, sort: sort.value, page, pageSize: 10 }), {}, true);
           if (request !== sequence) return;
           const totalPages = Math.max(1, Math.ceil(result.meta.total / 10));
           if (page > totalPages) { page = totalPages; return load(); }
@@ -46,7 +48,7 @@
           for (const row of result.data) {
             const item = document.createElement("div"); item.className = "list-row";
             const body = document.createElement("div"), title = document.createElement("strong"), info = document.createElement("small"), status = document.createElement("span");
-            title.textContent = (news ? (row.category === "activity" ? "[活动] " : "[新闻] ") : "") + (row.title || row.nameZh || row.slug);
+            title.textContent = (row.achievementType ? "["+({paper:"论文",patent:"专利",software:"软著"})[row.achievementType]+"] " : "") + (news ? (row.category === "activity" ? "[活动] " : "[新闻] ") : "") + (row.title || row.nameZh || row.slug);
             info.textContent = row.slug + " · v" + row.version + (row.happened_at ? " · 内容日期 " + row.happened_at : "") + (row.activityDate ? " · " + row.activityDate : "") + (row.isTest ? " · 测试内容" : "");
             status.className = "status"; status.textContent = labels[row.workflow_state]; body.append(title, info); item.append(body, status);
             if (news && row.published_zh) { const link = document.createElement("a"); link.href = "/news.html?slug=" + encodeURIComponent(row.slug) + "&lang=zh"; link.textContent = "查看公开页"; link.target = "_blank"; link.rel = "noopener"; item.append(link); }
@@ -57,7 +59,7 @@
           prev.disabled = page <= 1; next.disabled = page >= totalPages;
         } catch (error) { if (request === sequence) { count.textContent = "加载失败"; list.textContent = error.message; } }
       }
-      category.onchange = scope.onchange = sort.onchange = () => { page = 1; load(); };
+      achievement.onchange = category.onchange = scope.onchange = sort.onchange = () => { page = 1; load(); };
       prev.onclick = () => { page--; load(); }; next.onclick = () => { page++; load(); };
       return { load, reset() { state = "all"; page = 1; previousKey = ""; }, invalidate() { ++sequence; } };
     }

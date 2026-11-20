@@ -1,13 +1,13 @@
-name: V5 application checks
+name: Application checks
 on:
   push:
-    branches: [V5-20261020]
+    branches: ['V*']
   pull_request:
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: v5-checks-${{ github.ref }}
+  group: application-checks-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   isolated-tests:

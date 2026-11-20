@@ -33,14 +33,23 @@ async function main(){
     await api('/api/admin/v1/assets/'+asset.id+'/activate','POST',{});
     const news=(await api('/api/admin/v1/news','POST',{slug:'production-validation',locale:'zh',title:'Production validation',summary:'Validation summary',body:'Persistent article',happenedAt:'2026-10-27',category:'news',coverAssetId:asset.id})).data;
     for(const action of ['check','publish'])await api('/api/admin/v1/news/'+news.id+'/'+action,'POST',{expectedVersion:news.version,locale:'zh'});
+    const {PDFDocument}=require('pdf-lib'),pdf=await PDFDocument.create();pdf.addPage().drawText('Production PDF',{x:50,y:750});const pdfBytes=Buffer.from(await pdf.save());
+    const documentUpload=new FormData();documentUpload.set('file',new Blob([pdfBytes],{type:'application/pdf'}),'production.pdf');documentUpload.set('displayName','Production PDF');documentUpload.set('sourceNote','Synthetic isolated validation');
+    const document=(await api('/api/admin/v1/documents','POST',documentUpload)).data;
+    await api('/api/admin/v1/documents/'+document.id+'/access','POST',{publicAllowed:true,status:'active',evidenceNote:'Synthetic PDF authored for this test'});
+    const achievement=(await api('/api/admin/v1/publications','POST',{slug:'production-pdf',locale:'zh',title:'Production PDF',summary:'Synthetic paper',authors:'Test',year:2026,venue:'Test journal',stage:'published',sourceNote:'Isolated test',documents:[{id:document.id,label:'PDF',isPublic:true}]})).data;
+    for(const action of ['check','publish'])await api('/api/admin/v1/publications/'+achievement.id+'/'+action,'POST',{expectedVersion:1});
+    const pdfUrl=base+'/api/v1/publications/production-pdf/documents/'+document.id+'/file';
     const before=Buffer.from(await(await fetch(base+'/api/v1/assets/'+asset.id+'/file')).arrayBuffer());
     docker(['restart',app]);await ready();
     if((await api('/api/v1/news/production-validation')).data.body!=='Persistent article')throw Error('Article did not persist');
     const after=await fetch(base+'/api/v1/assets/'+asset.id+'/file');if(!after.ok||!before.equals(Buffer.from(await after.arrayBuffer())))throw Error('Media did not persist');
+    const savedPdf=await fetch(pdfUrl);if(!savedPdf.ok||!pdfBytes.equals(Buffer.from(await savedPdf.arrayBuffer())))throw Error('PDF did not persist');
+    await api('/api/admin/v1/publications/'+achievement.id+'/withdraw','POST',{expectedVersion:1});if((await fetch(pdfUrl)).status!==404)throw Error('Withdrawn PDF remains public');
     for(let i=0;i<6;i++)await fetch(base+'/api/admin/v1/session',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({login:'blocked-user',password:'wrong'})});
     docker(['restart',app]);await ready();
     const blocked=await fetch(base+'/api/admin/v1/session',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({login:'blocked-user',password:'wrong'})});if(blocked.status!==429)throw Error('Login limit lost after restart');
-    const result={passed:true,image,checkedAt:new Date().toISOString(),checks:['non-root read-only container','production configuration','Secure cookie','CSP/HSTS','CSRF rejection','upload and publish','database and media restart persistence','persistent login limit'],cloudHttpsVerified:false};
+    const result={passed:true,image,checkedAt:new Date().toISOString(),checks:['non-root read-only container','production configuration','Secure cookie','CSP/HSTS','CSRF rejection','upload and publish','database and media restart persistence','persistent login limit','PDF upload, publish, restart persistence and withdrawal'],cloudHttpsVerified:false};
     fs.writeFileSync(path.join(directory,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
   }finally{
     // Only names created by this invocation are removed; never touch existing containers/volumes.

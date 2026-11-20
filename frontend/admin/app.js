@@ -190,11 +190,14 @@
   });
   document.querySelectorAll("[data-module]").forEach(function (button) { button.addEventListener("click", function () {
     if (button.dataset.module !== "news" && !confirmLeaveNews()) return;
+    if(window.researchAdmin&&!window.researchAdmin.canLeave())return;
     if (button.dataset.module !== "news" && !$("editor-card").hidden) closeNewsEditor();
     document.querySelectorAll("[data-module]").forEach(function (item) { item.classList.toggle("active", item === button); });
-    var module = button.dataset.module; var names = { news: "新闻/活动", members: "团队成员", publications: "论文成果", projects: "科研项目", directions: "研究方向", media: "媒体资源", settings: "站点设置", accounts: "账号管理", audit: "操作记录" };
+    var module = button.dataset.module; var names = { news: "新闻/活动", members: "团队成员", publications: "学术成果", projects: "科研项目", directions: "研究方向", media: "图片资源", documents: "PDF 文档", settings: "站点设置", accounts: "账号管理", audit: "操作记录" };
     var research = ["publications", "projects", "directions"].includes(module);
-    $("breadcrumb").textContent = names[module]; $("news-panel").hidden = module !== "news"; $("audit-panel").hidden = module !== "audit"; $("research-panel").hidden = !research; $("member-panel").hidden = module !== "members"; $("media-panel").hidden = module !== "media"; $("settings-panel").hidden = module !== "settings"; $("accounts-panel").hidden = module !== "accounts"; $("other-panel").hidden = module === "news" || module === "audit" || module === "members" || module === "media" || module === "settings" || module === "accounts" || research;
+    $("documents-panel").hidden=module!=="documents";
+    if(module==="documents")window.documentsAdmin?.show();
+    $("breadcrumb").textContent = names[module]; $("news-panel").hidden = module !== "news"; $("audit-panel").hidden = module !== "audit"; $("research-panel").hidden = !research; $("member-panel").hidden = module !== "members"; $("media-panel").hidden = module !== "media"; $("settings-panel").hidden = module !== "settings"; $("accounts-panel").hidden = module !== "accounts"; $("other-panel").hidden = module === "news" || module === "audit" || module === "members" || module === "media" || module === "settings" || module === "accounts" || module === "documents" || research;
     $("other-title").textContent = names[module]; if (module === "audit") loadAudit(); if (module === "news") loadNews();
     if (research && window.researchAdmin) window.researchAdmin.show(module);
     if (module === "members" && window.memberAdmin) window.memberAdmin.show();

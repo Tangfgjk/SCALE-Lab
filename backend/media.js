@@ -268,6 +268,10 @@ admin.get("/:id/usages", wrap(async (req, res) => {
     FROM news_revision_assets na JOIN content_revisions r ON r.id=na.revision_id JOIN content_items i ON i.id=r.content_id
     LEFT JOIN content_publications p ON p.revision_id=r.id WHERE na.asset_id=$1
     UNION ALL
+    SELECT i.id,i.type,i.slug,r.version,0,p.locale
+    FROM research_revision_assets ra JOIN content_revisions r ON r.id=ra.revision_id JOIN content_items i ON i.id=r.content_id
+    LEFT JOIN content_publications p ON p.revision_id=r.id WHERE ra.asset_id=$1
+    UNION ALL
     SELECT s.id,'settings',s.key,s.version,0,p.locale
     FROM site_setting_revisions s LEFT JOIN site_setting_publications p ON p.revision_id=s.id WHERE s.logo_asset_id=$1
     ORDER BY version DESC`, [req.params.id]);

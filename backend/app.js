@@ -22,7 +22,7 @@ app.use((req, res, next) => {
   res.set("X-Frame-Options", "DENY");
   res.set("Referrer-Policy", "strict-origin-when-cross-origin");
   if(config.production){
-    res.set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
+    res.set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self'; font-src 'self' blob: data:; worker-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
     res.set("Strict-Transport-Security","max-age=31536000");
   }
   next();
@@ -41,6 +41,7 @@ app.use("/api/admin/v1/assets", media.admin);
 app.use("/api/admin/v1/activities", auth.requireUser, (req,res) => res.status(410).json({error:{code:"MODULE_MERGED",message:"活动相册已合并到新闻/活动，请使用 /api/admin/v1/news"}}));
 app.use("/api/admin/v1/settings", settings.admin);
 app.use("/api/admin/v1", accounts.admin);
+app.use("/api/admin/v1/documents", require("./documents").admin);
 app.use("/api/admin/v1", research.admin);
 app.use("/api/v1", news.publicApi);
 app.get("/api/v1/home", async (req, res, next) => {
@@ -57,6 +58,7 @@ app.get("/api/v1/home", async (req, res, next) => {
 app.use("/api/v1/members", members.publicApi);
 app.use("/api/v1/assets", media.publicApi);
 app.use("/api/v1/settings", settings.publicApi);
+app.use("/api/v1", require("./documents").publicApi);
 app.use("/api/v1", research.publicApi);
 
 const site = path.resolve(__dirname, "../frontend/public");

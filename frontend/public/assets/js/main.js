@@ -83,7 +83,7 @@
         return '<section class="direction-area"><h4>' + render(area.title) + '</h4><ul>' + items + '</ul></section>';
       }).join("");
       return '' +
-        '<article class="card dir-card direction-row' + (!d.summary && !areas ? ' name-only' : '') + '">' +
+        '<article id="direction-' + esc(d.slug) + '" class="card dir-card direction-row' + (!d.summary && !areas ? ' name-only' : '') + '">' +
           '<div class="direction-summary">' +
           '<div class="num">THEME ' + render(String(d.themeNumber).padStart(2, '0')) + '</div>' +
             '<h3 class="declaration">' + render(d.title) + '</h3>' +
@@ -91,6 +91,7 @@
             (!hideParticipants && d.participants ? '<div class="direction-team">方向成员 · ' + render(d.participants) + '</div>' : '') +
           '</div>' +
           (areas ? '<div class="direction-areas">' + areas + '</div>' : '') +
+          (!hideParticipants ? '<a class="text-link" href="research-item.html?kind=research-directions&amp;slug=' + encodeURIComponent(d.slug) + '">了解方向与相关成果 ↗</a>' : '') +
         '</article>';
     }).join("");
   }
@@ -326,7 +327,7 @@
     }).join("");
   }
   function loadPublications(node) {
-    if (!node) return;
+    if (!node || node.hasAttribute("data-achievement-browser")) return;
     var locale = language();
     node.textContent = locale === 'en' ? 'Loading publications…' : '正在加载论文…';
     getPublished('publications', locale).then(function (items) {
@@ -338,7 +339,7 @@
 
   function renderProjects(node, items) {
     node.innerHTML = items.map(function (p) {
-      return '<div class="project">' +
+      return '<div class="project" id="project-' + esc(p.slug) + '">' +
         '<div class="project-head"><div class="lvl">' + render(p.title) + '</div>' +
           '<span class="project-status">' + render(({planned:'计划中',ongoing:'在研',completed:'已结题'})[p.projectStatus] || p.projectStatus) + '</span></div>' +
         '<div class="project-details">' +
@@ -347,6 +348,8 @@
           '<div><small>周期</small><strong>' + render([p.startsOn,p.endsOn].filter(Boolean).join(' — ')) + '</strong></div>' +
           '<div><small>项目编号</small><code>' + render(p.grantCode) + '</code></div>' +
         '</div>' +
+        (p.summary ? '<p>' + render(p.summary) + '</p>' : '') +
+        '<a class="text-link" href="research-item.html?kind=projects&amp;slug=' + encodeURIComponent(p.slug) + '">项目介绍与相关成果 ↗</a>' +
         (p.sourceUrl ? '<a class="project-source" href="' + esc(p.sourceUrl) + '" target="_blank" rel="noreferrer">查看来源 ↗</a>' : '') +
       '</div>';
     }).join("");

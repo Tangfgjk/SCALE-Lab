@@ -1,98 +1,48 @@
-(function () {
+(function(){
   "use strict";
-  var $ = function (id) { return document.getElementById(id); };
-  var api = window.scaleAdmin.api, esc = window.scaleAdmin.escapeHtml;
-  var form = $("research-form"), module = "", currentId = null, version = null, checked = false, published = false, dirty = false, activeLocale = "zh";
-  var configs = {
-    directions: { path: "research-directions", title: "研究方向", fields: '<label>方向编号<input name="themeNumber" type="number" min="1" max="3" required></label><label>参与成员 <small>仅填已确认可公开的人名</small><input name="participants" maxlength="500"></label><label class="wide">子主题 <small>每行：子主题｜条目1；条目2</small><textarea name="areasText" rows="6" placeholder="学生建模｜认知诊断；知识追踪"></textarea></label>' },
-    publications: { path: "publications", title: "论文成果", fields: '<label>年份<input name="year" type="number" min="1900" max="2100" required></label><label>发表阶段<select name="stage"><option value="published">已发表</option><option value="accepted">已接收</option><option value="in_press">出版中</option><option value="preprint">预印本</option></select></label><label class="wide">作者 <small>保留原顺序</small><input name="authors" required maxlength="2000"></label><label class="wide">期刊／会议<input name="venue" required maxlength="500"></label><label>DOI<input name="doi" placeholder="10.xxxx/..."></label><label>展示标签<input name="badge" maxlength="100"></label><label class="wide">论文外链<input name="externalUrl" type="url" placeholder="https://..."></label>' },
-    projects: { path: "projects", title: "科研项目", fields: '<label>项目编号<input name="grantCode" maxlength="100"></label><label>项目状态<select name="projectStatus"><option value="planned">计划中</option><option value="ongoing">在研</option><option value="completed">已结题</option></select></label><label>资助类别<input name="fundingType" required maxlength="300"></label><label>承担角色<input name="role" required maxlength="200" placeholder="主持 / 参与"></label><label>开始日期<input name="startsOn" type="date"></label><label>结束日期<input name="endsOn" type="date"></label>' }
+  const $=id=>document.getElementById(id),api=window.scaleAdmin.api,esc=window.scaleAdmin.escapeHtml;
+  const form=$("research-form");let module="",currentId=null,version=null,checked=false,published=false,dirty=false,busy=false,activeLocale="zh",editor=null,media={},attachments=[],links=[],associationSequence=0,openSequence=0;
+  const configs={
+    directions:{path:"research-directions",title:"研究方向",fields:'<label>方向编号 <small>必填，1–3</small><input name="themeNumber" type="number" min="1" max="3" required></label><label>参与成员 <small>选填，仅已确认的公开姓名</small><input name="participants" maxlength="500"></label><label class="wide">子主题 <small>每行：子主题｜条目1；条目2；未核实可留空</small><textarea name="areasText" rows="5"></textarea></label>'},
+    publications:{path:"publications",title:"学术成果",fields:`
+      <label>成果类型 <small>必填</small><select name="achievementType"><option value="paper">论文</option><option value="patent">专利</option><option value="software">软件著作权</option></select></label>
+      <label>年份 <small>必填，发表／申请／登记年份</small><input name="year" type="number" min="1900" max="2100" required></label>
+      <label class="wide"><span id="research-author-label">作者</span> <small>必填，保持原始顺序；软著填写著作权人</small><input name="authors" required maxlength="2000"></label>
+      <label data-kind="paper">发表阶段<select name="stage"><option value="published">已发表</option><option value="accepted">已接收</option><option value="in_press">出版中</option><option value="preprint">预印本</option></select></label>
+      <label data-kind="paper">期刊／会议 <small>论文必填</small><input name="venue" maxlength="500"></label><label data-kind="paper">DOI <small>选填</small><input name="doi" maxlength="300" placeholder="10.xxxx/..."></label>
+      <label data-kind="patent">专利类型<select name="patentType"><option value="unspecified">来源未注明</option><option value="invention">发明专利</option><option value="utility">实用新型</option><option value="design">外观设计</option></select></label><label data-kind="patent">专利状态<select name="patentStatus"><option value="unspecified">来源未注明</option><option value="applied">已申请</option><option value="published">已公开</option><option value="granted">已授权</option><option value="expired">已失效</option></select></label>
+      <label data-kind="patent">申请号<input name="applicationNumber" maxlength="200"></label><label data-kind="patent">专利号 <small>与申请号至少填一项；已授权须填</small><input name="patentNumber" maxlength="200"></label><label data-kind="patent">申请日期<input name="appliedOn" type="date"></label><label data-kind="patent">授权日期<input name="grantedOn" type="date"></label>
+      <label data-kind="software">软件版本 <small>必填</small><input name="softwareVersion" maxlength="200"></label><label data-kind="software">登记号 <small>必填</small><input name="registrationNumber" maxlength="200"></label><label data-kind="software">登记日期 <small>必填</small><input name="registeredOn" type="date"></label>
+      <label>展示标签 <small>选填，请使用可核实口径</small><input name="badge" maxlength="100"></label><label>关键词 <small>选填，以中文分号分隔</small><input name="keywordsText"></label><label class="wide">外部原文链接 <small>选填</small><input name="externalUrl" type="url" maxlength="2000"></label>
+      <label>代码仓库 <small>选填，完整 HTTP(S) 链接</small><input name="codeUrl" type="url" maxlength="2000"></label><label>系统演示 <small>选填，完整 HTTP(S) 链接</small><input name="demoUrl" type="url" maxlength="2000"></label><label><span><input name="featured" type="checkbox"> 设为精选成果</span></label><label>精选排序 <small>数值越小越靠前</small><input name="displayOrder" type="number" min="0" max="9999" value="0"></label>`},
+    projects:{path:"projects",title:"科研项目",fields:'<label>项目编号<input name="grantCode" maxlength="100"></label><label>项目状态<select name="projectStatus"><option value="planned">计划中</option><option value="ongoing">在研</option><option value="completed">已结题</option></select></label><label>资助类别 <small>必填</small><input name="fundingType" required maxlength="300"></label><label>承担角色 <small>必填</small><input name="role" required maxlength="200"></label><label>开始日期<input name="startsOn" type="date"></label><label>结束日期<input name="endsOn" type="date"></label>'}
   };
-  function endpoint(suffix) { return "/api/admin/v1/" + configs[module].path + (suffix || ""); }
-  function msg(value, error) { $("research-message").textContent = value; $("research-message").classList.toggle("error", !!error); }
-  function buttons() {
-    $("research-check").disabled = !currentId || checked || dirty;
-    $("research-preview").disabled = !currentId || dirty;
-    $("research-publish").disabled = !currentId || !checked || dirty;
-    $("research-withdraw").disabled = !currentId || !published || dirty;
-  }
-  function reset() {
-    form.reset(); currentId = null; version = null; checked = false; published = false; dirty = false; activeLocale = "zh";
-    form.elements.slug.disabled = false;
-    if (module === "publications") form.elements.year.value = new Date().getFullYear();
-    $("research-editor-title").textContent = "新建" + configs[module].title;
-    $("research-preview-box").hidden = true; $("research-history").textContent = ""; msg(""); buttons();
-    $("research-list-card").hidden = true; $("research-editor-card").hidden = false;
-  }
-  var contentList = window.ScaleContentList.create({ cardId: "research-list-card", listId: "research-list", searchId: "research-search", endpoint: function() { return endpoint(); }, open: open });
-  function list() { return contentList.load(); }
-
-  function areaLines(areas) { return (areas || []).map(function (area) { return area.title + "｜" + area.items.join("；"); }).join("\n"); }
-  function parseAreas(value) {
-    return value.split(/\r?\n/).map(function (line) { return line.trim(); }).filter(Boolean).map(function (line) {
-      var separator = line.indexOf("｜");
-      if (separator < 1) throw new Error("子主题格式应为：标题｜条目1；条目2");
-      var title = line.slice(0, separator).trim();
-      var items = line.slice(separator + 1).split(/[；;]/).map(function (item) { return item.trim(); }).filter(Boolean);
-      if (!title || !items.length) throw new Error("每个子主题须有标题和至少一个条目");
-      return { title: title, items: items };
-    });
-  }
-  async function open(id, locale) {
-    try {
-      var row = await api(endpoint("/" + id + "?locale=" + (locale || "zh"))); reset(); currentId = row.id; version = row.version; checked = row.reviewState === "ready"; published = row.published; activeLocale = row.locale;
-      ["slug", "locale", "title", "summary", "body", "sourceUrl", "sourceNote"].forEach(function (name) { form.elements[name].value = row[name] || ""; });
-      var keys = module === "directions" ? ["themeNumber", "participants"] : module === "publications" ? ["year", "authors", "venue", "stage", "doi", "externalUrl", "badge"] : ["grantCode", "fundingType", "role", "projectStatus", "startsOn", "endsOn"];
-      keys.forEach(function (name) { form.elements[name].value = row[name] == null ? "" : row[name]; });
-      if (module === "directions") form.elements.areasText.value = areaLines(row.areas);
-      form.elements.slug.disabled = true; dirty = false;
-      $("research-editor-title").textContent = "编辑" + configs[module].title + " · " + (row.locale === "en" ? "English" : "中文") + " · v" + version; buttons(); history();
-    } catch (error) { msg(error.message, true); }
-  }
-  async function history() {
-    try { var rows = await api(endpoint("/" + currentId + "/revisions")); $("research-history").innerHTML = '<strong>修订历史</strong><br>' + rows.map(function (row) { return '<span>v' + row.version + ' · ' + (row.locale === "en" ? "EN" : "中") + ' · ' + esc(row.title) + (row.published ? ' · 已公开' : '') + '</span>'; }).join(""); }
-    catch (error) { $("research-history").textContent = error.message; }
-  }
-  function payload() {
-    var data = Object.fromEntries(new FormData(form).entries()); data.expectedVersion = version;
-    if (module === "directions") { data.areas = parseAreas(data.areasText || ""); delete data.areasText; data.themeNumber = Number(data.themeNumber); }
-    if (module === "publications") data.year = Number(data.year);
-    return data;
-  }
-  async function action(suffix, success) {
-    if (!currentId) return;
-    try { await api(endpoint("/" + currentId + suffix), { method: "POST", body: JSON.stringify({ expectedVersion: version, locale: activeLocale }) }); await open(currentId, activeLocale); msg(success); list(); }
-    catch (error) { msg(error.message, true); }
-  }
-  $("research-new").addEventListener("click", reset);
-  $("research-close").addEventListener("click", function () { $("research-editor-card").hidden = true; $("research-list-card").hidden = false; list(); });
-  $("research-search").addEventListener("input", function () { clearTimeout(window.researchSearchTimer); window.researchSearchTimer = setTimeout(list, 250); });
-  form.addEventListener("submit", async function (event) {
-    event.preventDefault();
-    try { var data = payload(); var result = await api(endpoint(currentId ? "/" + currentId + "/draft" : ""), { method: currentId ? "PUT" : "POST", body: JSON.stringify(data) }); await open(result.id, data.locale); msg("草稿已保存。核查来源后才可发布。"); list(); }
-    catch (error) { msg(error.message, true); }
-  });
-  form.addEventListener("input", function (event) { if (event.target.name === "locale") return; dirty = true; buttons(); msg("表单有未保存改动，请先保存草稿。"); });
-  form.elements.locale.addEventListener("change", function () {
-    var next = form.elements.locale.value;
-    if (!currentId || dirty) { form.elements.locale.value = activeLocale; msg(currentId ? "请先保存当前语言的改动。" : "请先创建中文内容，再编辑英文。", true); return; }
-    open(currentId, next);
-  });
-  $("research-check").addEventListener("click", function () { action("/check", "当前修订已核查。"); });
-  $("research-publish").addEventListener("click", function () { action("/publish", "已发布到公开网站。"); });
-  $("research-withdraw").addEventListener("click", function () { action("/withdraw", "已撤回公开内容。"); });
-  $("research-preview").addEventListener("click", async function () {
-    try { var row = await api(endpoint("/" + currentId + "/preview?locale=" + activeLocale)); var detail = module === "directions" ? areaLines(row.areas) : module === "publications" ? [row.year, row.authors, row.venue, row.stage, row.doi].filter(Boolean).join(" · ") : [row.fundingType, row.grantCode, row.projectStatus, row.startsOn, row.endsOn].filter(Boolean).join(" · "); $("research-preview-box").innerHTML = '<h3>' + esc(row.title) + '</h3><p>' + esc(row.summary) + '</p><p>' + esc(detail) + '</p><div>' + esc(row.body) + '</div>'; $("research-preview-box").hidden = false; }
-    catch (error) { msg(error.message, true); }
-  });
-  window.researchAdmin = { show: function (name) {
-    module = name; $("research-heading").textContent = configs[module].title;
-    $("research-special-fields").innerHTML = configs[module].fields;
-    form.elements.summary.required = module !== "directions";
-    form.elements.summary.closest("label").querySelector(".research-summary-help")?.remove();
-    if (module === "directions") form.elements.summary.insertAdjacentHTML("beforebegin", "<small class=\"field-guide-note research-summary-help\">仅核准名称时留空；简介核准后再补充。</small>");
-    window.refreshFieldGuide?.();
-    $("research-editor-card").hidden = true; $("research-list-card").hidden = false;
-    $("research-search").value = ""; contentList.reset(); list();
-  } };
+  const endpoint=suffix=>"/api/admin/v1/"+configs[module].path+(suffix||"");
+  function msg(text,error=false){$("research-message").textContent=text;$("research-message").classList.toggle("error",error)}
+  function buttons(){form.inert=busy;$("research-check").disabled=busy||!currentId||checked||dirty;$("research-publish").disabled=busy||!currentId||!checked||dirty;$("research-preview").disabled=busy||!currentId||dirty;$("research-withdraw").disabled=busy||!currentId||!published||dirty;$("research-save").disabled=busy;$("research-quick-save").disabled=busy;$("research-close").disabled=busy;$("research-new").disabled=busy;$("research-workflow").textContent=busy?"正在处理…":dirty?"有未保存修改；已发布内容仍保持原版本。":published?"已有公开版本；新修订需保存、核查并发布才会更新网站。":"草稿尚未公开。"}
+  function areaLines(areas){return(areas||[]).map(a=>a.title+"｜"+a.items.join("；")).join("\n")}
+  function parseAreas(value){return value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean).map(line=>{const i=line.indexOf("｜");if(i<1)throw Error("子主题格式：标题｜条目1；条目2");const items=line.slice(i+1).split(/[；;]/).map(x=>x.trim()).filter(Boolean);if(!items.length)throw Error("每个子主题至少一个条目");return{title:line.slice(0,i).trim(),items}})}
+  function toggleType(){if(module!=="publications")return;const type=form.elements.achievementType.value;form.querySelectorAll('[data-kind]').forEach(label=>{label.hidden=label.dataset.kind!==type;label.querySelectorAll('input,select').forEach(input=>input.disabled=label.hidden)});form.elements.venue.required=type==='paper';for(const key of ['softwareVersion','registrationNumber','registeredOn'])form.elements[key].required=type==='software';$("research-author-label").textContent=type==='paper'?'作者':type==='patent'?'发明人':'著作权人'}
+  function initEditor(value,body){editor?.destroy();editor=window.ScaleRichEditor.create({element:$("research-rich-editor"),toolbar:$("research-rich-toolbar"),value,body,media,onChange(){dirty=true;live()}})}
+  function live(){toggleType();const value={title:form.elements.title.value,summary:form.elements.summary.value,body:editor?.getText()||'',richText:editor?.getJSON(),media,documents:attachments.map(d=>({...d,url:'/api/admin/v1/documents/'+d.id+'/file'})),links:[],cover:media[form.elements.coverAssetId.value],...(module==='publications'?{achievementType:form.elements.achievementType.value,authors:form.elements.authors.value,year:form.elements.year.value,venue:form.elements.venue.value,stage:form.elements.stage.value,doi:form.elements.doi.value,metadata:metadata()}: {})};window.ScaleResearchArticle.render($("research-live-article"),value,{admin:true,locale:activeLocale});buttons()}
+  function metadata(){const data={keywords:form.elements.keywordsText.value.split(/[；;,，]/).map(x=>x.trim()).filter(Boolean)};for(const key of ['codeUrl','demoUrl','patentType','patentStatus','applicationNumber','patentNumber','appliedOn','grantedOn','softwareVersion','registrationNumber','registeredOn'])data[key]=form.elements[key].value;return data}
+  function renderAttachments(){const holder=$("research-attachments");holder.replaceChildren();for(const d of attachments){const row=document.createElement('div');row.className='research-attachment-edit';row.innerHTML=`<div><strong>${esc(d.displayName||d.label)}</strong><small>${d.pages} 页 · ${d.status==='active'&&d.publicAllowed?'文件可公开':'文件未启用或仅后台保存'}</small></div><div><label>访客附件名称<input maxlength="100" value="${esc(d.label)}"></label><label><input type="checkbox" ${d.isPublic?'checked':''}> 随成果公开</label></div><button type="button">移除引用</button>`;const inputs=row.querySelectorAll('input');inputs[0].oninput=()=>{d.label=inputs[0].value;dirty=true;live()};inputs[1].onchange=()=>{d.isPublic=inputs[1].checked;dirty=true;live()};row.querySelector('button').onclick=()=>{attachments=attachments.filter(x=>x.id!==d.id);dirty=true;renderAttachments();live()};holder.append(row)}}
+  async function associations(selected){const requestModule=module,seq=++associationSequence;try{for(const [type,kind] of [['direction','research-directions'],['project','projects'],['member','members']]){const select=$('research-link-'+type);select.replaceChildren();let index=1;do{const result=await api('/api/admin/v1/'+kind+'?'+new URLSearchParams({page:index,pageSize:100,scope:'business'}),{},true);if(module!==requestModule||seq!==associationSequence)return;for(const row of result.data){if(row.id===currentId)continue;const option=new Option(row.title||row.nameZh||row.slug,row.id);option.selected=selected.includes(row.id);select.add(option)}if(index*100>=result.meta.total)break;index++}while(true);for(const link of links){if(link.type===type&&selected.includes(link.id)&&![...select.options].some(o=>o.value===link.id))select.add(new Option(link.title||link.slug,link.id,true,true))}}}catch(error){msg(error.message,true)}}
+  function reset(){openSequence++;form.reset();currentId=null;version=null;checked=false;published=false;dirty=false;activeLocale='zh';attachments=[];links=[];media={};form.elements.slug.disabled=false;form.elements.slug.value='research-'+Date.now()+'-'+crypto.randomUUID().slice(0,6);if(module==='publications')form.elements.year.value=new Date().getFullYear();$("research-editor-title").textContent='新建'+configs[module].title;$("research-preview-box").hidden=true;$("research-history").textContent='';$('research-documents-field').hidden=module!=='publications';initEditor(null,'');renderAttachments();associations([]);msg('');$("research-list-card").hidden=true;$("research-editor-card").hidden=false;live();dirty=false;buttons();$("research-editor-card").scrollIntoView({block:'start'})}
+  async function open(id,locale){const seq=++openSequence,requestModule=module;try{const row=await api(endpoint('/'+id+'?locale='+(locale||'zh')));if(seq!==openSequence||module!==requestModule)return;reset();currentId=row.id;version=row.version;checked=row.reviewState==='ready';published=row.published;activeLocale=row.locale;for(const name of ['slug','locale','title','summary','body','sourceUrl','sourceNote','coverAssetId'])form.elements[name].value=row[name]||'';form.elements.slug.disabled=true;const keys=module==='directions'?['themeNumber','participants']:module==='publications'?['achievementType','year','authors','venue','stage','doi','externalUrl','badge','displayOrder']:['grantCode','fundingType','role','projectStatus','startsOn','endsOn'];for(const name of keys)form.elements[name].value=row[name]??(name==='achievementType'?'paper':'');if(module==='directions')form.elements.areasText.value=areaLines(row.areas);if(module==='publications'){form.elements.featured.checked=!!row.featured;form.elements.keywordsText.value=(row.metadata?.keywords||[]).join('；');for(const key of ['codeUrl','demoUrl','patentType','patentStatus','applicationNumber','patentNumber','appliedOn','grantedOn','softwareVersion','registrationNumber','registeredOn'])if(row.metadata?.[key])form.elements[key].value=row.metadata[key]}
+    media=row.media||{};attachments=row.documents||[];links=row.links||[];initEditor(row.richText,row.body||'');renderAttachments();associations(links.map(x=>x.id));$("research-editor-title").textContent='编辑'+configs[module].title+' · '+row.locale+' · v'+version;live();dirty=false;buttons();history();
+  }catch(error){msg(error.message,true)}}
+  async function history(){try{const rows=await api(endpoint('/'+currentId+'/revisions'));$('research-history').innerHTML='<strong>修订历史</strong><br>'+rows.map(r=>'<span>v'+r.version+' · '+esc(r.locale)+' · '+esc(r.title)+(r.published?' · 已公开':'')+'</span>').join('')}catch(error){msg(error.message,true)}}
+  const contentList=window.ScaleContentList.create({cardId:'research-list-card',listId:'research-list',searchId:'research-search',endpoint:()=>endpoint(),open,achievements:()=>module==='publications'});
+  function payload(){const data=Object.fromEntries(new FormData(form));data.expectedVersion=version;data.body=editor.getText();data.richText=editor.getJSON();data.documents=attachments.map(d=>({id:d.id,label:d.label,isPublic:d.isPublic}));data.links=['direction','project','member'].flatMap(type=>[...$('research-link-'+type).selectedOptions].map(x=>x.value));data.links=[...new Set(data.links)];if(module==='directions'){data.areas=parseAreas(data.areasText||'');data.themeNumber=Number(data.themeNumber);delete data.areasText}if(module==='publications'){data.year=Number(data.year);data.metadata=metadata();data.featured=form.elements.featured.checked;data.displayOrder=Number(form.elements.displayOrder.value||0)}return data}
+  form.onsubmit=async e=>{e.preventDefault();if(busy)return;try{const data=payload();busy=true;buttons();const row=await api(endpoint(currentId?'/'+currentId+'/draft':''),{method:currentId?'PUT':'POST',body:JSON.stringify(data)});await open(row.id,data.locale);msg('草稿已保存。PDF 和图片需允许公开并启用后，才能随成果发布。');contentList.load()}catch(error){msg(error.message,true)}finally{busy=false;buttons()}};
+  async function action(suffix,success){if(!currentId||busy||dirty)return;busy=true;buttons();try{await api(endpoint('/'+currentId+suffix),{method:'POST',body:JSON.stringify({expectedVersion:version,locale:activeLocale})});await open(currentId,activeLocale);msg(success);contentList.load()}catch(error){msg(error.message,true)}finally{busy=false;buttons()}}
+  $('research-add-document').onclick=async()=>{const d=await window.ScaleDocuments.pick();if(!d||attachments.some(x=>x.id===d.id))return;attachments.push({...d,label:d.displayName,isPublic:d.status==='active'&&d.publicAllowed});dirty=true;renderAttachments();live()};
+  $('research-cover-pick').onclick=async()=>{const d=await window.ScaleMedia.pick();if(!d)return;media[d.id]={...d,url:'/api/admin/v1/assets/'+d.id+'/file',alt:d.altZh,available:d.status==='active'&&d.copyright&&d.people};form.elements.coverAssetId.value=d.id;dirty=true;live()};$('research-cover-remove').onclick=()=>{form.elements.coverAssetId.value='';dirty=true;live()};
+  form.addEventListener('input',e=>{if(e.target.name==='locale')return;dirty=true;live()});form.addEventListener('change',e=>{if(e.target.name==='locale')return;dirty=true;live()});form.elements.locale.onchange=()=>{if(!currentId||dirty){form.elements.locale.value=activeLocale;msg('请先保存当前中文或语言草稿。',true);return}open(currentId,form.elements.locale.value)};
+  $('research-new').onclick=()=>{if(!dirty||confirm('放弃未保存修改？'))reset()};$('research-close').onclick=()=>{if(dirty&&!confirm('放弃未保存修改？'))return;dirty=false;$('research-editor-card').hidden=true;$('research-list-card').hidden=false;contentList.load()};
+  $('research-check').onclick=()=>action('/check','当前修订已核查。');$('research-publish').onclick=()=>action('/publish','已发布到研究成果页面。');$('research-withdraw').onclick=()=>action('/withdraw','已撤回，动态网站的成果及专属 PDF 链接立即不可访问。');
+  $('research-preview').onclick=async()=>{try{const row=await api(endpoint('/'+currentId+'/preview?locale='+activeLocale));window.ScaleResearchArticle.render($('research-preview-box'),row,{admin:true,locale:activeLocale});$('research-preview-box').hidden=false}catch(error){msg(error.message,true)}};
+  window.addEventListener('beforeunload',e=>{if(dirty&&!$('research-panel').hidden){e.preventDefault();e.returnValue=''}});
+  window.researchAdmin={canLeave(){if(!$('research-panel').hidden&&dirty){if(!confirm('研究内容有未保存修改，确认离开？'))return false;dirty=false}return true},show(name){module=name;dirty=false;$('research-heading').textContent=configs[name].title;$('research-special-fields').innerHTML=configs[name].fields;form.elements.summary.required=name!=='directions';$('research-editor-card').hidden=true;$('research-list-card').hidden=false;$('research-search').value='';contentList.reset();contentList.load();window.refreshFieldGuide?.()}};
 })();

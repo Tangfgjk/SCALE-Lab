@@ -7,7 +7,7 @@ const config = {
   news: { join: "LEFT JOIN news_revisions x ON x.revision_id=zh.id", fields: "to_char(x.happened_at,'YYYY-MM-DD') AS happened_at,x.category", date: "happened_at" },
   member: { join: "LEFT JOIN member_revisions x ON x.revision_id=zh.id", fields: 'l.title AS "nameZh",x.category,x.display_order', order: "display_order ASC NULLS LAST," },
   activity: { join: "LEFT JOIN activity_revisions x ON x.revision_id=zh.id", fields: 'to_char(x.activity_date,\'YYYY-MM-DD\') AS "activityDate"' },
-  direction: {}, publication: {}, project: {}
+  direction: {}, publication: {join:"LEFT JOIN publication_revisions x ON x.revision_id=zh.id",fields:'x.achievement_type AS "achievementType"'}, project: {}
 };
 
 async function listContent(type, query) {
@@ -17,6 +17,8 @@ async function listContent(type, query) {
   const page = Number(query.page || 1), pageSize = Number(query.pageSize || 100);
   const category=type === "news" ? String(query.category || "all") : "all";
   if (!["all","news","activity"].includes(category)) throw Object.assign(new Error("内容类型无效"),{status:400,code:"INVALID_FILTER"});
+  const achievementType = type === "publication" ? String(query.achievementType || "all") : "all";
+  if(!["all","paper","patent","software"].includes(achievementType))throw Object.assign(new Error("成果类型无效"),{status:400,code:"INVALID_FILTER"});
   const q = String(query.q || "").trim();
   if (!["all","draft","ready","published","changes"].includes(state) || !["updated","date"].includes(sort) ||
       !["all","business","test"].includes(scope) || q.length > 200 ||
@@ -37,6 +39,7 @@ async function listContent(type, query) {
     LEFT JOIN content_publications p ON p.content_id=i.id AND p.locale='zh' ${kind.join || ""}
     WHERE i.type=$1 AND ($2='' OR i.slug ILIKE '%'||$2||'%' OR l.title ILIKE '%'||$2||'%')
       AND ($8='all' OR ${type === "news" ? "CASE WHEN x.category='activity' THEN 'activity' ELSE 'news' END" : "'news'"}=$8)
+      AND ($9='all' OR ${type === "publication" ? "x.achievement_type" : "'paper'"}=$9)
       AND ($3='all' OR ($3='test' AND i.slug ~ $4) OR ($3='business' AND NOT i.slug ~ $4))
   ), filtered AS (SELECT * FROM listing WHERE $5='all' OR workflow_state=$5),
   paged AS (SELECT * FROM filtered ORDER BY ${order}updated_at DESC,id DESC LIMIT $6 OFFSET $7)
@@ -44,7 +47,7 @@ async function listContent(type, query) {
     COALESCE((SELECT json_object_agg(workflow_state,n) FROM
       (SELECT workflow_state,count(*)::int AS n FROM listing GROUP BY workflow_state) counts),'{}'::json) AS counts,
     COALESCE((SELECT json_agg(paged) FROM paged),'[]'::json) AS rows`,
-  [type,q,scope,testSlugPattern,state,pageSize,(page-1)*pageSize,category]);
+  [type,q,scope,testSlugPattern,state,pageSize,(page-1)*pageSize,category,achievementType]);
   const row = result.rows[0];
   return { data: row.rows, meta: { total: row.total, page, pageSize, counts: row.counts } };
 }

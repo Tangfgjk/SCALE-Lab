@@ -31,7 +31,7 @@ async function main(){
     let ready=false;
     for(let i=0;i<50;i++){try{const r=await fetch(env.TEST_BASE_URL+'/api/health');if(r.ok&&(await r.json()).environment==='test'){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,200))}
     if(!ready)throw Error('Isolated server not ready');
-    for(const file of ['news-smoke','news-workflow-smoke','news-bilingual-smoke','news-media-smoke','news-activity-smoke','member-smoke','member-photo-smoke','member-bilingual-smoke','member-details-smoke','research-smoke','research-bilingual-smoke','settings-smoke','accounts-smoke','content-list-smoke','public-contract-smoke'])await run('tests/'+file+'.js');
+    for(const file of ['news-smoke','news-workflow-smoke','news-bilingual-smoke','news-media-smoke','news-activity-smoke','member-smoke','member-photo-smoke','member-bilingual-smoke','member-details-smoke','research-smoke','research-bilingual-smoke','settings-smoke','accounts-smoke','content-list-smoke','public-contract-smoke','research-documents-smoke'])await run('tests/'+file+'.js');
   }finally{server.kill();await new Promise(resolve=>{if(server.exitCode!==null)resolve();else server.once('exit',resolve)})}
 }
 main().catch(error=>{console.error(error.message);process.exitCode=1});

@@ -13,6 +13,7 @@ RUN cd backend && npm ci --omit=dev && npm cache clean --force
 COPY --chown=node:node backend/ ./backend/
 COPY --chown=node:node frontend/ ./frontend/
 COPY --from=editor --chown=node:node /build/editor.bundle.js ./frontend/admin/editor.bundle.js
+COPY --from=editor --chown=node:node /shared/ ./frontend/shared/
 RUN mkdir -p /app/backend/storage/media && chown -R node:node /app/backend/storage
 USER node
 EXPOSE 3004

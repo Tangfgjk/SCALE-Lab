@@ -13,7 +13,7 @@ async function request(route) {
   if (response.status !== 404 && !response.ok) throw new Error(`${route}: ${response.status}`);
   const json = await response.json();
   delete json.requestId;
-  if(response.ok && /^\/api\/v1\/(news|activities)\?/.test(route)) {
+  if(response.ok && /^\/api\/v1\/(news|activities|publications|projects|research-directions)\?/.test(route)) {
     const all=[...json.data];
     for(let page=2;page<=(json.meta?.pages||1);page++) {
       const next=await fetch(origin+route+'&page='+page);
@@ -28,6 +28,15 @@ async function request(route) {
 }
 async function transform(value) {
   if (typeof value === 'string') {
+    if(/^\/api\/v1\/publications\/[a-z0-9-]+\/documents\/[a-f0-9-]{36}\/file\?locale=(zh|en)$/.test(value)){
+      if(!media.has(value)){
+        const response=await fetch(origin+value);
+        if(!response.ok||!response.headers.get('content-type')?.startsWith('application/pdf'))throw Error('Public PDF unavailable during export');
+        const relative='media/document-'+value.split('/')[6]+'.pdf';
+        await fs.writeFile(path.join(output,relative),Buffer.from(await response.arrayBuffer()));media.set(value,relative);
+      }
+      return media.get(value);
+    }
     if (value.startsWith('/api/v1/assets/')) {
       if (!/^\/api\/v1\/assets\/[a-f0-9-]+\/file$/.test(value)) throw new Error('Unexpected asset URL');
       if (!media.has(value)) {
@@ -81,7 +90,7 @@ async function main() {
   for (const locale of ['zh','en']) {
     for (const type of ['settings','research-directions','publications','projects','news','activities','members']) {
       const data = await request(`/api/v1/${type}?locale=${locale}`);
-      if (['news','activities','members'].includes(type)) {
+      if (['news','activities','members','publications','projects','research-directions'].includes(type)) {
         for (const item of data || []) {
           if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.slug)) throw new Error('Invalid slug');
           await request(`/api/v1/${type === 'activities' ? 'news' : type}/${item.slug}?locale=${locale}`);

@@ -55,10 +55,13 @@
       var paired = pairedSourceForms.has(form.id) && (control.name === "sourceUrl" || control.name === "sourceNote");
       var required = control.required || (selectedRequired[form.id] || []).includes(control.name);
       var badge = label.querySelector(":scope > .field-status");
+      // Checkbox labels may wrap the control in a span. insertBefore requires a direct child.
+      var anchor = control;
+      while (anchor.parentNode !== label) anchor = anchor.parentNode;
       if (!badge) {
         badge = document.createElement("small");
         badge.className = "field-status";
-        label.insertBefore(badge, control);
+        label.insertBefore(badge, anchor);
       }
       badge.textContent = paired ? "二选一必填" : required ? "必填" : "选填";
       badge.className = "field-status" + (paired ? " paired" : required ? "" : " optional");
@@ -67,7 +70,7 @@
         var help = document.createElement("small");
         help.className = "field-guide-note";
         help.textContent = note;
-        label.insertBefore(help, control);
+        label.insertBefore(help, anchor);
       }
     });
   }

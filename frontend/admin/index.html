@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/shared/rich-renderer.css">
   <link rel="stylesheet" href="/shared/news-article.css">
   <link rel="stylesheet" href="./studio.css?v=20261021" />
-</head>
+<link rel="stylesheet" href="/shared/research.css"></head>
 <body>
   <div id="login" class="login-screen">
     <div class="login-layout">
@@ -44,10 +44,11 @@
       <nav id="nav">
         <button type="button" class="active" data-module="news">新闻/活动 <span>已接入</span></button>
         <button type="button" data-module="members">团队成员 <span>已接入</span></button>
-        <button type="button" data-module="publications">论文成果 <span>已接入</span></button>
+        <button type="button" data-module="publications">学术成果 <span>已接入</span></button>
         <button type="button" data-module="projects">科研项目 <span>已接入</span></button>
         <button type="button" data-module="directions">研究方向 <span>已接入</span></button>
-        <button type="button" data-module="media">媒体资源 <span>已接入</span></button>
+        <button type="button" data-module="media">图片资源 <span>已接入</span></button>
+        <button type="button" data-module="documents">PDF 文档 <span>新增</span></button>
       </nav>
       <div class="nav-label">系统</div>
       <nav><button type="button" data-module="settings">站点设置 <span>已接入</span></button><button type="button" data-module="accounts" id="accounts-nav">账号管理 <span>已接入</span></button><button type="button" data-module="audit">操作记录 <span>已接入</span></button></nav>
@@ -90,20 +91,36 @@
         <section id="research-panel" hidden>
           <div class="page-head"><div><div class="eyebrow">RESEARCH CONTENT</div><h1 id="research-heading"></h1><p>内容先保存为草稿，核查来源后才可发布。</p></div><button id="research-new" type="button" class="primary">＋ 新建内容</button></div>
           <div class="card" id="research-list-card"><div class="card-head"><h2>内容列表</h2><input id="research-search" type="search" placeholder="搜索标题或标识" aria-label="搜索研究内容"></div><div id="research-list" class="list"></div></div>
-          <div class="card editor" id="research-editor-card" hidden><div class="card-head"><h2 id="research-editor-title">新建内容</h2><button id="research-close" type="button" class="quiet">返回列表</button></div>
+          <div class="card editor" id="research-editor-card" hidden><div class="card-head research-editor-head"><h2 id="research-editor-title">新建内容</h2><div><button type="submit" form="research-form" id="research-quick-save">保存草稿</button><button id="research-close" type="button" class="quiet">返回列表</button></div></div><p id="research-workflow" class="message"></p>
             <form id="research-form"><div class="fields">
               <label>URL 标识 <small>创建后不可改</small><input name="slug" required pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="research-item-2026"></label>
               <label>语言<select name="locale"><option value="zh">中文</option><option value="en">English</option></select></label>
               <label class="wide">标题<input name="title" required maxlength="300"></label>
               <label class="wide">摘要<textarea name="summary" required maxlength="1000" rows="3"></textarea></label>
-              <label class="wide">正文／补充说明<textarea name="body" rows="5"></textarea></label>
-              <div id="research-special-fields" class="wide fields"></div>
+              <div class="wide"><input name="coverAssetId" type="hidden"><div class="research-editor-tools"><button type="button" id="research-cover-pick">选择成果封面</button><button type="button" id="research-cover-remove">移除封面</button></div><p>正文／详细介绍 · 选填，可插入媒体库图片。真实资料未核实前请保留草稿。</p><div id="research-rich-toolbar" class="rich-toolbar"></div><div id="research-rich-editor" class="rich-editor-surface"></div><textarea name="body" hidden></textarea></div>
+              <div id="research-special-fields" class="wide fields"></div><div class="wide" id="research-documents-field"><h3>PDF 附件</h3><p>先上传到 PDF 资源库；不勾选“随成果公开”的文件仅供后台保留。文件启用与成果发布缺一不可。</p><button id="research-add-document" type="button">从资源库添加 PDF</button><div id="research-attachments"></div></div><div class="wide"><h3>关联研究资料 · 选填</h3><p>按住 Ctrl / Command 多选；访客只会看到已发布且允许公开的关联资料。</p><div class="research-associations"><label>研究方向<select id="research-link-direction" multiple></select></label><label>科研项目<select id="research-link-project" multiple></select></label><label>团队成员<select id="research-link-member" multiple></select></label></div></div>
               <label class="wide">事实来源链接<input name="sourceUrl" type="url" placeholder="https://..."></label>
               <label class="wide">来源说明<textarea name="sourceNote" rows="2" placeholder="至少填写链接或说明其中一项"></textarea></label>
-            </div><div class="editor-actions"><button type="submit" class="primary">保存草稿</button><button id="research-check" type="button" disabled>核查当前修订</button><button id="research-preview" type="button" disabled>预览</button><button id="research-publish" type="button" disabled>发布</button><button id="research-withdraw" type="button" disabled>撤回</button></div></form>
-            <p id="research-message" class="message" role="status"></p><div id="research-preview-box" class="preview" hidden></div><div id="research-history" class="history"></div>
+            </div><div class="editor-actions"><button id="research-save" type="submit" class="primary">保存草稿</button><button id="research-check" type="button" disabled>核查当前修订</button><button id="research-preview" type="button" disabled>预览</button><button id="research-publish" type="button" disabled>发布</button><button id="research-withdraw" type="button" disabled>撤回</button></div></form>
+            <p id="research-message" class="message" role="status"></p><div class="research-live-preview"><strong>实时预览</strong><article id="research-live-article"></article></div><div id="research-preview-box" class="preview" hidden></div><div id="research-history" class="history"></div>
           </div>
         </section>
+        <section id="documents-panel" hidden>
+ <div class="page-head"><div><div class="eyebrow">DOCUMENT LIBRARY</div><h1>PDF 文档资源库</h1><p>论文全文、专利和软著证书统一保存。上传不等于公开，文件仅通过已发布成果开放。</p></div></div>
+ <details class="card editor"><summary>上传 PDF · 最大 25 MB</summary><form id="document-upload-form"><div class="fields">
+ <label>PDF 文件 <small>必填 · 不接受加密、脚本或表单 PDF</small><input name="file" type="file" accept=".pdf,application/pdf" required></label>
+ <label>文件名称 <small>选填，留空使用文件名</small><input name="displayName" maxlength="200"></label>
+ <label>文件夹 <small>选填</small><input name="folder" maxlength="100" placeholder="未分类"></label>
+ <label>文件版本 <select name="documentVersion"><option value="other">其他 PDF</option><option value="submitted">投稿稿</option><option value="accepted">作者接受稿</option><option value="published">正式出版版本</option><option value="certificate">证书／脱敏证书</option></select></label>
+ <label class="wide">文件来源 <small>必填 · 记录提供者或来源地址，仅后台可见</small><textarea name="sourceNote" required maxlength="2000"></textarea></label>
+ </div><button type="submit">上传并保存到资源库</button></form></details>
+ <p id="documents-message" class="message" role="status"></p>
+ <div class="card"><div class="card-head"><h2>PDF 文件</h2><input id="documents-search" type="search" placeholder="搜索文件名或文件夹" aria-label="搜索 PDF 文档"><select id="documents-status" aria-label="文档状态"><option value="">全部状态</option><option value="pending">待设置</option><option value="active">已启用</option><option value="disabled">已停用</option></select></div><div id="documents-list"></div><div class="editor-actions"><button id="documents-prev" type="button">上一页</button><span id="documents-page"></span><button id="documents-next" type="button">下一页</button></div></div>
+ <div id="document-detail" class="card editor" hidden><div class="card-head"><h2 id="document-detail-title"></h2><button id="document-close" type="button">收起</button></div><p id="document-facts"></p><a id="document-admin-file" target="_blank" rel="noopener">后台打开 PDF ↗</a><p id="document-usage"></p>
+ <form id="document-detail-form"><div class="fields"><label>文件名称 <small>必填</small><input name="displayName" required maxlength="200"></label><label>文件夹<input name="folder" maxlength="100"></label><label class="wide">来源说明 <small>必填</small><textarea name="sourceNote" required maxlength="2000"></textarea></label>
+ <label><span><input name="publicAllowed" type="checkbox"> 已确认允许公开此版本</span></label><label>文件状态<select name="status"><option value="pending">待设置</option><option value="active">启用公开引用</option><option value="disabled">停用</option></select></label>
+ <label class="wide">公开许可依据 <small>允许公开时必填；可记录作者许可、开放许可、脱敏情况等</small><textarea name="evidenceNote" maxlength="2000"></textarea></label></div><button type="submit">保存资料与公开设置</button></form><p>替换 PDF 请上传新文件，再编辑成果附件并发布新修订。旧文件及引用历史保留，不覆盖原文件。</p></div>
+ </section>
         <section id="member-panel" hidden>
           <div class="page-head"><div><div class="eyebrow">PEOPLE CONTENT</div><h1>团队成员</h1><p>成员资料按来源保存；简介、去向与照片分别登记公开依据。</p></div><button id="member-new" type="button" class="primary">＋ 新建成员</button></div>
           <div class="card" id="member-list-card"><div class="card-head"><h2>成员列表</h2><input id="member-search" type="search" placeholder="搜索姓名或标识" aria-label="搜索成员"></div><div id="member-list" class="list"></div></div>
@@ -200,6 +217,8 @@
   <script src="./content-list.js" defer></script>
   <script src="/shared/content-rules.js"></script>
   <script src="./app.js" defer></script>
+  <script src="./documents-admin.js" defer></script>
+  <script src="/shared/research-article.js"></script>
   <script src="./research-admin.js" defer></script>
   <script src="./member-admin.js" defer></script>
   <script src="./media-browser.js" defer></script>
