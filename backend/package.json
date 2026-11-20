@@ -1,6 +1,6 @@
 {
   "name": "wangzhifeng-lab-server",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "SCALE Lab 内容平台与公开网站",
   "main": "platform.js",
   "scripts": {

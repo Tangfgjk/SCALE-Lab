@@ -1,4 +1,15 @@
-{$SITE_DOMAIN} {
+{
+    admin off
+    auto_https off
+    servers {
+        trusted_proxies static {$UPSTREAM_PROXY_CIDRS:127.0.0.1/32 ::1/128}
+        trusted_proxies_strict
+    }
+}
+# Campus HTTPS gateway -> server:8089 -> this HTTP listener -> app:3004.
+# Public pages can be checked before the domain is available.
+# Production admin routes require HTTPS and remain unavailable over plain HTTP.
+:8080 {
     encode zstd gzip
     reverse_proxy app:3004
     log {

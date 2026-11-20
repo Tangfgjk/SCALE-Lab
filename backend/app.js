@@ -27,6 +27,12 @@ app.use((req, res, next) => {
   }
   next();
 });
+// A plain HTTP staging visit must never send administrative credentials.
+app.use((req,res,next)=>{
+  const adminPath=/^\/(?:admin(?:\/|$)|api\/admin(?:\/|$))/i.test(req.path);
+  if(config.production&&adminPath&&!req.secure)return res.status(426).json({error:{code:'HTTPS_REQUIRED',message:'后台需要 HTTPS。请在学校开通域名与 HTTPS 后访问正式后台。'},requestId:req.requestId});
+  next();
+});
 // Rich text is structured JSON; keep a bounded payload while allowing normal long-form articles.
 app.use(express.json({ limit: "768kb" }));
 app.get("/api/health", async (req, res, next) => {
