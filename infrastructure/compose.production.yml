@@ -56,4 +56,4 @@ networks:
   database: {internal: true}
   edge:
     ipam:
-      config: [{subnet: '${EDGE_SUBNET:-172.30.84.0/24}'}]
+      config: [{subnet: '${EDGE_SUBNET:-172.30.84.0/24}', ip_range: '${EDGE_IP_RANGE:-172.30.84.128/25}'}]

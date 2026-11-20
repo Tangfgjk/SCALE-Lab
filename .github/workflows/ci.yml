@@ -45,4 +45,5 @@ jobs:
       - run: docker build -f infrastructure/Dockerfile -t scale-lab:1.0.0 .
       - run: node backend/scripts/validate-production.js
       - run: node backend/scripts/validate-migration.js
+      - run: node backend/scripts/validate-compose.js
 
